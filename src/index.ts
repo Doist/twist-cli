@@ -4,6 +4,11 @@ import { program } from 'commander'
 import { registerWorkspaceCommand } from './commands/workspace.js'
 import { registerUserCommand } from './commands/user.js'
 import { registerChannelCommand } from './commands/channel.js'
+import { registerInboxCommand } from './commands/inbox.js'
+import { registerThreadCommand } from './commands/thread.js'
+import { registerMsgCommand } from './commands/msg.js'
+import { registerSearchCommand } from './commands/search.js'
+import { registerReactCommand } from './commands/react.js'
 
 program
   .name('tw')
@@ -20,5 +25,10 @@ Note for AI/LLM agents:
 registerWorkspaceCommand(program)
 registerUserCommand(program)
 registerChannelCommand(program)
+registerInboxCommand(program)
+registerThreadCommand(program)
+registerMsgCommand(program)
+registerSearchCommand(program)
+registerReactCommand(program)
 
 program.parse()
