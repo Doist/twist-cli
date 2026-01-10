@@ -66,8 +66,26 @@ async function showInbox(workspaceRef: string | undefined, options: InboxOptions
   const channelResponses = await client.batch(...channelCalls)
   const channelMap = new Map(channelResponses.map((r) => [r.data.id, r.data.name]))
 
+  // Group by channel, unreads first within each channel, then sort by date (newest first)
+  const groupedByChannel = new Map<number, typeof inboxThreads>()
+  for (const thread of inboxThreads) {
+    const group = groupedByChannel.get(thread.channelId) || []
+    group.push(thread)
+    groupedByChannel.set(thread.channelId, group)
+  }
+
+  const sortByDate = (a: (typeof inboxThreads)[0], b: (typeof inboxThreads)[0]) =>
+    new Date(b.posted).getTime() - new Date(a.posted).getTime()
+
+  const sortedChannelGroups: typeof inboxThreads = []
+  for (const [, threads] of groupedByChannel) {
+    const unreads = threads.filter((t) => t.isUnread).sort(sortByDate)
+    const reads = threads.filter((t) => !t.isUnread).sort(sortByDate)
+    sortedChannelGroups.push(...unreads, ...reads)
+  }
+
   if (options.json) {
-    const output = inboxThreads.map((t) => ({
+    const output = sortedChannelGroups.map((t) => ({
       ...t,
       channelName: channelMap.get(t.channelId),
       url: getFullTwistURL({ workspaceId, channelId: t.channelId, threadId: t.id }),
@@ -77,7 +95,7 @@ async function showInbox(workspaceRef: string | undefined, options: InboxOptions
   }
 
   if (options.ndjson) {
-    const output = inboxThreads.map((t) => ({
+    const output = sortedChannelGroups.map((t) => ({
       ...t,
       channelName: channelMap.get(t.channelId),
       url: getFullTwistURL({ workspaceId, channelId: t.channelId, threadId: t.id }),
@@ -86,17 +104,24 @@ async function showInbox(workspaceRef: string | undefined, options: InboxOptions
     return
   }
 
-  for (const thread of inboxThreads) {
-    const channelName = channelMap.get(thread.channelId) || `ch:${thread.channelId}`
+  let currentChannelId: number | null = null
+  for (const thread of sortedChannelGroups) {
+    if (thread.channelId !== currentChannelId) {
+      const channelName = channelMap.get(thread.channelId) || `ch:${thread.channelId}`
+      if (currentChannelId !== null) console.log('')
+      console.log(chalk.bold.blue(`[${channelName}]`))
+      console.log('')
+      currentChannelId = thread.channelId
+    }
+
     const title = thread.isUnread ? chalk.bold(thread.title) : thread.title
-    const channel = colors.channel(`[${channelName}]`)
     const time = colors.timestamp(formatRelativeDate(thread.posted))
     const unreadBadge = thread.isUnread ? chalk.blue(' *') : ''
 
-    console.log(`${title}${unreadBadge}`)
-    console.log(`  ${channel}  ${time}  ${colors.timestamp(`id:${thread.id}`)}`)
+    console.log(`  ${title}${unreadBadge}`)
+    console.log(`    ${time}  ${colors.timestamp(`id:${thread.id}`)}`)
     console.log(
-      `  ${colors.url(getFullTwistURL({ workspaceId, channelId: thread.channelId, threadId: thread.id }))}`,
+      `    ${colors.url(getFullTwistURL({ workspaceId, channelId: thread.channelId, threadId: thread.id }))}`,
     )
     console.log('')
   }
