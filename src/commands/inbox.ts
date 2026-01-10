@@ -8,6 +8,7 @@ import { formatRelativeDate } from '../lib/dates.js'
 
 interface InboxOptions {
   workspace?: string
+  channel?: string
   unread?: boolean
   since?: string
   until?: string
@@ -65,6 +66,21 @@ async function showInbox(workspaceRef: string | undefined, options: InboxOptions
   const channelCalls = channelIds.map((id) => client.channels.getChannel(id, { batch: true }))
   const channelResponses = await client.batch(...channelCalls)
   const channelMap = new Map(channelResponses.map((r) => [r.data.id, r.data.name]))
+
+  if (options.channel) {
+    const filter = options.channel.toLowerCase()
+    const matchingChannelIds = new Set(
+      [...channelMap.entries()]
+        .filter(([, name]) => name.toLowerCase().includes(filter))
+        .map(([id]) => id),
+    )
+    inboxThreads = inboxThreads.filter((t) => matchingChannelIds.has(t.channelId))
+
+    if (inboxThreads.length === 0) {
+      console.log(`No threads in channels matching "${options.channel}".`)
+      return
+    }
+  }
 
   // Group by channel, unreads first within each channel, then sort by date (newest first)
   const groupedByChannel = new Map<number, typeof inboxThreads>()
@@ -132,6 +148,7 @@ export function registerInboxCommand(program: Command): void {
     .command('inbox [workspace-ref]')
     .description('Show inbox threads')
     .option('--workspace <ref>', 'Workspace ID or name')
+    .option('--channel <filter>', 'Filter by channel name (fuzzy match)')
     .option('--unread', 'Only show unread threads')
     .option('--since <date>', 'Filter by date (ISO format)')
     .option('--until <date>', 'Filter by date')
