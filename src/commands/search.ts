@@ -1,14 +1,19 @@
 import { Command } from 'commander'
 import { getFullTwistURL } from '@doist/twist-sdk'
-import { getTwistClient, getCurrentWorkspaceId } from '../lib/api.js'
+import { getCurrentWorkspaceId } from '../lib/api.js'
 import { resolveWorkspaceRef } from '../lib/refs.js'
 import { formatJson, formatNdjson, colors } from '../lib/output.js'
 import { formatRelativeDate } from '../lib/dates.js'
+import { extendedSearch, type SearchType } from '../lib/search-api.js'
 
 interface SearchOptions {
   workspace?: string
   channel?: string
   author?: string
+  to?: string
+  type?: SearchType
+  titleOnly?: boolean
+  conversation?: string
   mentionMe?: boolean
   since?: string
   until?: string
@@ -36,7 +41,6 @@ async function search(
     workspaceId = await getCurrentWorkspaceId()
   }
 
-  const client = await getTwistClient()
   const limit = options.limit ? parseInt(options.limit, 10) : 50
 
   const channelIds = options.channel
@@ -47,11 +51,24 @@ async function search(
     ? options.author.split(',').map((id) => parseInt(id.trim(), 10))
     : undefined
 
-  const response = await client.search.search({
+  const toUserIds = options.to
+    ? options.to.split(',').map((id) => parseInt(id.trim(), 10))
+    : undefined
+
+  const conversationIds = options.conversation
+    ? options.conversation.split(',').map((id) => parseInt(id.trim(), 10))
+    : undefined
+
+  const response = await extendedSearch({
     workspaceId,
-    query,
+    query: options.titleOnly ? undefined : query,
+    title: options.titleOnly ? query : undefined,
+    type: options.type,
     channelIds,
+    conversationIds,
     authorIds,
+    toUserIds,
+    mentionSelf: options.mentionMe,
     dateFrom: options.since,
     dateTo: options.until,
     limit,
@@ -129,6 +146,10 @@ export function registerSearchCommand(program: Command): void {
     .option('--workspace <ref>', 'Workspace ID or name')
     .option('--channel <channel-refs>', 'Filter by channels (comma-separated IDs)')
     .option('--author <user-refs>', 'Filter by author (comma-separated IDs)')
+    .option('--to <user-refs>', 'Messages sent TO user (comma-separated IDs)')
+    .option('--type <type>', 'Filter: threads, messages, or all')
+    .option('--title-only', 'Search in thread titles only')
+    .option('--conversation <refs>', 'Limit to conversations (comma-separated IDs)')
     .option('--mention-me', 'Only results mentioning current user')
     .option('--since <date>', 'Content from date')
     .option('--until <date>', 'Content until date')
