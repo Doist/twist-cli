@@ -40,6 +40,29 @@ function printSeparator(label: string): void {
   console.log('')
 }
 
+function pluralize(count: number, singular: string): string {
+  return count === 1 ? singular : `${singular}s`
+}
+
+interface CommentLike {
+  id: number
+  creator: number
+  posted: Date
+  content: string
+}
+
+function printComment(
+  comment: CommentLike,
+  userMap: Map<number, string>,
+  raw: boolean,
+): void {
+  const author = colors.author(userMap.get(comment.creator) || `user:${comment.creator}`)
+  const time = colors.timestamp(formatRelativeDate(comment.posted))
+  console.log(`${author}  ${time}  ${colors.timestamp(`id:${comment.id}`)}`)
+  console.log(raw ? comment.content : renderMarkdown(comment.content))
+  console.log('')
+}
+
 async function viewThread(ref: string, options: ViewOptions): Promise<void> {
   const threadId = resolveThreadId(ref)
   const client = await getTwistClient()
@@ -145,61 +168,44 @@ async function viewThread(ref: string, options: ViewOptions): Promise<void> {
       return
     }
 
-    // Show original post
-    console.log(`${colors.author(userMap.get(thread.creator) || `user:${thread.creator}`)}  ${colors.timestamp(formatRelativeDate(thread.posted))}  ${chalk.dim('(original post)')}`)
+    const creatorName = userMap.get(thread.creator) || `user:${thread.creator}`
+    console.log(`${colors.author(creatorName)}  ${colors.timestamp(formatRelativeDate(thread.posted))}  ${chalk.dim('(original post)')}`)
     console.log('')
     console.log(options.raw ? thread.content : renderMarkdown(thread.content))
 
-    // Show context comments (already-read ones before unread)
     if (contextComments.length > 0) {
       const firstContextIndex = contextComments[0].objIndex ?? 0
       const skippedCount = firstContextIndex - 1
       if (skippedCount > 0) {
-        printSeparator(`${skippedCount} comment${skippedCount === 1 ? '' : 's'} skipped`)
+        printSeparator(`${skippedCount} ${pluralize(skippedCount, 'comment')} skipped`)
       } else {
         console.log('')
       }
-
       for (const comment of contextComments) {
-        const author = colors.author(userMap.get(comment.creator) || `user:${comment.creator}`)
-        const time = colors.timestamp(formatRelativeDate(comment.posted))
-        console.log(`${author}  ${time}  ${colors.timestamp(`id:${comment.id}`)}`)
-        console.log(options.raw ? comment.content : renderMarkdown(comment.content))
-        console.log('')
+        printComment(comment, userMap, options.raw ?? false)
       }
-    } else {
-      const skippedCount = lastReadObjIndex
-      if (skippedCount > 0) {
-        printSeparator(`${skippedCount} comment${skippedCount === 1 ? '' : 's'} skipped`)
-      }
+    } else if (lastReadObjIndex > 0) {
+      printSeparator(`${lastReadObjIndex} ${pluralize(lastReadObjIndex, 'comment')} skipped`)
     }
 
     printSeparator(`UNREAD (${unreadComments.length} new)`)
 
     for (const comment of unreadComments) {
-      const author = colors.author(userMap.get(comment.creator) || `user:${comment.creator}`)
-      const time = colors.timestamp(formatRelativeDate(comment.posted))
-      console.log(`${author}  ${time}  ${colors.timestamp(`id:${comment.id}`)}`)
-      console.log(options.raw ? comment.content : renderMarkdown(comment.content))
-      console.log('')
+      printComment(comment, userMap, options.raw ?? false)
     }
   } else {
-    // Standard view (no --unread flag)
-    console.log(`${colors.author(userMap.get(thread.creator) || `user:${thread.creator}`)}  ${colors.timestamp(formatRelativeDate(thread.posted))}`)
+    const creatorName = userMap.get(thread.creator) || `user:${thread.creator}`
+    console.log(`${colors.author(creatorName)}  ${colors.timestamp(formatRelativeDate(thread.posted))}`)
     console.log('')
     console.log(options.raw ? thread.content : renderMarkdown(thread.content))
     console.log('')
 
     if (comments.length > 0) {
-      console.log(chalk.dim(`--- ${comments.length} comment${comments.length === 1 ? '' : 's'} ---`))
+      console.log(chalk.dim(`--- ${comments.length} ${pluralize(comments.length, 'comment')} ---`))
       console.log('')
 
       for (const comment of comments) {
-        const author = colors.author(userMap.get(comment.creator) || `user:${comment.creator}`)
-        const time = colors.timestamp(formatRelativeDate(comment.posted))
-        console.log(`${author}  ${time}  ${colors.timestamp(`id:${comment.id}`)}`)
-        console.log(options.raw ? comment.content : renderMarkdown(comment.content))
-        console.log('')
+        printComment(comment, userMap, options.raw ?? false)
       }
     }
   }

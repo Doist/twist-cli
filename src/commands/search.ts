@@ -6,6 +6,19 @@ import { formatJson, formatNdjson, colors } from '../lib/output.js'
 import { formatRelativeDate } from '../lib/dates.js'
 import { extendedSearch, type SearchType } from '../lib/search-api.js'
 
+async function resolveUserRefsOrExit(
+  refs: string | undefined,
+  workspaceId: number,
+): Promise<number[] | undefined> {
+  if (!refs) return undefined
+  try {
+    return await resolveUserRefs(refs, workspaceId)
+  } catch (e) {
+    console.error((e as Error).message)
+    process.exit(1)
+  }
+}
+
 interface SearchOptions {
   workspace?: string
   channel?: string
@@ -47,25 +60,8 @@ async function search(
     ? options.channel.split(',').map((id) => parseInt(id.trim(), 10))
     : undefined
 
-  let authorIds: number[] | undefined
-  if (options.author) {
-    try {
-      authorIds = await resolveUserRefs(options.author, workspaceId)
-    } catch (e) {
-      console.error((e as Error).message)
-      process.exit(1)
-    }
-  }
-
-  let toUserIds: number[] | undefined
-  if (options.to) {
-    try {
-      toUserIds = await resolveUserRefs(options.to, workspaceId)
-    } catch (e) {
-      console.error((e as Error).message)
-      process.exit(1)
-    }
-  }
+  const authorIds = await resolveUserRefsOrExit(options.author, workspaceId)
+  const toUserIds = await resolveUserRefsOrExit(options.to, workspaceId)
 
   const conversationIds = options.conversation
     ? options.conversation.split(',').map((id) => parseInt(id.trim(), 10))

@@ -28,26 +28,8 @@ export interface ExtendedSearchResponse {
   isPlanRestricted: boolean
 }
 
-function toSnakeCase(str: string): string {
-  return str.replace(/([A-Z])/g, '_$1').toLowerCase()
-}
-
 function toCamelCase(str: string): string {
   return str.replace(/_([a-z])/g, (_, letter) => letter.toUpperCase())
-}
-
-function snakeCaseKeys<T>(obj: T): unknown {
-  if (Array.isArray(obj)) {
-    return obj.map(snakeCaseKeys)
-  }
-  if (obj !== null && typeof obj === 'object') {
-    const result: Record<string, unknown> = {}
-    for (const [key, value] of Object.entries(obj)) {
-      result[toSnakeCase(key)] = snakeCaseKeys(value)
-    }
-    return result
-  }
-  return obj
 }
 
 function camelCaseKeys<T>(obj: T): unknown {
