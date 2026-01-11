@@ -6,6 +6,7 @@ import { resolveWorkspaceRef, resolveConversationId } from '../lib/refs.js'
 import { formatJson, formatNdjson, colors } from '../lib/output.js'
 import { formatRelativeDate } from '../lib/dates.js'
 import { readStdin, openEditor } from '../lib/input.js'
+import { renderMarkdown } from '../lib/markdown.js'
 
 interface UnreadOptions {
   workspace?: string
@@ -187,7 +188,7 @@ async function viewConversation(ref: string, options: ViewOptions): Promise<void
     const author = colors.author(userMap.get(message.creator) || `user:${message.creator}`)
     const time = colors.timestamp(formatRelativeDate(message.posted))
     console.log(`${author}  ${time}  ${colors.timestamp(`id:${message.id}`)}`)
-    console.log(options.raw ? message.content : message.content)
+    console.log(options.raw ? message.content : renderMarkdown(message.content))
     console.log('')
   }
 }

@@ -6,6 +6,7 @@ import { resolveThreadId } from '../lib/refs.js'
 import { formatJson, formatNdjson, colors } from '../lib/output.js'
 import { formatRelativeDate } from '../lib/dates.js'
 import { readStdin, openEditor } from '../lib/input.js'
+import { renderMarkdown } from '../lib/markdown.js'
 
 interface ViewOptions {
   limit?: string
@@ -147,7 +148,7 @@ async function viewThread(ref: string, options: ViewOptions): Promise<void> {
     // Show original post
     console.log(`${colors.author(userMap.get(thread.creator) || `user:${thread.creator}`)}  ${colors.timestamp(formatRelativeDate(thread.posted))}  ${chalk.dim('(original post)')}`)
     console.log('')
-    console.log(options.raw ? thread.content : thread.content)
+    console.log(options.raw ? thread.content : renderMarkdown(thread.content))
 
     // Show context comments (already-read ones before unread)
     if (contextComments.length > 0) {
@@ -163,7 +164,7 @@ async function viewThread(ref: string, options: ViewOptions): Promise<void> {
         const author = colors.author(userMap.get(comment.creator) || `user:${comment.creator}`)
         const time = colors.timestamp(formatRelativeDate(comment.posted))
         console.log(`${author}  ${time}  ${colors.timestamp(`id:${comment.id}`)}`)
-        console.log(options.raw ? comment.content : comment.content)
+        console.log(options.raw ? comment.content : renderMarkdown(comment.content))
         console.log('')
       }
     } else {
@@ -179,14 +180,14 @@ async function viewThread(ref: string, options: ViewOptions): Promise<void> {
       const author = colors.author(userMap.get(comment.creator) || `user:${comment.creator}`)
       const time = colors.timestamp(formatRelativeDate(comment.posted))
       console.log(`${author}  ${time}  ${colors.timestamp(`id:${comment.id}`)}`)
-      console.log(options.raw ? comment.content : comment.content)
+      console.log(options.raw ? comment.content : renderMarkdown(comment.content))
       console.log('')
     }
   } else {
     // Standard view (no --unread flag)
     console.log(`${colors.author(userMap.get(thread.creator) || `user:${thread.creator}`)}  ${colors.timestamp(formatRelativeDate(thread.posted))}`)
     console.log('')
-    console.log(options.raw ? thread.content : thread.content)
+    console.log(options.raw ? thread.content : renderMarkdown(thread.content))
     console.log('')
 
     if (comments.length > 0) {
@@ -197,7 +198,7 @@ async function viewThread(ref: string, options: ViewOptions): Promise<void> {
         const author = colors.author(userMap.get(comment.creator) || `user:${comment.creator}`)
         const time = colors.timestamp(formatRelativeDate(comment.posted))
         console.log(`${author}  ${time}  ${colors.timestamp(`id:${comment.id}`)}`)
-        console.log(options.raw ? comment.content : comment.content)
+        console.log(options.raw ? comment.content : renderMarkdown(comment.content))
         console.log('')
       }
     }
