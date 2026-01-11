@@ -185,3 +185,37 @@ export function resolveMessageId(ref: string): number {
 
   throw new Error(`Invalid message reference: ${ref}. Use message ID or Twist URL.`)
 }
+
+export async function resolveUserRefs(refs: string, workspaceId: number): Promise<number[]> {
+  const { getWorkspaceUsers } = await import('./api.js')
+  const users = await getWorkspaceUsers(workspaceId)
+
+  const parts = refs.split(',').map((r) => r.trim())
+  const ids: number[] = []
+
+  for (const ref of parts) {
+    const parsed = parseRef(ref)
+    if (parsed.type === 'id') {
+      ids.push(parsed.id)
+      continue
+    }
+
+    const query = ref.toLowerCase()
+    const matches = users.filter(
+      (u) => u.name.toLowerCase().includes(query) || u.email?.toLowerCase().includes(query),
+    )
+
+    if (matches.length === 0) {
+      throw new Error(`No user found matching "${ref}"`)
+    }
+
+    if (matches.length > 1) {
+      const list = matches.map((u) => `  ${u.id}  ${u.name} <${u.email ?? ''}>`).join('\n')
+      throw new Error(`Multiple users match "${ref}":\n${list}\n\nUse numeric ID to specify.`)
+    }
+
+    ids.push(matches[0].id)
+  }
+
+  return ids
+}

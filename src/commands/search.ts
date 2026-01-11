@@ -1,7 +1,7 @@
 import { Command } from 'commander'
 import { getFullTwistURL } from '@doist/twist-sdk'
 import { getCurrentWorkspaceId } from '../lib/api.js'
-import { resolveWorkspaceRef } from '../lib/refs.js'
+import { resolveWorkspaceRef, resolveUserRefs } from '../lib/refs.js'
 import { formatJson, formatNdjson, colors } from '../lib/output.js'
 import { formatRelativeDate } from '../lib/dates.js'
 import { extendedSearch, type SearchType } from '../lib/search-api.js'
@@ -47,13 +47,25 @@ async function search(
     ? options.channel.split(',').map((id) => parseInt(id.trim(), 10))
     : undefined
 
-  const authorIds = options.author
-    ? options.author.split(',').map((id) => parseInt(id.trim(), 10))
-    : undefined
+  let authorIds: number[] | undefined
+  if (options.author) {
+    try {
+      authorIds = await resolveUserRefs(options.author, workspaceId)
+    } catch (e) {
+      console.error((e as Error).message)
+      process.exit(1)
+    }
+  }
 
-  const toUserIds = options.to
-    ? options.to.split(',').map((id) => parseInt(id.trim(), 10))
-    : undefined
+  let toUserIds: number[] | undefined
+  if (options.to) {
+    try {
+      toUserIds = await resolveUserRefs(options.to, workspaceId)
+    } catch (e) {
+      console.error((e as Error).message)
+      process.exit(1)
+    }
+  }
 
   const conversationIds = options.conversation
     ? options.conversation.split(',').map((id) => parseInt(id.trim(), 10))
