@@ -9,6 +9,7 @@ import { registerThreadCommand } from './commands/thread.js'
 import { registerMsgCommand } from './commands/msg.js'
 import { registerSearchCommand } from './commands/search.js'
 import { registerReactCommand } from './commands/react.js'
+import { registerLoginCommand } from './commands/login.js'
 
 program
   .name('tw')
@@ -30,5 +31,6 @@ registerThreadCommand(program)
 registerMsgCommand(program)
 registerSearchCommand(program)
 registerReactCommand(program)
+registerLoginCommand(program)
 
 program.parse()
