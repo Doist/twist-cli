@@ -1,5 +1,8 @@
 #!/usr/bin/env node
 
+import { readFileSync } from 'node:fs'
+import { dirname, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { program } from 'commander'
 import { registerAuthCommand } from './commands/auth.js'
 import { registerChannelCommand } from './commands/channel.js'
@@ -11,10 +14,13 @@ import { registerThreadCommand } from './commands/thread.js'
 import { registerUserCommand } from './commands/user.js'
 import { registerWorkspaceCommand } from './commands/workspace.js'
 
+const __dirname = dirname(fileURLToPath(import.meta.url))
+const { version } = JSON.parse(readFileSync(join(__dirname, '../package.json'), 'utf8'))
+
 program
     .name('tw')
     .description('Twist CLI')
-    .version('0.1.0')
+    .version(version)
     .option('--no-spinner', 'Disable loading animations')
     .addHelpText(
         'after',
