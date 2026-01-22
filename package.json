@@ -35,7 +35,8 @@
         "url": "https://github.com/Doist/twist-cli.git"
     },
     "publishConfig": {
-        "access": "public"
+        "access": "public",
+        "provenance": true
     },
     "homepage": "https://github.com/Doist/twist-cli#readme",
     "bugs": {

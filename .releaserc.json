@@ -15,7 +15,12 @@
                 "verifyReleaseCmd": "npm run build && npm run test"
             }
         ],
-        "@semantic-release/npm",
+        [
+            "@semantic-release/npm",
+            {
+                "provenance": true
+            }
+        ],
         "@semantic-release/github",
         [
             "@semantic-release/git",
