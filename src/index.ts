@@ -15,6 +15,7 @@ program
     .name('tw')
     .description('Twist CLI')
     .version('0.1.0')
+    .option('--no-spinner', 'Disable loading animations')
     .addHelpText(
         'after',
         `
