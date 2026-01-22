@@ -15,11 +15,13 @@ npm run format:check   # Check formatting
 ```
 
 Run a single test file:
+
 ```bash
 npx vitest run src/__tests__/lib/refs.test.ts
 ```
 
 Run the CLI locally:
+
 ```bash
 node dist/index.js <command>
 # or after build:
@@ -35,6 +37,7 @@ This is a TypeScript CLI (`tw`) for Twist messaging, built with Commander.js.
 **Commands** (`src/commands/`): Each file exports a `register*Command(program)` function. Commands support `--json`, `--ndjson`, and `--full` flags for machine-readable output.
 
 **Lib** (`src/lib/`):
+
 - `api.ts` - Singleton TwistApi client from `@doist/twist-sdk`, workspace/user caching
 - `refs.ts` - Reference parsing: accepts IDs (`id:123` or bare `123`), Twist URLs, or fuzzy names for workspaces/users
 - `output.ts` - JSON/NDJSON formatting with essential field filtering per entity type

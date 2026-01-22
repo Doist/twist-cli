@@ -47,12 +47,14 @@ __tests__/                   # Test suite
 ## Authentication
 
 Token resolution (priority order):
+
 1. Environment variable: `TWIST_API_TOKEN`
 2. Config file: `~/.config/twist-cli/config.json`
 
 ## Workspace Scoping
 
 Commands that require a workspace context use this resolution order:
+
 1. `--workspace <ref>` flag (if provided)
 2. Config-stored current workspace (`tw workspace use <ref>`)
 3. User's default workspace from API (auto-stored to config on first use)
@@ -64,15 +66,19 @@ Commands that require a workspace context use this resolution order:
 ### Workspace Commands
 
 #### `tw workspaces`
+
 List all workspaces the user belongs to.
 
 Options:
+
 - `--json` / `--ndjson` - Machine-readable output
 
 #### `tw workspace use <workspace-ref>`
+
 Set the current workspace for subsequent commands.
 
 Arguments:
+
 - `workspace-ref` - Workspace ID or name
 
 ---
@@ -80,15 +86,19 @@ Arguments:
 ### User Commands
 
 #### `tw user`
+
 Display current user info (name, email, timezone, default workspace).
 
 #### `tw users [workspace-ref]`
+
 List users in a workspace.
 
 Arguments:
+
 - `workspace-ref` - Workspace ID or name (uses current workspace if omitted)
 
 Options:
+
 - `--search <text>` - Filter by name/email
 - `--json` / `--ndjson` - Machine-readable output
 
@@ -97,12 +107,15 @@ Options:
 ### Channel Commands
 
 #### `tw channels [workspace-ref]`
+
 List channels in a workspace.
 
 Arguments:
+
 - `workspace-ref` - Workspace ID or name (uses current workspace if omitted)
 
 Options:
+
 - `--json` / `--ndjson` - Machine-readable output
 
 ---
@@ -110,12 +123,15 @@ Options:
 ### Inbox Commands
 
 #### `tw inbox [workspace-ref]`
+
 Show inbox threads (mirrors Twist UI inbox - threads only, not DMs).
 
 Arguments:
+
 - `workspace-ref` - Workspace ID or name (uses current workspace if omitted)
 
 Options:
+
 - `--unread` - Only show unread threads
 - `--since <date>` - Filter by date (ISO format)
 - `--until <date>` - Filter by date
@@ -123,6 +139,7 @@ Options:
 - `--json` / `--ndjson` - Machine-readable output
 
 Output format (human-readable):
+
 - Title, channel name, timestamp (relative), unread indicator
 - URL on second line for each entry
 - Content truncated in list view
@@ -132,12 +149,15 @@ Output format (human-readable):
 ### Thread Commands
 
 #### `tw thread view <thread-ref>`
+
 Display a thread with its comments.
 
 Arguments:
+
 - `thread-ref` - Thread ID or Twist URL
 
 Options:
+
 - `--limit <n>` - Max comments to show (default: 50)
 - `--since <date>` - Comments newer than
 - `--until <date>` - Comments older than
@@ -145,34 +165,43 @@ Options:
 - `--json` / `--ndjson` - Machine-readable output
 
 Output:
+
 - Full thread content with markdown rendered (unless `--raw`)
 - Comments with full content (detail view = no truncation)
 
 #### `tw thread reply <thread-ref> [content]`
+
 Post a comment to a thread.
 
 Arguments:
+
 - `thread-ref` - Thread ID or Twist URL
 - `content` - Comment content (optional if using stdin or editor)
 
 Content input priority:
+
 1. Stdin (if piped: `echo "text" | tw thread reply id:123`)
 2. Argument (if provided)
 3. Opens `$EDITOR` (if neither stdin nor argument)
 
 Options:
+
 - `--dry-run` - Show what would be posted without posting
 
 Output:
+
 - Minimal confirmation with comment-specific URL
 
 #### `tw thread done <thread-ref>`
+
 Archive a thread (mark as done).
 
 Arguments:
+
 - `thread-ref` - Thread ID or Twist URL
 
 Options:
+
 - `--dry-run` - Show what would happen without executing
 
 ---
@@ -182,26 +211,33 @@ Options:
 Using `msg` instead of `dm` because conversations can be group chats, not just direct messages.
 
 #### `tw msg unread [workspace-ref]`
+
 List unread conversations.
 
 Arguments:
+
 - `workspace-ref` - Workspace ID or name (uses current workspace if omitted)
 
 Options:
+
 - `--json` / `--ndjson` - Machine-readable output
 
 Output format:
+
 - Participants + unread count (e.g., "Conversation with John, Jane (3 unread)")
 - URL on second line
 - No message preview (privacy)
 
 #### `tw msg view <conversation-ref>`
+
 Display a conversation with its messages.
 
 Arguments:
+
 - `conversation-ref` - Conversation ID or Twist URL
 
 Options:
+
 - `--limit <n>` - Max messages to show (default: 50)
 - `--since <date>` - Messages newer than
 - `--until <date>` - Messages older than
@@ -209,27 +245,34 @@ Options:
 - `--json` / `--ndjson` - Machine-readable output
 
 #### `tw msg reply <conversation-ref> [content]`
+
 Send a message in a conversation.
 
 Arguments:
+
 - `conversation-ref` - Conversation ID or Twist URL
 - `content` - Message content (optional if using stdin or editor)
 
 Content input: Same as `tw thread reply` (stdin → arg → $EDITOR)
 
 Options:
+
 - `--dry-run` - Show what would be sent without sending
 
 Output:
+
 - Minimal confirmation with message-specific URL
 
 #### `tw msg done <conversation-ref>`
+
 Archive a conversation.
 
 Arguments:
+
 - `conversation-ref` - Conversation ID or Twist URL
 
 Options:
+
 - `--dry-run` - Show what would happen without executing
 
 ---
@@ -237,13 +280,16 @@ Options:
 ### Search Commands
 
 #### `tw search <query> [workspace-ref]`
+
 Search content across a workspace.
 
 Arguments:
+
 - `query` - Search query
 - `workspace-ref` - Workspace ID or name (uses current workspace if omitted)
 
 Options:
+
 - `--channel <channel-refs>` - Filter by channels (comma-separated IDs)
 - `--author <user-refs>` - Filter by author (comma-separated IDs)
 - `--mention-me` - Only results mentioning current user
@@ -258,25 +304,31 @@ Options:
 ### Reaction Commands
 
 #### `tw react <target-type> <target-ref> <emoji>`
+
 Add an emoji reaction.
 
 Arguments:
+
 - `target-type` - One of: `thread`, `comment`, `message`
 - `target-ref` - Target ID
 - `emoji` - Emoji shortcode (`+1`, `heart`) or actual emoji (`👍`)
 
 Options:
+
 - `--dry-run` - Show what would happen without executing
 
 Output displays actual emoji character.
 
 #### `tw unreact <target-type> <target-ref> <emoji>`
+
 Remove an emoji reaction.
 
 Arguments:
+
 - Same as `tw react`
 
 Options:
+
 - `--dry-run` - Show what would happen without executing
 
 ---
@@ -301,15 +353,18 @@ Threads, comments, messages, and conversations: **ID or URL only** (no name look
 **Timestamps**: Relative format ("2 hours ago", "yesterday", "Jan 5")
 
 **Content rendering**:
+
 - Full markdown rendering by default (bold, code blocks, etc.)
 - `--raw` flag shows raw markdown
 - Markdown library choice deferred - start with raw, add rendering later
 
 **Truncation**:
+
 - List views (inbox, search): Truncate long content
 - Detail views (thread view, msg view): Show full content
 
 **Colors**:
+
 - Unread: bold
 - Creator/author: cyan
 - Timestamps: dim
@@ -342,10 +397,12 @@ Threads, comments, messages, and conversations: **ID or URL only** (no name look
 ## Pagination
 
 Timestamp-based pagination for threads, comments, messages:
+
 - `--since <date>` / `--until <date>` - Filter by time range
 - `--limit <n>` - Max items per request
 
 Cursor-based pagination for search:
+
 - `--cursor <cursor>` - Resume from cursor
 - Output includes `nextCursor` when more results available
 

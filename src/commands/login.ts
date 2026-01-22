@@ -1,22 +1,21 @@
+import chalk from 'chalk'
 import { Command } from 'commander'
 import { saveApiToken } from '../lib/auth.js'
 import { getConfigPath } from '../lib/config.js'
-import chalk from 'chalk'
 
 async function loginWithToken(token: string): Promise<void> {
-  try {
     // Save token to config
     await saveApiToken(token.trim())
 
     console.log(chalk.green('✓'), 'API token saved successfully!')
     console.log(chalk.dim(`Token saved to ${getConfigPath()}`))
-  } catch (error: any) {
-    throw error
-  }
 }
 
 export function registerLoginCommand(program: Command): void {
-  const login = program.command('login').description('Authenticate with Twist')
+    const login = program.command('login').description('Authenticate with Twist')
 
-  login.command('token <token>').description('Save API token to config file').action(loginWithToken)
+    login
+        .command('token <token>')
+        .description('Save API token to config file')
+        .action(loginWithToken)
 }

@@ -3,11 +3,13 @@
 ## Problem
 
 Currently `--author` and `--to` require numeric user IDs:
+
 ```bash
 tw search "test" --author 440929
 ```
 
 Users should be able to pass names:
+
 ```bash
 tw search "test" --author craig
 ```
@@ -33,10 +35,7 @@ Use --author <id> to specify.
 ### 1. Create user resolver in `src/lib/refs.ts`
 
 ```typescript
-export async function resolveUserRefs(
-  refs: string,
-  workspaceId: number,
-): Promise<number[]>
+export async function resolveUserRefs(refs: string, workspaceId: number): Promise<number[]>
 ```
 
 - Split refs by comma
@@ -49,6 +48,7 @@ export async function resolveUserRefs(
 ### 2. Update `src/commands/search.ts`
 
 Replace direct parseInt parsing:
+
 ```typescript
 // Before
 const authorIds = options.author
@@ -56,9 +56,7 @@ const authorIds = options.author
   : undefined
 
 // After
-const authorIds = options.author
-  ? await resolveUserRefs(options.author, workspaceId)
-  : undefined
+const authorIds = options.author ? await resolveUserRefs(options.author, workspaceId) : undefined
 ```
 
 Same for `toUserIds`.
@@ -68,6 +66,7 @@ Same for `toUserIds`.
 ### Getting workspace users
 
 From `src/lib/api.ts`:
+
 ```typescript
 export async function getWorkspaceUsers(workspaceId: number): Promise<User[]> {
   const client = await getTwistClient()
@@ -89,6 +88,7 @@ interface User {
 ### Reference parsing pattern
 
 From `src/lib/refs.ts`, existing `parseRef()` handles:
+
 - `id:123` → numeric ID
 - bare `123` → numeric ID
 - URLs → parsed IDs
@@ -98,10 +98,7 @@ From `src/lib/refs.ts`, existing `parseRef()` handles:
 ```typescript
 function matchesUser(user: User, query: string): boolean {
   const q = query.toLowerCase()
-  return (
-    user.name.toLowerCase().includes(q) ||
-    user.email.toLowerCase().includes(q)
-  )
+  return user.name.toLowerCase().includes(q) || user.email.toLowerCase().includes(q)
 }
 ```
 
@@ -114,7 +111,7 @@ throw new Error(`No user found matching "${ref}"`)
 // Multiple matches
 throw new Error(
   `Multiple users match "${ref}":\n` +
-  matches.map(u => `  ${u.id}  ${u.name} <${u.email}>`).join('\n') +
-  `\n\nUse numeric ID to specify.`
+    matches.map((u) => `  ${u.id}  ${u.name} <${u.email}>`).join('\n') +
+    `\n\nUse numeric ID to specify.`,
 )
 ```

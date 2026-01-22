@@ -1,4 +1,4 @@
 declare module 'marked-terminal' {
-  import type { MarkedExtension } from 'marked'
-  export function markedTerminal(options?: object): MarkedExtension
+    import type { MarkedExtension } from 'marked'
+    export function markedTerminal(options?: object): MarkedExtension
 }
