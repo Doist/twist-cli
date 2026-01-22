@@ -1,3 +1,12 @@
+## [1.0.1](https://github.com/Doist/twist-cli/compare/v1.0.0...v1.0.1) (2026-01-22)
+
+
+### Bug Fixes
+
+* remove registry-url from setup-node for provenance publishing ([#14](https://github.com/Doist/twist-cli/issues/14)) ([1fe3f49](https://github.com/Doist/twist-cli/commit/1fe3f49e9c504c9c17b29b4e36494bc76e7829fe))
+* upgrade semantic-release to v25 and fix trusted publishing ([#16](https://github.com/Doist/twist-cli/issues/16)) ([7d45c08](https://github.com/Doist/twist-cli/commit/7d45c0841343d35ef1eb4ba4cee99497d90937e6))
+* use Node 22 for release job to satisfy semantic-release v25 requirements ([#17](https://github.com/Doist/twist-cli/issues/17)) ([96b0d9d](https://github.com/Doist/twist-cli/commit/96b0d9de8b95dd0b39eac78f56f492ff01671ca9))
+
 # 1.0.0 (2026-01-22)
 
 
