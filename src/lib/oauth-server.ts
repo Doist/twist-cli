@@ -51,7 +51,7 @@ export async function startCallbackServer(expectedState: string): Promise<Callba
                 handleCallback(req, res, expectedState, resolve, reject, cleanup)
             } else {
                 // Handle other paths
-                res.writeHead(404, { 'Content-Type': 'text/html' })
+                res.writeHead(404, { 'Content-Type': 'text/html; charset=utf-8' })
                 res.end(getNotFoundPage())
             }
         })
@@ -91,7 +91,7 @@ function handleCallback(
     // Check for OAuth errors first
     if (error) {
         const errorMsg = error_description ? String(error_description) : String(error)
-        res.writeHead(400, { 'Content-Type': 'text/html' })
+        res.writeHead(400, { 'Content-Type': 'text/html; charset=utf-8' })
         res.end(getErrorPage(`OAuth Error: ${errorMsg}`))
         cleanup()
         reject(new Error(`OAuth authorization failed: ${errorMsg}`))
@@ -100,7 +100,7 @@ function handleCallback(
 
     // Validate state parameter (CSRF protection)
     if (!state || String(state) !== expectedState) {
-        res.writeHead(400, { 'Content-Type': 'text/html' })
+        res.writeHead(400, { 'Content-Type': 'text/html; charset=utf-8' })
         res.end(getErrorPage('Invalid state parameter. This may be a security issue.'))
         cleanup()
         reject(new Error('Invalid state parameter received. Possible CSRF attack.'))
@@ -109,7 +109,7 @@ function handleCallback(
 
     // Validate authorization code
     if (!code || typeof code !== 'string') {
-        res.writeHead(400, { 'Content-Type': 'text/html' })
+        res.writeHead(400, { 'Content-Type': 'text/html; charset=utf-8' })
         res.end(getErrorPage('No authorization code received.'))
         cleanup()
         reject(new Error('No authorization code received from OAuth server'))
@@ -117,7 +117,7 @@ function handleCallback(
     }
 
     // Success!
-    res.writeHead(200, { 'Content-Type': 'text/html' })
+    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' })
     res.end(getSuccessPage())
 
     resolve({
@@ -131,6 +131,7 @@ function getSuccessPage(): string {
 <!DOCTYPE html>
 <html>
 <head>
+    <meta charset="utf-8">
     <title>Authorization Successful - Twist CLI</title>
     <style>
         body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; text-align: center; padding: 50px; background: #f5f5f5; }
@@ -155,6 +156,7 @@ function getErrorPage(errorMessage: string): string {
 <!DOCTYPE html>
 <html>
 <head>
+    <meta charset="utf-8">
     <title>Authorization Error - Twist CLI</title>
     <style>
         body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; text-align: center; padding: 50px; background: #f5f5f5; }
@@ -181,6 +183,7 @@ function getNotFoundPage(): string {
 <!DOCTYPE html>
 <html>
 <head>
+    <meta charset="utf-8">
     <title>Page Not Found - Twist CLI</title>
     <style>
         body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; text-align: center; padding: 50px; background: #f5f5f5; }
