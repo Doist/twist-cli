@@ -42,7 +42,7 @@ This is a TypeScript CLI (`tw`) for Twist messaging, built with Commander.js.
 - `refs.ts` - Reference parsing: accepts IDs (`id:123` or bare `123`), Twist URLs, or fuzzy names for workspaces/users
 - `output.ts` - JSON/NDJSON formatting with essential field filtering per entity type
 - `config.ts` - Persists config to `~/.config/twist-cli/config.json`
-- `auth.ts` - Token retrieval
+- `auth.ts` - Token loading/saving/clearing (env var or config file)
 - `markdown.ts` - Terminal markdown rendering via `marked` + `marked-terminal`
 
 **Reference system**: The CLI accepts flexible references throughout - numeric IDs, `id:` prefixed IDs, full Twist URLs (parsed via `parseTwistUrl`), or fuzzy name matching for workspaces/users.
