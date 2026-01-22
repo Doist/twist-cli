@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 
 import { program } from 'commander'
+import { registerAuthCommand } from './commands/auth.js'
 import { registerChannelCommand } from './commands/channel.js'
 import { registerInboxCommand } from './commands/inbox.js'
-import { registerLoginCommand } from './commands/login.js'
 import { registerMsgCommand } from './commands/msg.js'
 import { registerReactCommand } from './commands/react.js'
 import { registerSearchCommand } from './commands/search.js'
@@ -31,6 +31,6 @@ registerThreadCommand(program)
 registerMsgCommand(program)
 registerSearchCommand(program)
 registerReactCommand(program)
-registerLoginCommand(program)
+registerAuthCommand(program)
 
 program.parse()
