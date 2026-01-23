@@ -1,3 +1,15 @@
+# [1.1.0](https://github.com/Doist/twist-cli/compare/v1.0.1...v1.1.0) (2026-01-23)
+
+
+### Bug Fixes
+
+* Format error message on single line ([89f3ef8](https://github.com/Doist/twist-cli/commit/89f3ef8b410565e3e0186447d7cf57ab50a12011))
+
+
+### Features
+
+* Add tw skill command for agent skill integrations ([1228ce6](https://github.com/Doist/twist-cli/commit/1228ce63f2dc0b7ac2ed17b3121660ff7c760514))
+
 ## [1.0.1](https://github.com/Doist/twist-cli/compare/v1.0.0...v1.0.1) (2026-01-22)
 
 
