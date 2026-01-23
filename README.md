@@ -24,16 +24,10 @@ This makes the `tw` command available globally.
 
 ## Setup
 
-Save your Twist API token:
+Set up your Twist API token:
 
 ```bash
-tw login token "your-token"
-```
-
-Alternatively, set via environment variable:
-
-```bash
-export TWIST_API_TOKEN="your-token"
+tw auth login
 ```
 
 ## Usage
