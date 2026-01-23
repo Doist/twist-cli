@@ -1,34 +1,41 @@
-import { ClaudeCodeInstaller, getSkillDescription } from './claude-code.js'
+import { createInstaller } from './create-installer.js'
 import type { AgentInfo, SkillInstaller } from './types.js'
 
-const installers: Record<string, () => SkillInstaller> = {
-    'claude-code': () => new ClaudeCodeInstaller(),
-}
-
-const agentDescriptions: Record<string, string> = {
-    'claude-code': getSkillDescription(),
+export const skillInstallers: Record<string, SkillInstaller> = {
+    'claude-code': createInstaller({
+        name: 'claude-code',
+        description: 'Claude Code skill for Twist CLI',
+        dirName: '.claude',
+    }),
+    codex: createInstaller({
+        name: 'codex',
+        description: 'Codex skill for Twist CLI',
+        dirName: '.codex',
+    }),
+    cursor: createInstaller({
+        name: 'cursor',
+        description: 'Cursor skill for Twist CLI',
+        dirName: '.cursor',
+    }),
 }
 
 export function getInstaller(name: string): SkillInstaller | null {
-    const factory = installers[name]
-    return factory ? factory() : null
+    return skillInstallers[name] ?? null
 }
 
 export function listAgentNames(): string[] {
-    return Object.keys(installers)
+    return Object.keys(skillInstallers)
 }
 
 export async function listAgents(local: boolean): Promise<AgentInfo[]> {
     const agents: AgentInfo[] = []
 
     for (const name of listAgentNames()) {
-        const installer = getInstaller(name)
-        if (!installer) continue
-
+        const installer = skillInstallers[name]
         const installed = await installer.isInstalled({ local })
         agents.push({
             name,
-            description: agentDescriptions[name] || installer.description,
+            description: installer.description,
             installed,
             path: installed ? installer.getInstallPath({ local }) : null,
         })
