@@ -1,3 +1,10 @@
+# [1.2.0](https://github.com/Doist/twist-cli/compare/v1.1.0...v1.2.0) (2026-01-23)
+
+
+### Features
+
+* add codex and cursor agent skill support ([#18](https://github.com/Doist/twist-cli/issues/18)) ([1a3b182](https://github.com/Doist/twist-cli/commit/1a3b182ae6f4cd5d439e26bfba6df65ab66c7684))
+
 # [1.1.0](https://github.com/Doist/twist-cli/compare/v1.0.1...v1.1.0) (2026-01-23)
 
 
