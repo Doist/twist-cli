@@ -39,6 +39,17 @@ vi.mock('open', () => ({
     default: vi.fn(),
 }))
 
+// Mock readline for interactive token input
+vi.mock('node:readline', () => ({
+    createInterface: vi.fn(() => {
+        const rl = {
+            question: vi.fn(),
+            close: vi.fn(),
+        }
+        return rl
+    }),
+}))
+
 // Mock chalk to avoid colors in tests
 vi.mock('chalk', () => ({
     default: {
@@ -50,6 +61,7 @@ vi.mock('chalk', () => ({
     },
 }))
 
+import { createInterface, type Interface } from 'node:readline'
 import { type User } from '@doist/twist-sdk'
 import open from 'open'
 import { registerAuthCommand } from '../commands/auth.js'
@@ -58,6 +70,8 @@ import { clearApiToken, saveApiToken } from '../lib/auth.js'
 import { buildAuthorizationUrl, exchangeCodeForToken, registerDynamicClient } from '../lib/oauth.js'
 import { startCallbackServer } from '../lib/oauth-server.js'
 import { generateCodeChallenge, generateCodeVerifier, generateState } from '../lib/pkce.js'
+
+const mockCreateInterface = vi.mocked(createInterface)
 
 const mockSaveApiToken = vi.mocked(saveApiToken)
 const mockClearApiToken = vi.mocked(clearApiToken)
@@ -138,6 +152,48 @@ describe('auth command', () => {
             await program.parseAsync(['node', 'tw', 'auth', 'token', tokenWithWhitespace])
 
             expect(mockSaveApiToken).toHaveBeenCalledWith(expectedToken)
+        })
+
+        it('prompts interactively when no token argument given', async () => {
+            const program = createProgram()
+            const mockRl = {
+                question: vi.fn((_prompt: string, cb: (answer: string) => void) => {
+                    cb('interactive_token_456')
+                }),
+                close: vi.fn(),
+                _writeToOutput: vi.fn(),
+            }
+            mockCreateInterface.mockReturnValue(mockRl as unknown as Interface)
+            mockSaveApiToken.mockResolvedValue(undefined)
+            const writeSpy = vi.spyOn(process.stdout, 'write').mockImplementation(() => true)
+
+            await program.parseAsync(['node', 'tw', 'auth', 'token'])
+
+            expect(mockRl.question).toHaveBeenCalled()
+            expect(mockRl.close).toHaveBeenCalled()
+            expect(mockSaveApiToken).toHaveBeenCalledWith('interactive_token_456')
+            writeSpy.mockRestore()
+        })
+
+        it('shows error when interactive input is empty', async () => {
+            const program = createProgram()
+            const mockRl = {
+                question: vi.fn((_prompt: string, cb: (answer: string) => void) => {
+                    cb('')
+                }),
+                close: vi.fn(),
+                _writeToOutput: vi.fn(),
+            }
+            mockCreateInterface.mockReturnValue(mockRl as unknown as Interface)
+            const writeSpy = vi.spyOn(process.stdout, 'write').mockImplementation(() => true)
+            const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+            await program.parseAsync(['node', 'tw', 'auth', 'token'])
+
+            expect(mockSaveApiToken).not.toHaveBeenCalled()
+            expect(errorSpy).toHaveBeenCalledWith('Error:', 'No token provided')
+            writeSpy.mockRestore()
+            errorSpy.mockRestore()
         })
     })
 
