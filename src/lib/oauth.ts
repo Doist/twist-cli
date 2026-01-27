@@ -45,6 +45,7 @@ export async function registerDynamicClient(): Promise<OAuthClient> {
         response_types: ['code'],
         token_endpoint_auth_method: 'client_secret_basic', // Use Basic auth for token exchange
         application_type: 'native', // CLI is a native application
+        logo_uri: 'https://todoist.b-cdn.net/agentist-icons/service_twist_color_72px.svg',
     }
 
     try {
