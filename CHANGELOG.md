@@ -1,3 +1,10 @@
+## [1.3.1](https://github.com/Doist/twist-cli/compare/v1.3.0...v1.3.1) (2026-01-27)
+
+
+### Bug Fixes
+
+* Ensure that client registration provides a logo ([#21](https://github.com/Doist/twist-cli/issues/21)) ([ad5333c](https://github.com/Doist/twist-cli/commit/ad5333cb451c5766555d4b0fa88671ec48475b17))
+
 # [1.3.0](https://github.com/Doist/twist-cli/compare/v1.2.0...v1.3.0) (2026-01-24)
 
 
