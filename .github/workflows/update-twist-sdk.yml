@@ -65,12 +65,21 @@ jobs:
           git commit -m "fix(deps): update to latest \`@doist/twist-sdk\` package"
           git push
 
+      - name: Trigger release workflow
+        if: steps.changes.outputs.has_changes == 'true'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "🚀 Triggering release workflow..."
+          gh workflow run release.yml
+          echo "✅ Release workflow triggered successfully"
+
       - name: Report success
         run: |
           if [ "${{ steps.changes.outputs.has_changes }}" == "true" ]; then
             echo "✅ Successfully updated @doist/twist-sdk package"
             echo "📦 Changes committed to main branch"
-            echo "🚀 Semantic release will automatically create a new patch version"
+            echo "🚀 Release workflow triggered - semantic release will create a new patch version"
           else
             echo "ℹ️  No updates needed - @doist/twist-sdk is already at the latest version"
           fi
