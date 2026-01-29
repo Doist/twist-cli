@@ -1,7 +1,7 @@
 {
-  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "extends": [
-    "github>doist/renovate-config:frontend-base",
-    "github>doist/renovate-config-internal:npm-registry-token"
-  ]
+    "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+    "extends": [
+        "github>doist/renovate-config:frontend-base",
+        "github>doist/renovate-config-internal:npm-registry-token"
+    ]
 }
