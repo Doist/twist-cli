@@ -1,6 +1,7 @@
 import { TwistApi, type User, type Workspace, type WorkspaceUser } from '@doist/twist-sdk'
 import { getApiToken } from './auth.js'
 import { getConfig, updateConfig } from './config.js'
+import { getProgressTracker } from './progress.js'
 import { withSpinner } from './spinner.js'
 
 // Mapping of API method paths to user-friendly spinner messages
@@ -86,12 +87,47 @@ function createNestedSpinnerProxy<T extends object>(obj: T, basePath: string): T
                 const spinnerConfig = API_SPINNER_MESSAGES[fullPath]
 
                 if (spinnerConfig) {
-                    return (...args: unknown[]) => {
+                    return <T extends unknown[]>(...args: T) => {
+                        const progressTracker = getProgressTracker()
+
+                        // Extract cursor from args for paginated methods
+                        let cursor: string | null = null
+                        if (args.length > 0 && typeof args[0] === 'object' && args[0] !== null) {
+                            const options = args[0] as Record<string, unknown>
+                            if ('cursor' in options && typeof options.cursor === 'string') {
+                                cursor = options.cursor
+                            }
+                        }
+
+                        // Emit progress event for API call start
+                        if (progressTracker.isEnabled()) {
+                            progressTracker.emitApiCall(property, cursor)
+                        }
+
                         const result = originalMethod.apply(target, args)
 
-                        // If the method returns a Promise, wrap it with spinner
+                        // If the method returns a Promise, wrap it with spinner and progress tracking
                         if (result && typeof result.then === 'function') {
-                            return withSpinner(spinnerConfig, () => result)
+                            const wrappedPromise = result
+                                .then((response: unknown) => {
+                                    // Emit progress event for successful response
+                                    if (progressTracker.isEnabled()) {
+                                        analyzeAndEmitApiResponse(progressTracker, response)
+                                    }
+                                    return response
+                                })
+                                .catch((error: Error) => {
+                                    // Emit progress event for error
+                                    if (progressTracker.isEnabled()) {
+                                        progressTracker.emitError(
+                                            error.name || 'API_ERROR',
+                                            error.message,
+                                        )
+                                    }
+                                    throw error
+                                })
+
+                            return withSpinner(spinnerConfig, () => wrappedPromise)
                         }
 
                         return result
@@ -102,6 +138,35 @@ function createNestedSpinnerProxy<T extends object>(obj: T, basePath: string): T
             return originalMethod
         },
     })
+}
+
+function analyzeAndEmitApiResponse(
+    progressTracker: ReturnType<typeof getProgressTracker>,
+    response: unknown,
+): void {
+    // For paginated responses, extract metadata
+    if (response && typeof response === 'object' && response !== null) {
+        const resp = response as Record<string, unknown>
+
+        // Check if it's a paginated response with results array
+        if ('results' in resp && Array.isArray(resp.results)) {
+            progressTracker.emitApiResponse(
+                resp.results.length,
+                Boolean(resp.nextCursor),
+                typeof resp.nextCursor === 'string' ? resp.nextCursor : null,
+            )
+            return
+        }
+
+        // For array responses (legacy or simple lists)
+        if (Array.isArray(response)) {
+            progressTracker.emitApiResponse(response.length, false, null)
+            return
+        }
+    }
+
+    // For other responses, emit minimal info
+    progressTracker.emitApiResponse(1, false, null)
 }
 
 let apiClient: TwistApi | null = null
