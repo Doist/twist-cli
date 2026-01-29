@@ -75,7 +75,7 @@ function createSpinnerWrappedApi(api: TwistApi): TwistApi {
     })
 }
 
-function createNestedSpinnerProxy(obj: any, basePath: string): any {
+function createNestedSpinnerProxy<T extends object>(obj: T, basePath: string): T {
     return new Proxy(obj, {
         get(target, property, receiver) {
             const originalMethod = Reflect.get(target, property, receiver)
@@ -86,7 +86,7 @@ function createNestedSpinnerProxy(obj: any, basePath: string): any {
                 const spinnerConfig = API_SPINNER_MESSAGES[fullPath]
 
                 if (spinnerConfig) {
-                    return (...args: any[]) => {
+                    return (...args: unknown[]) => {
                         const result = originalMethod.apply(target, args)
 
                         // If the method returns a Promise, wrap it with spinner
