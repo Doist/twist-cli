@@ -23,6 +23,7 @@ program
     .description('Twist CLI')
     .version(version)
     .option('--no-spinner', 'Disable loading animations')
+    .option('--progress-jsonl [path]', 'Output progress events as JSONL to stderr or file')
     .addHelpText(
         'after',
         `
