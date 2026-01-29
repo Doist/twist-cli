@@ -13,7 +13,7 @@ vi.mock('chalk', () => ({
 }))
 
 import { registerSkillCommand } from '../commands/skill.js'
-import { SKILL_CONTENT } from '../lib/skills/content.js'
+import { SKILL_CONTENT, SKILL_FILE_CONTENT } from '../lib/skills/content.js'
 import { createInstaller } from '../lib/skills/create-installer.js'
 import { getInstaller, listAgentNames, listAgents, skillInstallers } from '../lib/skills/index.js'
 
@@ -113,7 +113,7 @@ describe('installer operations', () => {
 
         const skillPath = installer.getInstallPath({ local: true })
         const content = await readFile(skillPath, 'utf-8')
-        expect(content).toBe(SKILL_CONTENT)
+        expect(content).toBe(SKILL_FILE_CONTENT)
     })
 
     it('reports not installed initially', async () => {
@@ -225,6 +225,8 @@ describe('skill command', () => {
         const skillPath = join(testDir, '.claude', 'skills', 'twist-cli', 'SKILL.md')
         const stats = await stat(skillPath)
         expect(stats.isFile()).toBe(true)
+        const content = await readFile(skillPath, 'utf-8')
+        expect(content).toBe(SKILL_FILE_CONTENT)
     })
 
     it('installs codex agent locally', async () => {

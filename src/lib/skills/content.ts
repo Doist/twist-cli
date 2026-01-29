@@ -117,3 +117,10 @@ tw msg view <conversation-id>
 tw msg reply <id> "Got it, thanks!"
 \`\`\`
 `
+
+export const SKILL_FILE_CONTENT = `---
+name: ${SKILL_NAME}
+description: ${SKILL_DESCRIPTION}
+---
+
+${SKILL_CONTENT}`

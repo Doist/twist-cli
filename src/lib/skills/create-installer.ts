@@ -1,7 +1,7 @@
 import { mkdir, rm, stat, writeFile } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { dirname, join } from 'node:path'
-import { SKILL_CONTENT, SKILL_NAME } from './content.js'
+import { SKILL_FILE_CONTENT, SKILL_NAME } from './content.js'
 import type { InstallOptions, SkillInstaller, UninstallOptions } from './types.js'
 
 interface InstallerConfig {
@@ -53,7 +53,7 @@ export function createInstaller(config: InstallerConfig): SkillInstaller {
             }
 
             await mkdir(dirname(skillPath), { recursive: true })
-            await writeFile(skillPath, SKILL_CONTENT)
+            await writeFile(skillPath, SKILL_FILE_CONTENT)
         },
 
         async uninstall(options: UninstallOptions): Promise<void> {
