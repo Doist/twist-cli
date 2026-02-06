@@ -6,7 +6,7 @@ import { formatRelativeDate } from '../lib/dates.js'
 import { openEditor, readStdin } from '../lib/input.js'
 import { renderMarkdown } from '../lib/markdown.js'
 import { colors, formatJson } from '../lib/output.js'
-import { parseRef, resolveThreadId } from '../lib/refs.js'
+import { extractId, parseRef, resolveThreadId } from '../lib/refs.js'
 
 interface ViewOptions {
     comment?: string
@@ -131,10 +131,15 @@ async function viewThread(ref: string, options: ViewOptions): Promise<void> {
     const parsed = parseRef(ref)
     const threadId = resolveThreadId(ref)
     const urlCommentId = parsed.type === 'url' ? parsed.parsed.commentId : undefined
-    const commentId = options.comment ? parseInt(options.comment, 10) : urlCommentId
+    let commentId: number | undefined
+    if (options.comment !== undefined) {
+        commentId = extractId(options.comment)
+    } else {
+        commentId = urlCommentId
+    }
     const client = await getTwistClient()
 
-    if (commentId) {
+    if (commentId !== undefined) {
         return viewSingleComment(client, threadId, commentId, options)
     }
 
