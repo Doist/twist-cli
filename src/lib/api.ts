@@ -20,6 +20,7 @@ const API_SPINNER_MESSAGES: Record<string, { text: string; color?: 'blue' | 'gre
         'threads.getUnread': { text: 'Loading unread threads...', color: 'blue' },
 
         // Comment operations
+        'comments.getComment': { text: 'Loading comment...', color: 'blue' },
         'comments.getComments': { text: 'Loading comments...', color: 'blue' },
         'comments.createComment': { text: 'Creating comment...', color: 'green' },
         'comments.updateComment': { text: 'Updating comment...', color: 'yellow' },

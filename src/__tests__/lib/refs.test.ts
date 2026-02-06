@@ -120,6 +120,10 @@ describe('resolveThreadId', () => {
         expect(resolveThreadId('https://twist.com/a/12345/ch/67890/t/111')).toBe(111)
     })
 
+    it('resolves thread URLs with comment suffix', () => {
+        expect(resolveThreadId('https://twist.com/a/12345/ch/67890/t/111/c/222')).toBe(111)
+    })
+
     it('throws on invalid refs', () => {
         expect(() => resolveThreadId('invalid-name')).toThrow('Invalid thread reference')
     })

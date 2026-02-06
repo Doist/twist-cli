@@ -1,4 +1,4 @@
-import { getFullTwistURL } from '@doist/twist-sdk'
+import { getFullTwistURL, TwistApi } from '@doist/twist-sdk'
 import chalk from 'chalk'
 import { Command } from 'commander'
 import { getTwistClient } from '../lib/api.js'
@@ -6,9 +6,10 @@ import { formatRelativeDate } from '../lib/dates.js'
 import { openEditor, readStdin } from '../lib/input.js'
 import { renderMarkdown } from '../lib/markdown.js'
 import { colors, formatJson } from '../lib/output.js'
-import { resolveThreadId } from '../lib/refs.js'
+import { parseRef, resolveThreadId } from '../lib/refs.js'
 
 interface ViewOptions {
+    comment?: string
     limit?: string
     since?: string
     until?: string
@@ -60,9 +61,83 @@ function printComment(comment: CommentLike, userMap: Map<number, string>, raw: b
     console.log('')
 }
 
+async function viewSingleComment(
+    client: TwistApi,
+    threadId: number,
+    commentId: number,
+    options: ViewOptions,
+): Promise<void> {
+    const [threadResponse, commentResponse] = await client.batch(
+        client.threads.getThread(threadId, { batch: true }),
+        client.comments.getComment(commentId, { batch: true }),
+    )
+
+    const thread = threadResponse.data
+    const comment = commentResponse.data
+
+    const userIds = new Set([thread.creator, comment.creator])
+    const userCalls = [...userIds].map((id) =>
+        client.workspaceUsers.getUserById(
+            { workspaceId: thread.workspaceId, userId: id },
+            { batch: true },
+        ),
+    )
+    const [channelResponse, ...userResponses] = await client.batch(
+        client.channels.getChannel(thread.channelId, { batch: true }),
+        ...userCalls,
+    )
+
+    const channel = channelResponse.data
+    const userMap = new Map(userResponses.map((r) => [r.data.id, r.data.name]))
+
+    const url = getFullTwistURL({
+        workspaceId: thread.workspaceId,
+        channelId: thread.channelId,
+        threadId: thread.id,
+        commentId: comment.id,
+    })
+
+    if (options.json) {
+        const output = {
+            ...comment,
+            creatorName: userMap.get(comment.creator),
+            channelName: channel.name,
+            threadTitle: thread.title,
+            url,
+        }
+        console.log(formatJson(output, undefined, options.full))
+        return
+    }
+
+    if (options.ndjson) {
+        console.log(
+            JSON.stringify({
+                type: 'comment',
+                ...comment,
+                creatorName: userMap.get(comment.creator),
+                url,
+            }),
+        )
+        return
+    }
+
+    console.log(chalk.bold(thread.title))
+    console.log(colors.channel(`[${channel.name}]`))
+    console.log('')
+    printComment(comment, userMap, options.raw ?? false)
+}
+
 async function viewThread(ref: string, options: ViewOptions): Promise<void> {
+    const parsed = parseRef(ref)
     const threadId = resolveThreadId(ref)
+    const urlCommentId = parsed.type === 'url' ? parsed.parsed.commentId : undefined
+    const commentId = options.comment ? parseInt(options.comment, 10) : urlCommentId
     const client = await getTwistClient()
+
+    if (commentId) {
+        return viewSingleComment(client, threadId, commentId, options)
+    }
+
     const limit = options.limit ? parseInt(options.limit, 10) : 50
 
     const [threadResponse, commentsResponse] = await client.batch(
@@ -295,6 +370,7 @@ export function registerThreadCommand(program: Command): void {
     thread
         .command('view <thread-ref>')
         .description('Display a thread with its comments')
+        .option('--comment <id>', 'Show only a specific comment')
         .option('--unread', 'Show only unread comments (with original post for context)')
         .option('--context <n>', 'Include N read comments before unread (use with --unread)')
         .option('--limit <n>', 'Max comments to show (default: 50)')
