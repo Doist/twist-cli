@@ -6,6 +6,7 @@ import { formatRelativeDate } from '../lib/dates.js'
 import { openEditor, readStdin } from '../lib/input.js'
 import { renderMarkdown } from '../lib/markdown.js'
 import { colors, formatJson } from '../lib/output.js'
+import { assertChannelIsPublic } from '../lib/public-channels.js'
 import { extractId, parseRef, resolveThreadId } from '../lib/refs.js'
 
 interface ViewOptions {
@@ -159,6 +160,8 @@ async function viewThread(ref: string, options: ViewOptions): Promise<void> {
 
     const thread = threadResponse.data
     const comments = commentsResponse.data
+
+    await assertChannelIsPublic(thread.channelId, thread.workspaceId)
 
     let lastReadObjIndex: number | null = null
     if (options.unread) {
@@ -340,6 +343,7 @@ async function replyToThread(
 
     const client = await getTwistClient()
     const thread = await client.threads.getThread(threadId)
+    await assertChannelIsPublic(thread.channelId, thread.workspaceId)
     const comment = await client.comments.createComment({
         threadId,
         content: replyContent,
@@ -365,6 +369,8 @@ async function markThreadDone(ref: string, options: DoneOptions): Promise<void> 
     }
 
     const client = await getTwistClient()
+    const thread = await client.threads.getThread(threadId)
+    await assertChannelIsPublic(thread.channelId, thread.workspaceId)
     await client.inbox.archiveThread(threadId)
     console.log(`Thread ${threadId} archived.`)
 }

@@ -4,6 +4,7 @@ import { Command } from 'commander'
 import { getCurrentWorkspaceId, getTwistClient } from '../lib/api.js'
 import { formatRelativeDate } from '../lib/dates.js'
 import { colors, formatJson, formatNdjson } from '../lib/output.js'
+import { getPublicChannelIds, includePrivateChannels } from '../lib/public-channels.js'
 import { resolveWorkspaceRef } from '../lib/refs.js'
 
 interface InboxOptions {
@@ -66,6 +67,16 @@ async function showInbox(workspaceRef: string | undefined, options: InboxOptions
     const channelCalls = channelIds.map((id) => client.channels.getChannel(id, { batch: true }))
     const channelResponses = await client.batch(...channelCalls)
     const channelMap = new Map(channelResponses.map((r) => [r.data.id, r.data.name]))
+
+    if (!includePrivateChannels()) {
+        const publicIds = await getPublicChannelIds(workspaceId)
+        inboxThreads = inboxThreads.filter((t) => publicIds.has(t.channelId))
+
+        if (inboxThreads.length === 0) {
+            console.log('No threads in public channels.')
+            return
+        }
+    }
 
     if (options.channel) {
         const filter = options.channel.toLowerCase()

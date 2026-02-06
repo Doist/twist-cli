@@ -1,6 +1,7 @@
 import { Command } from 'commander'
 import { getCurrentWorkspaceId, getTwistClient } from '../lib/api.js'
 import { colors, formatJson, formatNdjson } from '../lib/output.js'
+import { includePrivateChannels } from '../lib/public-channels.js'
 import { resolveWorkspaceRef } from '../lib/refs.js'
 
 interface ChannelsOptions {
@@ -27,7 +28,11 @@ async function listChannels(
     }
 
     const client = await getTwistClient()
-    const channels = await client.channels.getChannels({ workspaceId })
+    let channels = await client.channels.getChannels({ workspaceId })
+
+    if (!includePrivateChannels()) {
+        channels = channels.filter((ch) => ch.public)
+    }
 
     if (channels.length === 0) {
         console.log('No channels found.')

@@ -24,6 +24,10 @@ program
     .version(version)
     .option('--no-spinner', 'Disable loading animations')
     .option('--progress-jsonl [path]', 'Output progress events as JSONL to stderr or file')
+    .option(
+        '--include-private-channels',
+        'Include private channels in output (env: TWIST_INCLUDE_PRIVATE_CHANNELS)',
+    )
     .addHelpText(
         'after',
         `
