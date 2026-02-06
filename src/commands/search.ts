@@ -92,7 +92,14 @@ async function search(
     }
 
     if (response.items.length === 0) {
-        console.log('No results found.')
+        if (response.hasMore && response.nextCursorMark) {
+            console.log('No public results on this page.')
+            console.log(
+                colors.timestamp(`More results available. Use --cursor ${response.nextCursorMark}`),
+            )
+        } else {
+            console.log('No results found.')
+        }
         return
     }
 
