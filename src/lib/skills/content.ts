@@ -9,7 +9,8 @@ Access Twist messaging via the \`tw\` CLI. Use when the user asks about their Tw
 ## Setup
 
 \`\`\`bash
-tw auth token <your-api-token>   # Save API token
+tw auth login                    # OAuth login (opens browser)
+tw auth token <your-api-token>   # Save API token manually
 tw auth status                   # Verify authentication
 tw auth logout                   # Remove saved token
 tw workspaces                    # List available workspaces
@@ -32,9 +33,16 @@ tw inbox --limit <n>             # Max items (default: 50)
 tw thread view <thread-ref>      # View thread with comments
 tw thread view <ref> --unread    # Show only unread comments
 tw thread view <ref> --context 3 # Include 3 read comments before unread
+tw thread view <ref> --limit 20  # Limit number of comments
+tw thread view <ref> --since <date> # Comments newer than date
+tw thread view <ref> --raw       # Show raw markdown
 tw thread reply <ref> "content"  # Post a comment
+tw thread reply <ref> "content" --notify EVERYONE  # Notify all workspace members
+tw thread reply <ref> "content" --notify 123,456   # Notify specific user IDs
 tw thread done <ref>             # Archive thread (mark done)
 \`\`\`
+
+Default \`--notify\` is EVERYONE_IN_THREAD. Options: EVERYONE, EVERYONE_IN_THREAD, or comma-separated user IDs.
 
 ## Conversations (DMs/Groups)
 
@@ -51,10 +59,15 @@ tw msg done <ref>                # Archive conversation
 tw search "query"                # Search content
 tw search "query" --type threads # Filter: threads, messages, or all
 tw search "query" --author <ref> # Filter by author
+tw search "query" --to <ref>     # Messages sent to user
 tw search "query" --title-only   # Search thread titles only
 tw search "query" --mention-me   # Results mentioning current user
+tw search "query" --conversation <ids> # Limit to conversations (comma-separated)
 tw search "query" --since <date> # Content from date
+tw search "query" --until <date> # Content until date
 tw search "query" --channel <id> # Filter by channel IDs (comma-separated)
+tw search "query" --limit <n>    # Max results (default: 50)
+tw search "query" --cursor <cur> # Pagination cursor
 \`\`\`
 
 ## Users & Channels
@@ -76,6 +89,13 @@ tw unreact thread <id> 👍        # Remove reaction
 \`\`\`
 
 Supported shortcodes: +1, -1, heart, tada, smile, laughing, thinking, fire, check, x, eyes, pray, clap, rocket, wave
+
+## Global Options
+
+\`\`\`bash
+--no-spinner       # Disable loading animations
+--progress-jsonl   # Machine-readable progress events (JSONL to stderr)
+\`\`\`
 
 ## Output Formats
 
