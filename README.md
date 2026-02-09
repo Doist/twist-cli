@@ -37,6 +37,7 @@ tw workspaces                      # list all workspaces
 tw inbox                           # inbox threads
 tw inbox --unread                  # unread threads only
 tw thread view <thread-ref>        # view thread with comments
+tw thread view <ref> --comment 123 # view a specific comment
 tw thread reply <thread-ref>       # reply to a thread
 tw msg list                        # list conversations
 tw msg view <conversation-ref>     # view conversation messages
