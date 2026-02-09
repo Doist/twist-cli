@@ -31,6 +31,8 @@ tw inbox --limit <n>             # Max items (default: 50)
 
 \`\`\`bash
 tw thread view <thread-ref>      # View thread with comments
+tw thread view <ref> --comment <id> # View a specific comment
+tw thread view <url-with-/c/id>  # Comment ID extracted from URL
 tw thread view <ref> --unread    # Show only unread comments
 tw thread view <ref> --context 3 # Include 3 read comments before unread
 tw thread view <ref> --limit 20  # Limit number of comments

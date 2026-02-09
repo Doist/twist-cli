@@ -158,7 +158,6 @@ Arguments:
 
 Options:
 
-- `--comment <id>` - Show only a specific comment (also extracted from URLs with `/c/{id}`)
 - `--limit <n>` - Max comments to show (default: 50)
 - `--since <date>` - Comments newer than
 - `--until <date>` - Comments older than
@@ -169,7 +168,6 @@ Output:
 
 - Full thread content with markdown rendered (unless `--raw`)
 - Comments with full content (detail view = no truncation)
-- When `--comment` is used or URL contains `/c/{id}`, shows only that comment with thread header
 
 #### `tw thread reply <thread-ref> [content]`
 
@@ -444,10 +442,6 @@ tw inbox --unread
 # View a thread
 tw thread view id:123456
 tw thread view https://twist.com/a/12345/ch/67890/t/123456
-
-# View a specific comment
-tw thread view id:123456 --comment 789
-tw thread view https://twist.com/a/12345/ch/67890/t/123456/c/789
 
 # Reply to a thread
 tw thread reply id:123456 "Great idea!"
