@@ -1,4 +1,4 @@
-import { getFullTwistURL, TwistApi } from '@doist/twist-sdk'
+import type { TwistApi } from '@doist/twist-sdk'
 import chalk from 'chalk'
 import { Command } from 'commander'
 import { getTwistClient } from '../lib/api.js'
@@ -91,20 +91,12 @@ async function viewSingleComment(
     const channel = channelResponse.data
     const userMap = new Map(userResponses.map((r) => [r.data.id, r.data.name]))
 
-    const url = getFullTwistURL({
-        workspaceId: thread.workspaceId,
-        channelId: thread.channelId,
-        threadId: thread.id,
-        commentId: comment.id,
-    })
-
     if (options.json) {
         const output = {
             ...comment,
             creatorName: userMap.get(comment.creator),
             channelName: channel.name,
             threadTitle: thread.title,
-            url,
         }
         console.log(formatJson(output, undefined, options.full))
         return
@@ -116,7 +108,6 @@ async function viewSingleComment(
                 type: 'comment',
                 ...comment,
                 creatorName: userMap.get(comment.creator),
-                url,
             }),
         )
         return
@@ -195,21 +186,10 @@ async function viewThread(ref: string, options: ViewOptions): Promise<void> {
                 ...thread,
                 channelName: channel.name,
                 creatorName: userMap.get(thread.creator),
-                url: getFullTwistURL({
-                    workspaceId: thread.workspaceId,
-                    channelId: thread.channelId,
-                    threadId: thread.id,
-                }),
             },
             comments: comments.map((c) => ({
                 ...c,
                 creatorName: userMap.get(c.creator),
-                url: getFullTwistURL({
-                    workspaceId: thread.workspaceId,
-                    channelId: thread.channelId,
-                    threadId: thread.id,
-                    commentId: c.id,
-                }),
             })),
         }
         console.log(formatJson(output, undefined, options.full))
@@ -350,14 +330,7 @@ async function replyToThread(
         recipients,
     } as Parameters<typeof client.comments.createComment>[0])
 
-    const url = getFullTwistURL({
-        workspaceId: thread.workspaceId,
-        channelId: thread.channelId,
-        threadId,
-        commentId: comment.id,
-    })
-
-    console.log(`Comment posted: ${url}`)
+    console.log(`Comment posted: ${comment.url}`)
 }
 
 async function markThreadDone(ref: string, options: DoneOptions): Promise<void> {

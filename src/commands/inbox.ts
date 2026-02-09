@@ -1,4 +1,3 @@
-import { getFullTwistURL } from '@doist/twist-sdk'
 import chalk from 'chalk'
 import { Command } from 'commander'
 import { getCurrentWorkspaceId, getTwistClient } from '../lib/api.js'
@@ -115,7 +114,6 @@ async function showInbox(workspaceRef: string | undefined, options: InboxOptions
         const output = sortedChannelGroups.map((t) => ({
             ...t,
             channelName: channelMap.get(t.channelId),
-            url: getFullTwistURL({ workspaceId, channelId: t.channelId, threadId: t.id }),
         }))
         console.log(formatJson(output, 'thread', options.full))
         return
@@ -125,7 +123,6 @@ async function showInbox(workspaceRef: string | undefined, options: InboxOptions
         const output = sortedChannelGroups.map((t) => ({
             ...t,
             channelName: channelMap.get(t.channelId),
-            url: getFullTwistURL({ workspaceId, channelId: t.channelId, threadId: t.id }),
         }))
         console.log(formatNdjson(output, 'thread', options.full))
         return
@@ -147,9 +144,7 @@ async function showInbox(workspaceRef: string | undefined, options: InboxOptions
 
         console.log(`  ${title}${unreadBadge}`)
         console.log(`    ${time}  ${colors.timestamp(`id:${thread.id}`)}`)
-        console.log(
-            `    ${colors.url(getFullTwistURL({ workspaceId, channelId: thread.channelId, threadId: thread.id }))}`,
-        )
+        console.log(`    ${colors.url(thread.url)}`)
         console.log('')
     }
 }

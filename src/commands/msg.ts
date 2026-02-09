@@ -1,4 +1,3 @@
-import { getFullTwistURL } from '@doist/twist-sdk'
 import chalk from 'chalk'
 import { Command } from 'commander'
 import { getCurrentWorkspaceId, getTwistClient } from '../lib/api.js'
@@ -77,7 +76,6 @@ async function showUnread(workspaceRef: string | undefined, options: UnreadOptio
         const output = conversations.map((c) => ({
             ...c,
             participantNames: c.userIds.map((id) => userMap.get(id)),
-            url: getFullTwistURL({ workspaceId, conversationId: c.id }),
         }))
         console.log(formatJson(output, 'conversation', options.full))
         return
@@ -87,7 +85,6 @@ async function showUnread(workspaceRef: string | undefined, options: UnreadOptio
         const output = conversations.map((c) => ({
             ...c,
             participantNames: c.userIds.map((id) => userMap.get(id)),
-            url: getFullTwistURL({ workspaceId, conversationId: c.id }),
         }))
         console.log(formatNdjson(output, 'conversation', options.full))
         return
@@ -100,7 +97,7 @@ async function showUnread(workspaceRef: string | undefined, options: UnreadOptio
 
         console.log(chalk.bold(title))
         console.log(`  ${colors.timestamp(`id:${conv.id}`)}  ${colors.author(participants)}`)
-        console.log(`  ${colors.url(getFullTwistURL({ workspaceId, conversationId: conv.id }))}`)
+        console.log(`  ${colors.url(conv.url)}`)
         console.log('')
     }
 }
@@ -139,19 +136,10 @@ async function viewConversation(ref: string, options: ViewOptions): Promise<void
             conversation: {
                 ...conversation,
                 participantNames: conversation.userIds.map((id) => userMap.get(id)),
-                url: getFullTwistURL({
-                    workspaceId: conversation.workspaceId,
-                    conversationId: conversation.id,
-                }),
             },
             messages: messages.map((m) => ({
                 ...m,
                 creatorName: userMap.get(m.creator),
-                url: getFullTwistURL({
-                    workspaceId: conversation.workspaceId,
-                    conversationId: conversation.id,
-                    messageId: m.id,
-                }),
             })),
         }
         console.log(formatJson(output, undefined, options.full))
@@ -224,19 +212,12 @@ async function replyToConversation(
     }
 
     const client = await getTwistClient()
-    const conversation = await client.conversations.getConversation(conversationId)
     const message = await client.conversationMessages.createMessage({
         conversationId,
         content: replyContent,
     })
 
-    const url = getFullTwistURL({
-        workspaceId: conversation.workspaceId,
-        conversationId,
-        messageId: message.id,
-    })
-
-    console.log(`Message sent: ${url}`)
+    console.log(`Message sent: ${message.url}`)
 }
 
 async function markConversationDone(ref: string, options: DoneOptions): Promise<void> {
