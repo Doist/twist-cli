@@ -352,7 +352,7 @@ export function registerThreadCommand(program: Command): void {
     const thread = program.command('thread').description('Thread operations')
 
     thread
-        .command('view <thread-ref>')
+        .command('view [thread-ref]', { isDefault: true })
         .description('Display a thread with its comments')
         .option('--comment <id>', 'Show only a specific comment')
         .option('--unread', 'Show only unread comments (with original post for context)')
@@ -364,7 +364,13 @@ export function registerThreadCommand(program: Command): void {
         .option('--json', 'Output as JSON')
         .option('--ndjson', 'Output as newline-delimited JSON')
         .option('--full', 'Include all fields in JSON output')
-        .action(viewThread)
+        .action((ref, options) => {
+            if (!ref) {
+                thread.help()
+                return
+            }
+            return viewThread(ref, options)
+        })
 
     thread
         .command('reply <thread-ref> [content]')

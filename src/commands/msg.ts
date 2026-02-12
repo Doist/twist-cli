@@ -33,13 +33,15 @@ interface DoneOptions {
 }
 
 async function showUnread(workspaceRef: string | undefined, options: UnreadOptions): Promise<void> {
-    let workspaceId: number
+    if (workspaceRef && options.workspace) {
+        throw new Error('Cannot specify workspace both as argument and --workspace flag')
+    }
 
-    if (workspaceRef) {
-        const workspace = await resolveWorkspaceRef(workspaceRef)
-        workspaceId = workspace.id
-    } else if (options.workspace) {
-        const workspace = await resolveWorkspaceRef(options.workspace)
+    let workspaceId: number
+    const ref = workspaceRef || options.workspace
+
+    if (ref) {
+        const workspace = await resolveWorkspaceRef(ref)
         workspaceId = workspace.id
     } else {
         workspaceId = await getCurrentWorkspaceId()
@@ -244,7 +246,7 @@ export function registerMsgCommand(program: Command): void {
         .option('--full', 'Include all fields in JSON output')
         .action(showUnread)
 
-    msg.command('view <conversation-ref>')
+    msg.command('view [conversation-ref]', { isDefault: true })
         .description('Display a conversation with its messages')
         .option('--limit <n>', 'Max messages to show (default: 50)')
         .option('--since <date>', 'Messages newer than')
@@ -253,7 +255,13 @@ export function registerMsgCommand(program: Command): void {
         .option('--json', 'Output as JSON')
         .option('--ndjson', 'Output as newline-delimited JSON')
         .option('--full', 'Include all fields in JSON output')
-        .action(viewConversation)
+        .action((ref, options) => {
+            if (!ref) {
+                msg.help()
+                return
+            }
+            return viewConversation(ref, options)
+        })
 
     msg.command('reply <conversation-ref> [content]')
         .description('Send a message in a conversation')

@@ -30,6 +30,7 @@ tw inbox --limit <n>             # Max items (default: 50)
 ## Threads
 
 \`\`\`bash
+tw thread <thread-ref>           # View thread (shorthand for view)
 tw thread view <thread-ref>      # View thread with comments
 tw thread view <ref> --comment <id> # View a specific comment
 tw thread view <url-with-/c/id>  # Comment ID extracted from URL
@@ -50,6 +51,7 @@ Default \`--notify\` is EVERYONE_IN_THREAD. Options: EVERYONE, EVERYONE_IN_THREA
 
 \`\`\`bash
 tw msg unread                    # List unread conversations
+tw msg <conversation-ref>        # View conversation (shorthand for view)
 tw msg view <conversation-ref>   # View conversation messages
 tw msg reply <ref> "content"     # Send a message
 tw msg done <ref>                # Archive conversation

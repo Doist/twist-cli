@@ -19,13 +19,15 @@ interface InboxOptions {
 }
 
 async function showInbox(workspaceRef: string | undefined, options: InboxOptions): Promise<void> {
-    let workspaceId: number
+    if (workspaceRef && options.workspace) {
+        throw new Error('Cannot specify workspace both as argument and --workspace flag')
+    }
 
-    if (workspaceRef) {
-        const workspace = await resolveWorkspaceRef(workspaceRef)
-        workspaceId = workspace.id
-    } else if (options.workspace) {
-        const workspace = await resolveWorkspaceRef(options.workspace)
+    let workspaceId: number
+    const ref = workspaceRef || options.workspace
+
+    if (ref) {
+        const workspace = await resolveWorkspaceRef(ref)
         workspaceId = workspace.id
     } else {
         workspaceId = await getCurrentWorkspaceId()
