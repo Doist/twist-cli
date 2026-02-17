@@ -1,6 +1,6 @@
 import { existsSync } from 'node:fs'
 import { homedir } from 'node:os'
-import { join } from 'node:path'
+import { join, resolve } from 'node:path'
 import type { SupportedShell } from '@pnpm/tabtab'
 import { Command } from 'commander'
 import { getCompletions, parseCompLine } from '../lib/completion.js'
@@ -31,6 +31,20 @@ function installedShells(): SupportedShell[] {
         .map(([shell]) => shell as SupportedShell)
 }
 
+function resolveCompleterCommand(): string {
+    const invokedScript = process.argv[1]
+    if (!invokedScript) {
+        return 'tw'
+    }
+
+    const resolvedScript = resolve(invokedScript)
+    if (existsSync(resolvedScript)) {
+        return resolvedScript
+    }
+
+    return 'tw'
+}
+
 export function registerCompletionCommand(program: Command): void {
     const completion = program.command('completion').description('Manage shell completions')
 
@@ -39,6 +53,7 @@ export function registerCompletionCommand(program: Command): void {
         .description('Install shell completions (bash, zsh, fish)')
         .action(async (shell?: string) => {
             const tabtab = await import('@pnpm/tabtab')
+            const completer = resolveCompleterCommand()
 
             if (shell && !tabtab.isShellSupported(shell)) {
                 console.error(
@@ -50,7 +65,9 @@ export function registerCompletionCommand(program: Command): void {
 
             await tabtab.install({
                 name: 'tw',
-                completer: 'tw',
+                // Use the executable path used to install completions so shell
+                // completion doesn't accidentally call an older `tw` on PATH.
+                completer,
                 shell: shell as SupportedShell,
             })
 
