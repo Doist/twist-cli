@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 vi.mock('chalk', () => ({
     default: {
         green: vi.fn((text) => text),
+        red: vi.fn((text) => text),
         bold: vi.fn((text) => text),
         dim: vi.fn((text) => text),
     },
@@ -148,6 +149,21 @@ describe('installer operations', () => {
         const installer = skillInstallers.cursor
         await expect(installer.uninstall({ local: true })).rejects.toThrow(/not installed/)
     })
+
+    it('updates installed skill', async () => {
+        const installer = skillInstallers['claude-code']
+        await installer.install({ local: true })
+        await expect(installer.update({ local: true })).resolves.not.toThrow()
+
+        const skillPath = installer.getInstallPath({ local: true })
+        const content = await readFile(skillPath, 'utf-8')
+        expect(content).toBe(SKILL_FILE_CONTENT)
+    })
+
+    it('throws when updating non-installed skill', async () => {
+        const installer = skillInstallers.codex
+        await expect(installer.update({ local: true })).rejects.toThrow(/not installed/)
+    })
 })
 
 describe('listAgents', () => {
@@ -270,6 +286,47 @@ describe('skill command', () => {
 
         expect(consoleErrorSpy).toHaveBeenCalledWith(expect.stringContaining('Unknown agent'))
         exitSpy.mockRestore()
+    })
+
+    it('updates a specific agent', async () => {
+        const installer = skillInstallers['claude-code']
+        await installer.install({ local: true })
+
+        const program = createProgram()
+        await program.parseAsync(['node', 'tw', 'skill', 'update', 'claude-code', '--local'])
+        expect(consoleSpy).toHaveBeenCalledWith('✓', expect.stringContaining('Updated'))
+    })
+
+    it('errors on update of unknown agent', async () => {
+        const program = createProgram()
+        const exitSpy = vi.spyOn(process, 'exit').mockImplementation(() => {
+            throw new Error('process.exit')
+        })
+
+        await expect(
+            program.parseAsync(['node', 'tw', 'skill', 'update', 'unknown-agent', '--local']),
+        ).rejects.toThrow()
+
+        expect(consoleErrorSpy).toHaveBeenCalledWith(expect.stringContaining('Unknown agent'))
+        exitSpy.mockRestore()
+    })
+
+    it('updates all installed agents', async () => {
+        await skillInstallers['claude-code'].install({ local: true })
+        await skillInstallers.codex.install({ local: true })
+
+        const program = createProgram()
+        await program.parseAsync(['node', 'tw', 'skill', 'update', 'all', '--local'])
+        expect(consoleSpy).toHaveBeenCalledWith('✓', expect.stringContaining('Updated claude-code'))
+        expect(consoleSpy).toHaveBeenCalledWith('✓', expect.stringContaining('Updated codex'))
+    })
+
+    it('defaults to all when no agent specified', async () => {
+        await skillInstallers.cursor.install({ local: true })
+
+        const program = createProgram()
+        await program.parseAsync(['node', 'tw', 'skill', 'update', '--local'])
+        expect(consoleSpy).toHaveBeenCalledWith('✓', expect.stringContaining('Updated cursor'))
     })
 })
 
