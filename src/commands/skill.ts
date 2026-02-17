@@ -87,6 +87,10 @@ async function updateSkill(agentName: string, options: UpdateOptions): Promise<v
         if (result.updated.length === 0 && result.errors.length === 0) {
             console.log('No skills are currently installed.')
         }
+
+        if (result.errors.length > 0) {
+            process.exit(1)
+        }
         return
     }
 

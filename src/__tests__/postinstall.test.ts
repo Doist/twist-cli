@@ -1,10 +1,14 @@
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('../lib/skills/update-installed.js', () => ({
     updateAllInstalledSkills: vi.fn().mockResolvedValue({ updated: [], skipped: [], errors: [] }),
 }))
 
 describe('postinstall', () => {
+    beforeEach(() => {
+        vi.resetModules()
+    })
+
     it('calls updateAllInstalledSkills with local: false', async () => {
         const { updateAllInstalledSkills } = await import('../lib/skills/update-installed.js')
         await import('../postinstall.js')
