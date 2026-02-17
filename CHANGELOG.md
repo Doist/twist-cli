@@ -1,3 +1,10 @@
+# [1.11.0](https://github.com/Doist/twist-cli/compare/v1.10.1...v1.11.0) (2026-02-17)
+
+
+### Features
+
+* add `tw skill update` command and postinstall auto-update ([#37](https://github.com/Doist/twist-cli/issues/37)) ([6b977f0](https://github.com/Doist/twist-cli/commit/6b977f0b232889656ee9e4903a844e1d2af60b52))
+
 ## [1.10.1](https://github.com/Doist/twist-cli/compare/v1.10.0...v1.10.1) (2026-02-13)
 
 
