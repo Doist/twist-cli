@@ -5,7 +5,12 @@ import { formatRelativeDate } from '../lib/dates.js'
 import type { PaginatedViewOptions } from '../lib/options.js'
 import { colors, formatJson } from '../lib/output.js'
 import { getPublicChannelIds, includePrivateChannels } from '../lib/public-channels.js'
-import { resolveUserRefs, resolveWorkspaceRef } from '../lib/refs.js'
+import {
+    resolveChannelId,
+    resolveConversationId,
+    resolveUserRefs,
+    resolveWorkspaceRef,
+} from '../lib/refs.js'
 import { extendedSearch, type SearchType } from '../lib/search-api.js'
 
 async function resolveUserRefsOrExit(
@@ -15,6 +20,26 @@ async function resolveUserRefsOrExit(
     if (!refs) return undefined
     try {
         return await resolveUserRefs(refs, workspaceId)
+    } catch (e) {
+        console.error((e as Error).message)
+        process.exit(1)
+    }
+}
+
+function resolveNumericRefsOrExit(
+    refs: string | undefined,
+    entityType: string,
+    resolver: (ref: string) => number,
+): number[] | undefined {
+    if (!refs) return undefined
+    try {
+        return refs.split(',').map((raw) => {
+            const ref = raw.trim()
+            if (!ref) {
+                throw new Error(`Invalid ${entityType} reference list: found empty value`)
+            }
+            return resolver(ref)
+        })
     } catch (e) {
         console.error((e as Error).message)
         process.exit(1)
@@ -54,16 +79,16 @@ async function search(
 
     const limit = options.limit ? parseInt(options.limit, 10) : 50
 
-    const channelIds = options.channel
-        ? options.channel.split(',').map((id) => parseInt(id.trim(), 10))
-        : undefined
+    const channelIds = resolveNumericRefsOrExit(options.channel, 'channel', resolveChannelId)
 
     const authorIds = await resolveUserRefsOrExit(options.author, workspaceId)
     const toUserIds = await resolveUserRefsOrExit(options.to, workspaceId)
 
-    const conversationIds = options.conversation
-        ? options.conversation.split(',').map((id) => parseInt(id.trim(), 10))
-        : undefined
+    const conversationIds = resolveNumericRefsOrExit(
+        options.conversation,
+        'conversation',
+        resolveConversationId,
+    )
 
     const response = await extendedSearch({
         workspaceId,
@@ -176,12 +201,12 @@ export function registerSearchCommand(program: Command): void {
         .command('search <query> [workspace-ref]')
         .description('Search content across a workspace')
         .option('--workspace <ref>', 'Workspace ID or name')
-        .option('--channel <channel-refs>', 'Filter by channels (comma-separated IDs)')
+        .option('--channel <channel-refs>', 'Filter by channels (comma-separated refs)')
         .option('--author <user-refs>', 'Filter by author (comma-separated IDs)')
         .option('--to <user-refs>', 'Messages sent TO user (comma-separated IDs)')
         .option('--type <type>', 'Filter: threads, messages, or all')
         .option('--title-only', 'Search in thread titles only')
-        .option('--conversation <refs>', 'Limit to conversations (comma-separated IDs)')
+        .option('--conversation <refs>', 'Limit to conversations (comma-separated refs)')
         .option('--mention-me', 'Only results mentioning current user')
         .option('--since <date>', 'Content from date')
         .option('--until <date>', 'Content until date')

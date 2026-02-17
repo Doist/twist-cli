@@ -55,11 +55,11 @@ tw thread view <ref> --since <date> # Comments newer than date
 tw thread view <ref> --raw       # Show raw markdown
 tw thread reply <ref> "content"  # Post a comment
 tw thread reply <ref> "content" --notify EVERYONE  # Notify all workspace members
-tw thread reply <ref> "content" --notify 123,456   # Notify specific user IDs
+tw thread reply <ref> "content" --notify 123,id:456   # Notify specific user IDs
 tw thread done <ref>             # Archive thread (mark done)
 \`\`\`
 
-Default \`--notify\` is EVERYONE_IN_THREAD. Options: EVERYONE, EVERYONE_IN_THREAD, or comma-separated user IDs.
+Default \`--notify\` is EVERYONE_IN_THREAD. Options: EVERYONE, EVERYONE_IN_THREAD, or comma-separated user ID refs.
 
 ## Conversations (DMs/Groups)
 
@@ -93,10 +93,10 @@ tw search "query" --author <ref> # Filter by author
 tw search "query" --to <ref>     # Messages sent to user
 tw search "query" --title-only   # Search thread titles only
 tw search "query" --mention-me   # Results mentioning current user
-tw search "query" --conversation <ids> # Limit to conversations (comma-separated)
+tw search "query" --conversation <refs> # Limit to conversations (comma-separated refs)
 tw search "query" --since <date> # Content from date
 tw search "query" --until <date> # Content until date
-tw search "query" --channel <id> # Filter by channel IDs (comma-separated)
+tw search "query" --channel <refs> # Filter by channel refs (comma-separated)
 tw search "query" --limit <n>    # Max results (default: 50)
 tw search "query" --cursor <cur> # Pagination cursor
 \`\`\`
@@ -113,10 +113,10 @@ tw channels                      # List workspace channels
 ## Reactions
 
 \`\`\`bash
-tw react thread <id> 👍          # Add reaction to thread
-tw react comment <id> +1         # Add reaction (shortcode)
-tw react message <id> heart      # Add reaction to DM message
-tw unreact thread <id> 👍        # Remove reaction
+tw react thread <ref> 👍         # Add reaction to thread
+tw react comment <ref> +1        # Add reaction (shortcode)
+tw react message <ref> heart     # Add reaction to DM message
+tw unreact thread <ref> 👍       # Remove reaction
 \`\`\`
 
 Supported shortcodes: +1, -1, heart, tada, smile, laughing, thinking, fire, check, x, eyes, pray, clap, rocket, wave

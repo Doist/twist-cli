@@ -1,17 +1,27 @@
 import type { Workspace } from '@doist/twist-sdk'
 import { fetchWorkspaces } from './api.js'
 
+function normalizeRef(ref: string): string {
+    return ref.trim()
+}
+
 export function isIdRef(ref: string): boolean {
-    return ref.startsWith('id:')
+    return normalizeRef(ref).startsWith('id:')
 }
 
 export function extractId(ref: string): number {
-    const idStr = ref.startsWith('id:') ? ref.slice(3) : ref
-    const id = parseInt(idStr, 10)
-    if (Number.isNaN(id)) {
+    const normalized = normalizeRef(ref)
+    const idStr = isIdRef(normalized) ? normalized.slice(3).trim() : normalized
+    if (!/^\d+$/.test(idStr)) {
         throw new Error(`Invalid ID: ${ref}`)
     }
-    return id
+    return Number(idStr)
+}
+
+export function looksLikeRawId(ref: string): boolean {
+    const normalized = normalizeRef(ref)
+    if (!normalized || normalized.includes(' ')) return false
+    return /^\d+$/.test(normalized) || (/[a-zA-Z]/.test(normalized) && /\d/.test(normalized))
 }
 
 export interface ParsedTwistUrl {
@@ -77,23 +87,24 @@ export function parseRef(
     | { type: 'id'; id: number }
     | { type: 'url'; parsed: ParsedTwistUrl }
     | { type: 'name'; name: string } {
-    if (isIdRef(ref)) {
-        return { type: 'id', id: extractId(ref) }
+    const normalized = normalizeRef(ref)
+
+    if (isIdRef(normalized)) {
+        return { type: 'id', id: extractId(normalized) }
     }
 
-    if (ref.startsWith('http://') || ref.startsWith('https://')) {
-        const parsed = parseTwistUrl(ref)
+    if (normalized.startsWith('http://') || normalized.startsWith('https://')) {
+        const parsed = parseTwistUrl(normalized)
         if (parsed) {
             return { type: 'url', parsed }
         }
     }
 
-    const bareId = parseInt(ref, 10)
-    if (!Number.isNaN(bareId) && String(bareId) === ref) {
-        return { type: 'id', id: bareId }
+    if (/^\d+$/.test(normalized)) {
+        return { type: 'id', id: Number(normalized) }
     }
 
-    return { type: 'name', name: ref }
+    return { type: 'name', name: normalized }
 }
 
 export async function resolveWorkspaceRef(ref: string): Promise<Workspace> {
@@ -146,7 +157,21 @@ export function resolveThreadId(ref: string): number {
         return parsed.parsed.threadId
     }
 
-    throw new Error(`Invalid thread reference: ${ref}. Use thread ID or Twist URL.`)
+    throw new Error(`Invalid thread reference: ${ref}. Use 123, id:123, or a Twist URL.`)
+}
+
+export function resolveChannelId(ref: string): number {
+    const parsed = parseRef(ref)
+
+    if (parsed.type === 'id') {
+        return parsed.id
+    }
+
+    if (parsed.type === 'url' && parsed.parsed.channelId) {
+        return parsed.parsed.channelId
+    }
+
+    throw new Error(`Invalid channel reference: ${ref}. Use 123, id:123, or a Twist URL.`)
 }
 
 export function resolveCommentId(ref: string): number {
@@ -160,7 +185,7 @@ export function resolveCommentId(ref: string): number {
         return parsed.parsed.commentId
     }
 
-    throw new Error(`Invalid comment reference: ${ref}. Use comment ID or Twist URL.`)
+    throw new Error(`Invalid comment reference: ${ref}. Use 123, id:123, or a Twist URL.`)
 }
 
 export function resolveConversationId(ref: string): number {
@@ -174,7 +199,7 @@ export function resolveConversationId(ref: string): number {
         return parsed.parsed.conversationId
     }
 
-    throw new Error(`Invalid conversation reference: ${ref}. Use conversation ID or Twist URL.`)
+    throw new Error(`Invalid conversation reference: ${ref}. Use 123, id:123, or a Twist URL.`)
 }
 
 export function resolveMessageId(ref: string): number {
@@ -188,7 +213,7 @@ export function resolveMessageId(ref: string): number {
         return parsed.parsed.messageId
     }
 
-    throw new Error(`Invalid message reference: ${ref}. Use message ID or Twist URL.`)
+    throw new Error(`Invalid message reference: ${ref}. Use 123, id:123, or a Twist URL.`)
 }
 
 export type TwistUrlRoute = {
