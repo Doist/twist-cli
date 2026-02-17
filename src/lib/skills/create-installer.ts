@@ -2,7 +2,7 @@ import { mkdir, rm, stat, writeFile } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { SKILL_FILE_CONTENT, SKILL_NAME } from './content.js'
-import type { InstallOptions, SkillInstaller, UninstallOptions } from './types.js'
+import type { InstallOptions, SkillInstaller, UninstallOptions, UpdateOptions } from './types.js'
 
 interface InstallerConfig {
     name: string
@@ -53,6 +53,17 @@ export function createInstaller(config: InstallerConfig): SkillInstaller {
             }
 
             await mkdir(dirname(skillPath), { recursive: true })
+            await writeFile(skillPath, SKILL_FILE_CONTENT)
+        },
+
+        async update(options: UpdateOptions): Promise<void> {
+            const skillPath = getInstallPath(options)
+            const exists = await this.isInstalled(options)
+
+            if (!exists) {
+                throw new Error(`Skill not installed at ${skillPath}`)
+            }
+
             await writeFile(skillPath, SKILL_FILE_CONTENT)
         },
 

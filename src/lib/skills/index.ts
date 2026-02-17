@@ -44,4 +44,10 @@ export async function listAgents(local: boolean): Promise<AgentInfo[]> {
     return agents
 }
 
-export type { AgentInfo, InstallOptions, SkillInstaller, UninstallOptions } from './types.js'
+export type {
+    AgentInfo,
+    InstallOptions,
+    SkillInstaller,
+    UninstallOptions,
+    UpdateOptions,
+} from './types.js'
