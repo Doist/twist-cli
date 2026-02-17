@@ -53,6 +53,10 @@ const commands: Record<string, [string, () => Promise<(p: Command) => void>]> = 
         'View a Twist entity by URL',
         async () => (await import('./commands/view.js')).registerViewCommand,
     ],
+    completion: [
+        'Manage shell completions',
+        async () => (await import('./commands/completion.js')).registerCompletionCommand,
+    ],
 }
 
 const commandAliases: Record<string, string> = {
@@ -88,26 +92,55 @@ for (const [name, [description]] of Object.entries(commands)) {
     }
 }
 
-// Detect which command is being invoked (resolve aliases first)
-const commandArg = process.argv
-    .slice(2)
-    .find((a) => !a.startsWith('-') && (a in commands || a in commandAliases))
-const commandName = commandArg ? (commandAliases[commandArg] ?? commandArg) : undefined
+// completion-server needs the command tree to walk for completions.
+// Only load the completion module + the specific command being completed
+// (extracted from COMP_LINE) to keep startup fast.
+if (process.argv[2] === 'completion-server') {
+    const { parseCompLine } = await import('./lib/completion.js')
+    const compWords = parseCompLine(process.env.COMP_LINE ?? '')
+    const compCmd = compWords.find(
+        (w) => !w.startsWith('-') && (w in commands || w in commandAliases),
+    )
+    const resolvedCompCmd = compCmd ? (commandAliases[compCmd] ?? compCmd) : undefined
 
-if (commandName && commands[commandName]) {
-    // Remove the placeholder so the real registration can take its place
-    const idx = program.commands.findIndex((c) => c.name() === commandName)
-    if (idx !== -1) (program.commands as Command[]).splice(idx, 1)
+    // If we can identify a known top-level command, load just that module.
+    // Otherwise load all modules so completion still works for commands that
+    // are registered indirectly by a module (e.g. users/channels/unreact).
+    const toLoad = resolvedCompCmd
+        ? ['completion', ...(resolvedCompCmd !== 'completion' ? [resolvedCompCmd] : [])]
+        : ['completion', ...Object.keys(commands).filter((name) => name !== 'completion')]
+    for (const name of toLoad) {
+        const idx = program.commands.findIndex((c) => c.name() === name)
+        if (idx !== -1) (program.commands as Command[]).splice(idx, 1)
+    }
+    await Promise.all(
+        toLoad.map(async (name) => {
+            const register = await commands[name][1]()
+            register(program)
+        }),
+    )
+} else {
+    // Detect which command is being invoked (resolve aliases first)
+    const commandArg = process.argv
+        .slice(2)
+        .find((a) => !a.startsWith('-') && (a in commands || a in commandAliases))
+    const commandName = commandArg ? (commandAliases[commandArg] ?? commandArg) : undefined
 
-    const loader = commands[commandName][1]
+    if (commandName && commands[commandName]) {
+        // Remove the placeholder so the real registration can take its place
+        const idx = program.commands.findIndex((c) => c.name() === commandName)
+        if (idx !== -1) (program.commands as Command[]).splice(idx, 1)
 
-    startEarlySpinner()
-    try {
-        const register = await loader()
-        register(program)
-    } catch (err) {
-        stopEarlySpinner()
-        throw err
+        const loader = commands[commandName][1]
+
+        startEarlySpinner()
+        try {
+            const register = await loader()
+            register(program)
+        } catch (err) {
+            stopEarlySpinner()
+            throw err
+        }
     }
 }
 
