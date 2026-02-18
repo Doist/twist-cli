@@ -3,7 +3,7 @@ import { getTwistClient } from '../lib/api.js'
 import { formatRelativeDate } from '../lib/dates.js'
 import { openEditor, readStdin } from '../lib/input.js'
 import { renderMarkdown } from '../lib/markdown.js'
-import { colors, formatJson } from '../lib/output.js'
+import { colors, formatJson, formatNdjson } from '../lib/output.js'
 import { resolveMessageId } from '../lib/refs.js'
 
 interface ViewOptions {
@@ -39,7 +39,8 @@ async function viewMessage(ref: string, options: ViewOptions): Promise<void> {
     }
 
     if (options.ndjson) {
-        console.log(JSON.stringify({ type: 'message', ...message, creatorName }))
+        const output = { ...message, creatorName }
+        console.log(formatNdjson([output], options.full ? undefined : 'message', options.full))
         return
     }
 
