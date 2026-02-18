@@ -2,14 +2,11 @@ import chalk from 'chalk'
 import { Command } from 'commander'
 import { fetchWorkspaces, getCurrentWorkspaceId } from '../lib/api.js'
 import { updateConfig } from '../lib/config.js'
+import type { ViewOptions } from '../lib/options.js'
 import { colors, formatJson, formatNdjson } from '../lib/output.js'
 import { resolveWorkspaceRef } from '../lib/refs.js'
 
-interface ListOptions {
-    json?: boolean
-    ndjson?: boolean
-    full?: boolean
-}
+type ListOptions = ViewOptions
 
 async function listWorkspaces(options: ListOptions): Promise<void> {
     const workspaces = await fetchWorkspaces()

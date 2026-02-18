@@ -2,20 +2,15 @@ import chalk from 'chalk'
 import { Command } from 'commander'
 import { getCurrentWorkspaceId, getTwistClient } from '../lib/api.js'
 import { formatRelativeDate } from '../lib/dates.js'
+import type { PaginatedViewOptions } from '../lib/options.js'
 import { colors, formatJson, formatNdjson } from '../lib/output.js'
 import { getPublicChannelIds, includePrivateChannels } from '../lib/public-channels.js'
 import { resolveWorkspaceRef } from '../lib/refs.js'
 
-interface InboxOptions {
+type InboxOptions = PaginatedViewOptions & {
     workspace?: string
     channel?: string
     unread?: boolean
-    since?: string
-    until?: string
-    limit?: string
-    json?: boolean
-    ndjson?: boolean
-    full?: boolean
 }
 
 async function showInbox(workspaceRef: string | undefined, options: InboxOptions): Promise<void> {

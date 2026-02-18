@@ -2,6 +2,7 @@ import { getFullTwistURL } from '@doist/twist-sdk'
 import { Command } from 'commander'
 import { getCurrentWorkspaceId } from '../lib/api.js'
 import { formatRelativeDate } from '../lib/dates.js'
+import type { PaginatedViewOptions } from '../lib/options.js'
 import { colors, formatJson } from '../lib/output.js'
 import { getPublicChannelIds, includePrivateChannels } from '../lib/public-channels.js'
 import { resolveUserRefs, resolveWorkspaceRef } from '../lib/refs.js'
@@ -20,7 +21,7 @@ async function resolveUserRefsOrExit(
     }
 }
 
-interface SearchOptions {
+type SearchOptions = PaginatedViewOptions & {
     workspace?: string
     channel?: string
     author?: string
@@ -29,13 +30,7 @@ interface SearchOptions {
     titleOnly?: boolean
     conversation?: string
     mentionMe?: boolean
-    since?: string
-    until?: string
-    limit?: string
     cursor?: string
-    json?: boolean
-    ndjson?: boolean
-    full?: boolean
 }
 
 async function search(

@@ -1,15 +1,11 @@
 import { Command } from 'commander'
 import { getCurrentWorkspaceId, getTwistClient } from '../lib/api.js'
+import type { ViewOptions } from '../lib/options.js'
 import { colors, formatJson, formatNdjson } from '../lib/output.js'
 import { includePrivateChannels } from '../lib/public-channels.js'
 import { resolveWorkspaceRef } from '../lib/refs.js'
 
-interface ChannelsOptions {
-    workspace?: string
-    json?: boolean
-    ndjson?: boolean
-    full?: boolean
-}
+type ChannelsOptions = ViewOptions & { workspace?: string }
 
 async function listChannels(
     workspaceRef: string | undefined,

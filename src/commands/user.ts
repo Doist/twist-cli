@@ -1,16 +1,11 @@
 import chalk from 'chalk'
 import { Command } from 'commander'
 import { getCurrentWorkspaceId, getSessionUser, getWorkspaceUsers } from '../lib/api.js'
+import type { ViewOptions } from '../lib/options.js'
 import { colors, formatJson, formatNdjson } from '../lib/output.js'
 import { resolveWorkspaceRef } from '../lib/refs.js'
 
-interface UsersOptions {
-    workspace?: string
-    search?: string
-    json?: boolean
-    ndjson?: boolean
-    full?: boolean
-}
+type UsersOptions = ViewOptions & { workspace?: string; search?: string }
 
 async function showCurrentUser(): Promise<void> {
     const user = await getSessionUser()
