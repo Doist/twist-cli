@@ -50,12 +50,25 @@ Default \`--notify\` is EVERYONE_IN_THREAD. Options: EVERYONE, EVERYONE_IN_THREA
 ## Conversations (DMs/Groups)
 
 \`\`\`bash
-tw msg unread                    # List unread conversations
-tw msg <conversation-ref>        # View conversation (shorthand for view)
-tw msg view <conversation-ref>   # View conversation messages
-tw msg reply <ref> "content"     # Send a message
-tw msg done <ref>                # Archive conversation
+tw conversation unread                    # List unread conversations
+tw conversation <conversation-ref>        # View conversation (shorthand for view)
+tw conversation view <conversation-ref>   # View conversation messages
+tw conversation reply <ref> "content"     # Send a message
+tw conversation done <ref>                # Archive conversation
 \`\`\`
+
+Alias: \`tw convo\` works the same as \`tw conversation\`.
+
+## Conversation Messages
+
+\`\`\`bash
+tw msg <message-ref>             # View a message (shorthand for view)
+tw msg view <message-ref>        # View a single conversation message
+tw msg update <ref> "content"    # Edit a conversation message
+tw msg delete <ref>              # Delete a conversation message
+\`\`\`
+
+Alias: \`tw message\` works the same as \`tw msg\`.
 
 ## Search
 
@@ -136,9 +149,9 @@ tw thread view <thread-id>
 
 **Check DMs:**
 \`\`\`bash
-tw msg unread --json
-tw msg view <conversation-id>
-tw msg reply <id> "Got it, thanks!"
+tw conversation unread --json
+tw conversation view <conversation-id>
+tw conversation reply <id> "Got it, thanks!"
 \`\`\`
 `
 

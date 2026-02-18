@@ -44,6 +44,7 @@ const API_SPINNER_MESSAGES: Record<string, { text: string; color?: 'blue' | 'gre
         },
 
         // Conversation message operations
+        'conversationMessages.getMessage': { text: 'Loading message...', color: 'blue' },
         'conversationMessages.getMessages': { text: 'Loading messages...', color: 'blue' },
         'conversationMessages.createMessage': { text: 'Sending message...', color: 'green' },
         'conversationMessages.updateMessage': { text: 'Updating message...', color: 'yellow' },
