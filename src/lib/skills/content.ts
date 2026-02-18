@@ -17,6 +17,20 @@ tw workspaces                    # List available workspaces
 tw workspace use <ref>           # Set current workspace
 \`\`\`
 
+## View by URL
+
+\`\`\`bash
+tw view <url>                    # View any Twist entity by URL
+\`\`\`
+
+Routes automatically based on URL structure:
+- Message URL → \`tw msg view\`
+- Conversation URL → \`tw conversation view\`
+- Thread+comment URL → \`tw thread view\` (comment ID extracted from URL)
+- Thread URL → \`tw thread view\`
+
+All target command flags pass through (e.g. \`--json\`, \`--raw\`, \`--full\`).
+
 ## Inbox
 
 \`\`\`bash
@@ -132,6 +146,14 @@ Commands accept flexible references:
 - **Fuzzy names**: For workspaces/users - \`"My Workspace"\` or partial matches
 
 ## Common Workflows
+
+**View by URL (auto-routes to the right command):**
+\`\`\`bash
+tw view https://twist.com/a/1585/ch/100/t/200          # View thread
+tw view https://twist.com/a/1585/ch/100/t/200/c/300     # View comment
+tw view https://twist.com/a/1585/msg/400                 # View conversation
+tw view https://twist.com/a/1585/msg/400/m/500 --json    # View message as JSON
+\`\`\`
 
 **Check inbox and respond:**
 \`\`\`bash

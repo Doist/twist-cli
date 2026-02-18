@@ -49,6 +49,10 @@ const commands: Record<string, [string, () => Promise<(p: Command) => void>]> = 
         'Manage agent skill integrations',
         async () => (await import('./commands/skill.js')).registerSkillCommand,
     ],
+    view: [
+        'View a Twist entity by URL',
+        async () => (await import('./commands/view.js')).registerViewCommand,
+    ],
 }
 
 const commandAliases: Record<string, string> = {
