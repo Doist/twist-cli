@@ -21,7 +21,8 @@ src/
 ├── commands/                # Command implementations
 │   ├── inbox.ts            # Inbox threads
 │   ├── thread.ts           # Thread view, reply, done
-│   ├── msg.ts              # Conversations (DMs/group messages)
+│   ├── conversation.ts     # Conversations (DMs/group messages)
+│   ├── msg.ts              # Conversation message operations
 │   ├── workspace.ts        # Workspace listing and selection
 │   ├── user.ts             # User info/listing
 │   ├── search.ts           # Content search
@@ -206,11 +207,11 @@ Options:
 
 ---
 
-### Message (Conversation) Commands
+### Conversation Commands
 
-Using `msg` instead of `dm` because conversations can be group chats, not just direct messages.
+Alias: `convo`. Conversations are DM/group containers.
 
-#### `tw msg unread [workspace-ref]`
+#### `tw conversation unread [workspace-ref]`
 
 List unread conversations.
 
@@ -228,7 +229,7 @@ Output format:
 - URL on second line
 - No message preview (privacy)
 
-#### `tw msg view <conversation-ref>`
+#### `tw conversation view <conversation-ref>`
 
 Display a conversation with its messages.
 
@@ -244,7 +245,7 @@ Options:
 - `--raw` - Show raw markdown instead of rendered
 - `--json` / `--ndjson` - Machine-readable output
 
-#### `tw msg reply <conversation-ref> [content]`
+#### `tw conversation reply <conversation-ref> [content]`
 
 Send a message in a conversation.
 
@@ -263,13 +264,59 @@ Output:
 
 - Minimal confirmation with message-specific URL
 
-#### `tw msg done <conversation-ref>`
+#### `tw conversation done <conversation-ref>`
 
 Archive a conversation.
 
 Arguments:
 
 - `conversation-ref` - Conversation ID or Twist URL
+
+Options:
+
+- `--dry-run` - Show what would happen without executing
+
+---
+
+### Conversation Message Commands
+
+Alias: `message`. Operations on individual messages within conversations.
+
+#### `tw msg view <message-ref>`
+
+View a single conversation message.
+
+Arguments:
+
+- `message-ref` - Message ID or Twist URL
+
+Options:
+
+- `--raw` - Show raw markdown instead of rendered
+- `--json` / `--ndjson` - Machine-readable output
+
+#### `tw msg update <message-ref> [content]`
+
+Edit a conversation message.
+
+Arguments:
+
+- `message-ref` - Message ID or Twist URL
+- `content` - New message content (optional if using stdin or editor)
+
+Content input: Same as `tw thread reply` (stdin → arg → $EDITOR)
+
+Options:
+
+- `--dry-run` - Show what would be updated without updating
+
+#### `tw msg delete <message-ref>`
+
+Delete a conversation message.
+
+Arguments:
+
+- `message-ref` - Message ID or Twist URL
 
 Options:
 
@@ -452,11 +499,11 @@ tw thread reply id:123456  # opens $EDITOR
 tw thread done id:123456
 
 # List unread conversations
-tw msg unread
+tw conversation unread
 
 # View and reply to a conversation
-tw msg view id:456789
-tw msg reply id:456789 "Thanks!"
+tw conversation view id:456789
+tw conversation reply id:456789 "Thanks!"
 
 # Search
 tw search "quarterly report"
@@ -485,7 +532,7 @@ tw search "project" --ndjson
 ## Not in MVP (Future Considerations)
 
 - `tw thread create` - Create new threads
-- `tw msg start` - Start new conversations
+- `tw conversation start` - Start new conversations
 - `tw thread done --all` - Bulk archive
 - `tw link` command - URLs shown in output instead
 - `tw open` - Open in browser

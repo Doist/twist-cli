@@ -39,8 +39,9 @@ tw inbox --unread                  # unread threads only
 tw thread view <thread-ref>        # view thread with comments
 tw thread view <ref> --comment 123 # view a specific comment
 tw thread reply <thread-ref>       # reply to a thread
-tw msg list                        # list conversations
-tw msg view <conversation-ref>     # view conversation messages
+tw conversation unread              # list unread conversations
+tw conversation view <ref>         # view conversation messages
+tw msg view <message-ref>          # view a conversation message
 tw search "keyword"                # search across workspace
 tw react thread <ref> 👍           # add reaction
 ```

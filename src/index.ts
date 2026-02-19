@@ -25,8 +25,12 @@ const commands: Record<string, [string, () => Promise<(p: Command) => void>]> = 
         'Thread operations',
         async () => (await import('./commands/thread.js')).registerThreadCommand,
     ],
-    msg: [
+    conversation: [
         'Conversation (DM/group) operations',
+        async () => (await import('./commands/conversation.js')).registerConversationCommand,
+    ],
+    msg: [
+        'Conversation message operations (view, update, delete)',
         async () => (await import('./commands/msg.js')).registerMsgCommand,
     ],
     search: [
@@ -45,6 +49,11 @@ const commands: Record<string, [string, () => Promise<(p: Command) => void>]> = 
         'Manage agent skill integrations',
         async () => (await import('./commands/skill.js')).registerSkillCommand,
     ],
+}
+
+const commandAliases: Record<string, string> = {
+    convo: 'conversation',
+    message: 'msg',
 }
 
 program
@@ -67,11 +76,19 @@ Note for AI/LLM agents:
 
 // Register lightweight placeholders so --help lists all commands
 for (const [name, [description]] of Object.entries(commands)) {
-    program.command(name).description(description)
+    const cmd = program.command(name).description(description)
+    // Add aliases to placeholder commands so --help shows them
+    const alias = Object.entries(commandAliases).find(([, target]) => target === name)?.[0]
+    if (alias) {
+        cmd.alias(alias)
+    }
 }
 
-// Detect which command is being invoked
-const commandName = process.argv.slice(2).find((a) => !a.startsWith('-') && a in commands)
+// Detect which command is being invoked (resolve aliases first)
+const commandArg = process.argv
+    .slice(2)
+    .find((a) => !a.startsWith('-') && (a in commands || a in commandAliases))
+const commandName = commandArg ? (commandAliases[commandArg] ?? commandArg) : undefined
 
 if (commandName && commands[commandName]) {
     // Remove the placeholder so the real registration can take its place

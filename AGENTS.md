@@ -49,7 +49,7 @@ This is a TypeScript CLI (`tw`) for Twist messaging, built with Commander.js.
 
 ## Key Patterns
 
-- **Implicit view subcommand**: `tw thread <ref>` defaults to `tw thread view <ref>` via Commander's `{ isDefault: true }`. Same for `msg`. Edge case: if a ref matches a subcommand name (e.g., "reply"), the subcommand wins — user must use `tw thread view reply`
+- **Implicit view subcommand**: `tw thread <ref>` defaults to `tw thread view <ref>` via Commander's `{ isDefault: true }`. Same for `conversation` and `msg`. Edge case: if a ref matches a subcommand name (e.g., "reply"), the subcommand wins — user must use `tw thread view reply`
 - **Named flag aliases**: Where commands accept positional `[workspace-ref]`, the `--workspace` flag is also accepted. Error if both positional and flag are provided
 
 ## Pre-commit Hooks
