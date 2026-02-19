@@ -4,8 +4,6 @@ A command-line interface for Twist.
 
 ## Installation
 
-> **Note**: This package is not yet published to npm. Once published, install with:
->
 > ```bash
 > npm install -g @doist/twist-cli
 > ```
@@ -33,17 +31,16 @@ tw auth login
 ## Usage
 
 ```bash
-tw workspaces                      # list all workspaces
 tw inbox                           # inbox threads
 tw inbox --unread                  # unread threads only
-tw thread view <thread-ref>        # view thread with comments
+tw thread view <ref>               # view thread with comments
 tw thread view <ref> --comment 123 # view a specific comment
-tw thread reply <thread-ref>       # reply to a thread
-tw conversation unread              # list unread conversations
+tw thread reply <ref>              # reply to a thread
+tw conversation unread             # list unread conversations
 tw conversation view <ref>         # view conversation messages
-tw msg view <message-ref>          # view a conversation message
+tw msg view <ref>                  # view a conversation message
 tw search "keyword"                # search across workspace
-tw react thread <ref> 👍           # add reaction
+tw react thread <ref> 👍          # add reaction
 ```
 
 References accept IDs (`123` or `id:123`), Twist URLs, or fuzzy names (for workspaces/users).

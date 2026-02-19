@@ -4,33 +4,17 @@ import { getCurrentWorkspaceId, getTwistClient } from '../lib/api.js'
 import { formatRelativeDate } from '../lib/dates.js'
 import { openEditor, readStdin } from '../lib/input.js'
 import { renderMarkdown } from '../lib/markdown.js'
+import type { MutationOptions, PaginatedViewOptions, ViewOptions } from '../lib/options.js'
 import { colors, formatJson, formatNdjson } from '../lib/output.js'
 import { resolveConversationId, resolveWorkspaceRef } from '../lib/refs.js'
 
-interface UnreadOptions {
-    workspace?: string
-    json?: boolean
-    ndjson?: boolean
-    full?: boolean
-}
+type UnreadOptions = ViewOptions & { workspace?: string }
 
-interface ViewOptions {
-    limit?: string
-    since?: string
-    until?: string
-    raw?: boolean
-    json?: boolean
-    ndjson?: boolean
-    full?: boolean
-}
+type ConversationViewOptions = PaginatedViewOptions
 
-interface ReplyOptions {
-    dryRun?: boolean
-}
+type ReplyOptions = MutationOptions
 
-interface DoneOptions {
-    dryRun?: boolean
-}
+type DoneOptions = MutationOptions
 
 async function showUnread(workspaceRef: string | undefined, options: UnreadOptions): Promise<void> {
     if (workspaceRef && options.workspace) {
@@ -104,7 +88,7 @@ async function showUnread(workspaceRef: string | undefined, options: UnreadOptio
     }
 }
 
-async function viewConversation(ref: string, options: ViewOptions): Promise<void> {
+async function viewConversation(ref: string, options: ConversationViewOptions): Promise<void> {
     const conversationId = resolveConversationId(ref)
     const client = await getTwistClient()
     const limit = options.limit ? parseInt(options.limit, 10) : 50

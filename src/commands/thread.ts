@@ -5,31 +5,16 @@ import { getTwistClient } from '../lib/api.js'
 import { formatRelativeDate } from '../lib/dates.js'
 import { openEditor, readStdin } from '../lib/input.js'
 import { renderMarkdown } from '../lib/markdown.js'
+import type { MutationOptions, PaginatedViewOptions } from '../lib/options.js'
 import { colors, formatJson } from '../lib/output.js'
 import { assertChannelIsPublic } from '../lib/public-channels.js'
 import { extractId, parseRef, resolveThreadId } from '../lib/refs.js'
 
-interface ViewOptions {
-    comment?: string
-    limit?: string
-    since?: string
-    until?: string
-    raw?: boolean
-    json?: boolean
-    ndjson?: boolean
-    full?: boolean
-    unread?: boolean
-    context?: string
-}
+type ViewOptions = PaginatedViewOptions & { comment?: string; unread?: boolean; context?: string }
 
-interface ReplyOptions {
-    dryRun?: boolean
-    notify?: string
-}
+type ReplyOptions = MutationOptions & { notify?: string }
 
-interface DoneOptions {
-    dryRun?: boolean
-}
+type DoneOptions = MutationOptions
 
 function printSeparator(label: string): void {
     const totalWidth = 60

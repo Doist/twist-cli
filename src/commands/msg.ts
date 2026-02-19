@@ -3,23 +3,13 @@ import { getTwistClient } from '../lib/api.js'
 import { formatRelativeDate } from '../lib/dates.js'
 import { openEditor, readStdin } from '../lib/input.js'
 import { renderMarkdown } from '../lib/markdown.js'
+import type { MutationOptions, ViewOptions } from '../lib/options.js'
 import { colors, formatJson, formatNdjson } from '../lib/output.js'
 import { resolveMessageId } from '../lib/refs.js'
 
-interface ViewOptions {
-    raw?: boolean
-    json?: boolean
-    ndjson?: boolean
-    full?: boolean
-}
+type UpdateOptions = MutationOptions
 
-interface UpdateOptions {
-    dryRun?: boolean
-}
-
-interface DeleteOptions {
-    dryRun?: boolean
-}
+type DeleteOptions = MutationOptions
 
 async function viewMessage(ref: string, options: ViewOptions): Promise<void> {
     const messageId = resolveMessageId(ref)

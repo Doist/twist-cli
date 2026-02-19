@@ -1,11 +1,11 @@
 import { Command } from 'commander'
 import { getTwistClient } from '../lib/api.js'
 
+import type { MutationOptions } from '../lib/options.js'
+
 type TargetType = 'thread' | 'comment' | 'message'
 
-interface ReactOptions {
-    dryRun?: boolean
-}
+type ReactOptions = MutationOptions
 
 function parseTargetId(ref: string): number {
     const id = ref.startsWith('id:') ? ref.slice(3) : ref
