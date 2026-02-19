@@ -1,3 +1,10 @@
+# [2.1.0](https://github.com/Doist/twist-cli/compare/v2.0.0...v2.1.0) (2026-02-19)
+
+
+### Features
+
+* add `tw view <url>` router command ([#42](https://github.com/Doist/twist-cli/issues/42)) ([b5263fa](https://github.com/Doist/twist-cli/commit/b5263faaded723964b7c65f50a2efac78d491288))
+
 # [2.0.0](https://github.com/Doist/twist-cli/compare/v1.11.0...v2.0.0) (2026-02-19)
 
 
