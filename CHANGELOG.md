@@ -1,3 +1,28 @@
+# [2.0.0](https://github.com/Doist/twist-cli/compare/v1.11.0...v2.0.0) (2026-02-19)
+
+
+* feat!: rename `tw msg` to `tw conversation`, repurpose `tw msg` for message operations ([#41](https://github.com/Doist/twist-cli/issues/41)) ([786e97a](https://github.com/Doist/twist-cli/commit/786e97a6d20572a8edb5beccb233c93f9091c38b))
+
+
+### BREAKING CHANGES
+
+* `tw msg` no longer operates on conversations. Use `tw conversation`
+(alias: `convo`) for conversation-level operations (unread, view, reply, done).
+`tw msg` (alias: `message`) now operates on individual conversation messages
+(view, update, delete).
+
+Also adds alias support to the lazy-loading system and a missing spinner entry
+for `conversationMessages.getMessage`.
+
+Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
+
+* fix: apply field filtering to ndjson output in msg view
+
+Ensures --ndjson applies the same essential field filtering as --json,
+as flagged in PR review.
+
+Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
+
 # [1.11.0](https://github.com/Doist/twist-cli/compare/v1.10.1...v1.11.0) (2026-02-17)
 
 
