@@ -191,6 +191,23 @@ export function resolveMessageId(ref: string): number {
     throw new Error(`Invalid message reference: ${ref}. Use message ID or Twist URL.`)
 }
 
+export type TwistUrlRoute = {
+    entityType: 'message' | 'conversation' | 'comment' | 'thread'
+    url: string
+}
+
+export function classifyTwistUrl(url: string): TwistUrlRoute | null {
+    const parsed = parseTwistUrl(url)
+    if (!parsed) return null
+
+    if (parsed.messageId) return { entityType: 'message', url }
+    if (parsed.conversationId && !parsed.messageId) return { entityType: 'conversation', url }
+    if (parsed.commentId) return { entityType: 'comment', url }
+    if (parsed.threadId && !parsed.commentId) return { entityType: 'thread', url }
+
+    return null
+}
+
 export async function resolveUserRefs(refs: string, workspaceId: number): Promise<number[]> {
     const { getWorkspaceUsers } = await import('./api.js')
     const users = await getWorkspaceUsers(workspaceId)

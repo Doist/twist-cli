@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+    classifyTwistUrl,
     extractId,
     isIdRef,
     parseRef,
@@ -156,5 +157,51 @@ describe('resolveMessageId', () => {
 
     it('resolves message URLs', () => {
         expect(resolveMessageId('https://twist.com/a/12345/msg/333/m/444')).toBe(444)
+    })
+})
+
+describe('classifyTwistUrl', () => {
+    it('classifies thread URL', () => {
+        expect(classifyTwistUrl('https://twist.com/a/20/ch/100/t/200')).toEqual({
+            entityType: 'thread',
+            url: 'https://twist.com/a/20/ch/100/t/200',
+        })
+    })
+
+    it('classifies thread+comment URL as comment', () => {
+        expect(classifyTwistUrl('https://twist.com/a/20/ch/100/t/200/c/300')).toEqual({
+            entityType: 'comment',
+            url: 'https://twist.com/a/20/ch/100/t/200/c/300',
+        })
+    })
+
+    it('classifies conversation URL', () => {
+        expect(classifyTwistUrl('https://twist.com/a/20/msg/400')).toEqual({
+            entityType: 'conversation',
+            url: 'https://twist.com/a/20/msg/400',
+        })
+    })
+
+    it('classifies message URL', () => {
+        expect(classifyTwistUrl('https://twist.com/a/20/msg/400/m/500')).toEqual({
+            entityType: 'message',
+            url: 'https://twist.com/a/20/msg/400/m/500',
+        })
+    })
+
+    it('returns null for workspace-only URL', () => {
+        expect(classifyTwistUrl('https://twist.com/a/20')).toBeNull()
+    })
+
+    it('returns null for channel-only URL', () => {
+        expect(classifyTwistUrl('https://twist.com/a/20/ch/100')).toBeNull()
+    })
+
+    it('returns null for non-Twist URL', () => {
+        expect(classifyTwistUrl('https://google.com/a/20/t/200')).toBeNull()
+    })
+
+    it('returns null for invalid string', () => {
+        expect(classifyTwistUrl('not-a-url')).toBeNull()
     })
 })
