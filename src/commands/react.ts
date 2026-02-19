@@ -1,8 +1,7 @@
 import { Command } from 'commander'
 import { getTwistClient } from '../lib/api.js'
-import { resolveCommentId, resolveMessageId, resolveThreadId } from '../lib/refs.js'
-
 import type { MutationOptions } from '../lib/options.js'
+import { resolveCommentId, resolveMessageId, resolveThreadId } from '../lib/refs.js'
 
 type TargetType = 'thread' | 'comment' | 'message'
 
