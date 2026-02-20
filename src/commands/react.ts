@@ -1,19 +1,20 @@
 import { Command } from 'commander'
 import { getTwistClient } from '../lib/api.js'
-
 import type { MutationOptions } from '../lib/options.js'
+import { resolveCommentId, resolveMessageId, resolveThreadId } from '../lib/refs.js'
 
 type TargetType = 'thread' | 'comment' | 'message'
 
 type ReactOptions = MutationOptions
 
-function parseTargetId(ref: string): number {
-    const id = ref.startsWith('id:') ? ref.slice(3) : ref
-    const parsed = parseInt(id, 10)
-    if (Number.isNaN(parsed)) {
-        throw new Error(`Invalid ID: ${ref}`)
+function resolveTargetId(targetType: TargetType, targetRef: string): number {
+    if (targetType === 'thread') {
+        return resolveThreadId(targetRef)
     }
-    return parsed
+    if (targetType === 'comment') {
+        return resolveCommentId(targetRef)
+    }
+    return resolveMessageId(targetRef)
 }
 
 function normalizeEmoji(emoji: string): string {
@@ -44,7 +45,7 @@ async function addReaction(
     emoji: string,
     options: ReactOptions,
 ): Promise<void> {
-    const targetId = parseTargetId(targetRef)
+    const targetId = resolveTargetId(targetType, targetRef)
     const normalizedEmoji = normalizeEmoji(emoji)
 
     if (options.dryRun) {
@@ -77,7 +78,7 @@ async function removeReaction(
     emoji: string,
     options: ReactOptions,
 ): Promise<void> {
-    const targetId = parseTargetId(targetRef)
+    const targetId = resolveTargetId(targetType, targetRef)
     const normalizedEmoji = normalizeEmoji(emoji)
 
     if (options.dryRun) {

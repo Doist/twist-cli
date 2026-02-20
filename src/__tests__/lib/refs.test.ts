@@ -3,8 +3,10 @@ import {
     classifyTwistUrl,
     extractId,
     isIdRef,
+    looksLikeRawId,
     parseRef,
     parseTwistUrl,
+    resolveChannelId,
     resolveCommentId,
     resolveConversationId,
     resolveMessageId,
@@ -34,9 +36,30 @@ describe('extractId', () => {
         expect(extractId('123')).toBe(123)
     })
 
+    it('accepts whitespace around IDs', () => {
+        expect(extractId(' 123 ')).toBe(123)
+        expect(extractId('id: 456')).toBe(456)
+    })
+
     it('throws on invalid input', () => {
         expect(() => extractId('invalid')).toThrow('Invalid ID')
         expect(() => extractId('id:abc')).toThrow('Invalid ID')
+        expect(() => extractId('id:123abc')).toThrow('Invalid ID')
+    })
+})
+
+describe('looksLikeRawId', () => {
+    it('detects numeric strings', () => {
+        expect(looksLikeRawId('123456')).toBe(true)
+    })
+
+    it('detects alphanumeric strings', () => {
+        expect(looksLikeRawId('abc123')).toBe(true)
+    })
+
+    it('rejects plain names and spaces', () => {
+        expect(looksLikeRawId('workspace')).toBe(false)
+        expect(looksLikeRawId('workspace one')).toBe(false)
     })
 })
 
@@ -106,6 +129,11 @@ describe('parseRef', () => {
     it('parses names', () => {
         expect(parseRef('My Workspace')).toEqual({ type: 'name', name: 'My Workspace' })
     })
+
+    it('trims surrounding whitespace', () => {
+        expect(parseRef(' 456 ')).toEqual({ type: 'id', id: 456 })
+        expect(parseRef('  My Workspace  ')).toEqual({ type: 'name', name: 'My Workspace' })
+    })
 })
 
 describe('resolveThreadId', () => {
@@ -137,6 +165,16 @@ describe('resolveCommentId', () => {
 
     it('resolves comment URLs', () => {
         expect(resolveCommentId('https://twist.com/a/12345/ch/67890/t/111/c/222')).toBe(222)
+    })
+})
+
+describe('resolveChannelId', () => {
+    it('resolves id: refs', () => {
+        expect(resolveChannelId('id:67890')).toBe(67890)
+    })
+
+    it('resolves channel URLs', () => {
+        expect(resolveChannelId('https://twist.com/a/12345/ch/67890')).toBe(67890)
     })
 })
 

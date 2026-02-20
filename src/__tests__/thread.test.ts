@@ -13,6 +13,11 @@ vi.mock('../lib/markdown.js', () => ({
     renderMarkdown: vi.fn((text: string) => text),
 }))
 
+vi.mock('../lib/input.js', () => ({
+    readStdin: vi.fn().mockResolvedValue(''),
+    openEditor: vi.fn().mockResolvedValue(''),
+}))
+
 vi.mock('chalk', () => ({
     default: {
         bold: Object.assign(
@@ -50,6 +55,26 @@ describe('thread implicit view', () => {
             'MOCK_API_REACHED',
         )
 
+        consoleSpy.mockRestore()
+    })
+
+    it('accepts id: prefixes in --notify for thread reply', async () => {
+        const program = createProgram()
+        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+        await program.parseAsync([
+            'node',
+            'tw',
+            'thread',
+            'reply',
+            '100',
+            'hello',
+            '--notify',
+            'id:123,456',
+            '--dry-run',
+        ])
+
+        expect(consoleSpy).toHaveBeenCalledWith('Dry run: would post comment to thread', 100)
         consoleSpy.mockRestore()
     })
 })

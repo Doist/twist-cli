@@ -288,13 +288,20 @@ async function replyToThread(
     if (notifyValue === 'EVERYONE' || notifyValue === 'EVERYONE_IN_THREAD') {
         recipients = notifyValue
     } else {
-        recipients = notifyValue.split(',').map((id) => {
-            const trimmed = id.trim()
-            if (!/^\d+$/.test(trimmed)) {
-                console.error(`Invalid user ID: ${trimmed}`)
+        recipients = notifyValue.split(',').map((userRef) => {
+            const trimmed = userRef.trim()
+            if (!trimmed) {
+                console.error('Invalid user reference list: found empty value')
                 process.exit(1)
+                return 0
             }
-            return Number(trimmed)
+            try {
+                return extractId(trimmed)
+            } catch {
+                console.error(`Invalid user reference: ${trimmed}. Use 123 or id:123`)
+                process.exit(1)
+                return 0
+            }
         })
     }
 
