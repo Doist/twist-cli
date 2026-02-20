@@ -1,3 +1,10 @@
+# [2.2.0](https://github.com/Doist/twist-cli/compare/v2.1.0...v2.2.0) (2026-02-20)
+
+
+### Features
+
+* Improve lenient reference handling across CLI commands ([#38](https://github.com/Doist/twist-cli/issues/38)) ([bbf3a9b](https://github.com/Doist/twist-cli/commit/bbf3a9b550a3cf2f03299d2c81ab2d440d016291))
+
 # [2.1.0](https://github.com/Doist/twist-cli/compare/v2.0.0...v2.1.0) (2026-02-19)
 
 
