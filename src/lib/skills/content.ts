@@ -15,6 +15,7 @@ tw auth status                   # Verify authentication
 tw auth logout                   # Remove saved token
 tw workspaces                    # List available workspaces
 tw workspace use <ref>           # Set current workspace
+tw completion install            # Install shell completions
 \`\`\`
 
 ## View by URL
@@ -120,6 +121,16 @@ tw unreact thread <ref> 👍       # Remove reaction
 \`\`\`
 
 Supported shortcodes: +1, -1, heart, tada, smile, laughing, thinking, fire, check, x, eyes, pray, clap, rocket, wave
+
+## Shell Completions
+
+\`\`\`bash
+tw completion install            # Install tab completions (prompts for shell)
+tw completion install bash       # Install for specific shell
+tw completion install zsh
+tw completion install fish
+tw completion uninstall          # Remove completions
+\`\`\`
 
 ## Global Options
 

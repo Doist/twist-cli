@@ -1,7 +1,8 @@
 import type { TwistApi } from '@doist/twist-sdk'
 import chalk from 'chalk'
-import { Command } from 'commander'
+import { Command, Option } from 'commander'
 import { getTwistClient } from '../lib/api.js'
+import { withUnvalidatedChoices } from '../lib/completion.js'
 import { formatRelativeDate } from '../lib/dates.js'
 import { openEditor, readStdin } from '../lib/input.js'
 import { renderMarkdown } from '../lib/markdown.js'
@@ -367,9 +368,14 @@ export function registerThreadCommand(program: Command): void {
     thread
         .command('reply <thread-ref> [content]')
         .description('Post a comment to a thread')
-        .option(
-            '--notify <recipients>',
-            'Notification recipients: EVERYONE, EVERYONE_IN_THREAD, or comma-separated user IDs (default: EVERYONE_IN_THREAD)',
+        .addOption(
+            withUnvalidatedChoices(
+                new Option(
+                    '--notify <recipients>',
+                    'Notification recipients: EVERYONE, EVERYONE_IN_THREAD, or comma-separated user IDs (default: EVERYONE_IN_THREAD)',
+                ),
+                ['EVERYONE', 'EVERYONE_IN_THREAD'],
+            ),
         )
         .option('--dry-run', 'Show what would be posted without posting')
         .action(replyToThread)

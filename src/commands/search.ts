@@ -1,6 +1,7 @@
 import { getFullTwistURL } from '@doist/twist-sdk'
-import { Command } from 'commander'
+import { Command, Option } from 'commander'
 import { getCurrentWorkspaceId } from '../lib/api.js'
+import { withCaseInsensitiveChoices } from '../lib/completion.js'
 import { formatRelativeDate } from '../lib/dates.js'
 import type { PaginatedViewOptions } from '../lib/options.js'
 import { colors, formatJson } from '../lib/output.js'
@@ -204,7 +205,12 @@ export function registerSearchCommand(program: Command): void {
         .option('--channel <channel-refs>', 'Filter by channels (comma-separated refs)')
         .option('--author <user-refs>', 'Filter by author (comma-separated IDs)')
         .option('--to <user-refs>', 'Messages sent TO user (comma-separated IDs)')
-        .option('--type <type>', 'Filter: threads, messages, or all')
+        .addOption(
+            withCaseInsensitiveChoices(
+                new Option('--type <type>', 'Filter: threads, messages, or all'),
+                ['threads', 'messages', 'all'],
+            ),
+        )
         .option('--title-only', 'Search in thread titles only')
         .option('--conversation <refs>', 'Limit to conversations (comma-separated refs)')
         .option('--mention-me', 'Only results mentioning current user')

@@ -4,55 +4,41 @@ import { type Command, program } from 'commander'
 import pkg from '../package.json' with { type: 'json' }
 import { startEarlySpinner, stopEarlySpinner } from './lib/spinner.js'
 
+const loadWorkspaceCommand = async () =>
+    (await import('./commands/workspace.js')).registerWorkspaceCommand
+const loadUserCommand = async () => (await import('./commands/user.js')).registerUserCommand
+const loadChannelCommand = async () =>
+    (await import('./commands/channel.js')).registerChannelCommand
+const loadInboxCommand = async () => (await import('./commands/inbox.js')).registerInboxCommand
+const loadThreadCommand = async () => (await import('./commands/thread.js')).registerThreadCommand
+const loadConversationCommand = async () =>
+    (await import('./commands/conversation.js')).registerConversationCommand
+const loadMsgCommand = async () => (await import('./commands/msg.js')).registerMsgCommand
+const loadSearchCommand = async () => (await import('./commands/search.js')).registerSearchCommand
+const loadReactCommand = async () => (await import('./commands/react.js')).registerReactCommand
+const loadAuthCommand = async () => (await import('./commands/auth.js')).registerAuthCommand
+const loadSkillCommand = async () => (await import('./commands/skill.js')).registerSkillCommand
+const loadViewCommand = async () => (await import('./commands/view.js')).registerViewCommand
+const loadCompletionCommand = async () =>
+    (await import('./commands/completion.js')).registerCompletionCommand
+
 const commands: Record<string, [string, () => Promise<(p: Command) => void>]> = {
-    workspace: [
-        'Manage workspace',
-        async () => (await import('./commands/workspace.js')).registerWorkspaceCommand,
-    ],
-    user: [
-        'Show current user info',
-        async () => (await import('./commands/user.js')).registerUserCommand,
-    ],
-    channel: [
-        'List channels in a workspace',
-        async () => (await import('./commands/channel.js')).registerChannelCommand,
-    ],
-    inbox: [
-        'Show inbox threads',
-        async () => (await import('./commands/inbox.js')).registerInboxCommand,
-    ],
-    thread: [
-        'Thread operations',
-        async () => (await import('./commands/thread.js')).registerThreadCommand,
-    ],
-    conversation: [
-        'Conversation (DM/group) operations',
-        async () => (await import('./commands/conversation.js')).registerConversationCommand,
-    ],
-    msg: [
-        'Conversation message operations (view, update, delete)',
-        async () => (await import('./commands/msg.js')).registerMsgCommand,
-    ],
-    search: [
-        'Search content across a workspace',
-        async () => (await import('./commands/search.js')).registerSearchCommand,
-    ],
-    react: [
-        'Add an emoji reaction (target-type: thread, comment, message)',
-        async () => (await import('./commands/react.js')).registerReactCommand,
-    ],
-    auth: [
-        'Manage authentication',
-        async () => (await import('./commands/auth.js')).registerAuthCommand,
-    ],
-    skill: [
-        'Manage agent skill integrations',
-        async () => (await import('./commands/skill.js')).registerSkillCommand,
-    ],
-    view: [
-        'View a Twist entity by URL',
-        async () => (await import('./commands/view.js')).registerViewCommand,
-    ],
+    workspaces: ['List all workspaces', loadWorkspaceCommand],
+    workspace: ['Manage workspace', loadWorkspaceCommand],
+    user: ['Show current user info', loadUserCommand],
+    users: ['List users in a workspace', loadUserCommand],
+    channels: ['List channels in a workspace', loadChannelCommand],
+    inbox: ['Show inbox threads', loadInboxCommand],
+    thread: ['Thread operations', loadThreadCommand],
+    conversation: ['Conversation (DM/group) operations', loadConversationCommand],
+    msg: ['Conversation message operations (view, update, delete)', loadMsgCommand],
+    search: ['Search content across a workspace', loadSearchCommand],
+    react: ['Add an emoji reaction (target-type: thread, comment, message)', loadReactCommand],
+    unreact: ['Remove an emoji reaction (target-type: thread, comment, message)', loadReactCommand],
+    auth: ['Manage authentication', loadAuthCommand],
+    skill: ['Manage agent skill integrations', loadSkillCommand],
+    view: ['View a Twist entity by URL', loadViewCommand],
+    completion: ['Manage shell completions', loadCompletionCommand],
 }
 
 const commandAliases: Record<string, string> = {
@@ -88,26 +74,66 @@ for (const [name, [description]] of Object.entries(commands)) {
     }
 }
 
-// Detect which command is being invoked (resolve aliases first)
-const commandArg = process.argv
-    .slice(2)
-    .find((a) => !a.startsWith('-') && (a in commands || a in commandAliases))
-const commandName = commandArg ? (commandAliases[commandArg] ?? commandArg) : undefined
+// completion-server needs the command tree to walk for completions.
+// Only load the completion module + the specific command being completed
+// (extracted from COMP_LINE) to keep startup fast.
+if (process.argv[2] === 'completion-server') {
+    const { parseCompLine } = await import('./lib/completion.js')
+    const compWords = parseCompLine(process.env.COMP_LINE ?? '')
+    const compCmd = compWords.find(
+        (w) => !w.startsWith('-') && (w in commands || w in commandAliases),
+    )
+    const resolvedCompCmd = compCmd ? (commandAliases[compCmd] ?? compCmd) : undefined
+    const completionLoader = commands.completion[1]
 
-if (commandName && commands[commandName]) {
-    // Remove the placeholder so the real registration can take its place
-    const idx = program.commands.findIndex((c) => c.name() === commandName)
-    if (idx !== -1) (program.commands as Command[]).splice(idx, 1)
+    // Build loader set so command aliases that share a module only register once.
+    const loadersToRun = resolvedCompCmd
+        ? [
+              completionLoader,
+              ...(commands[resolvedCompCmd][1] !== completionLoader
+                  ? [commands[resolvedCompCmd][1]]
+                  : []),
+          ]
+        : [...new Set(Object.values(commands).map(([, loader]) => loader))]
 
-    const loader = commands[commandName][1]
+    for (const [name, [, loader]] of Object.entries(commands)) {
+        if (!loadersToRun.includes(loader)) continue
+        const idx = program.commands.findIndex((c) => c.name() === name)
+        if (idx !== -1) (program.commands as Command[]).splice(idx, 1)
+    }
 
-    startEarlySpinner()
-    try {
-        const register = await loader()
-        register(program)
-    } catch (err) {
-        stopEarlySpinner()
-        throw err
+    await Promise.all(
+        loadersToRun.map(async (loader) => {
+            const register = await loader()
+            register(program)
+        }),
+    )
+} else {
+    // Detect which command is being invoked (resolve aliases first)
+    const commandArg = process.argv
+        .slice(2)
+        .find((a) => !a.startsWith('-') && (a in commands || a in commandAliases))
+    const commandName = commandArg ? (commandAliases[commandArg] ?? commandArg) : undefined
+
+    if (commandName && commands[commandName]) {
+        const loader = commands[commandName][1]
+
+        // Remove all placeholders that map to the same loader to avoid
+        // duplicate command registration from alias entries.
+        for (const [name, [, entryLoader]] of Object.entries(commands)) {
+            if (entryLoader !== loader) continue
+            const idx = program.commands.findIndex((c) => c.name() === name)
+            if (idx !== -1) (program.commands as Command[]).splice(idx, 1)
+        }
+
+        startEarlySpinner()
+        try {
+            const register = await loader()
+            register(program)
+        } catch (err) {
+            stopEarlySpinner()
+            throw err
+        }
     }
 }
 

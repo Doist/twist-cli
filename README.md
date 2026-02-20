@@ -47,6 +47,21 @@ References accept IDs (`123` or `id:123`), Twist URLs, or fuzzy names (for works
 
 Run `tw --help` or `tw <command> --help` for more options.
 
+## Shell Completions
+
+Tab completion is available for bash, zsh, and fish:
+
+```bash
+tw completion install        # prompts for shell
+tw completion install bash   # or: zsh, fish
+```
+
+Restart your shell or source your config file to activate. To remove:
+
+```bash
+tw completion uninstall
+```
+
 ### Machine-readable output
 
 All list/view commands support `--json` and `--ndjson` flags for scripting:

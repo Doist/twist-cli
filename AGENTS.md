@@ -34,7 +34,7 @@ This is a TypeScript CLI (`tw`) for Twist messaging, built with Commander.js.
 
 **Entry point**: `src/index.ts` registers all commands with Commander.
 
-**Commands** (`src/commands/`): Each file exports a `register*Command(program)` function. Commands support `--json`, `--ndjson`, and `--full` flags for machine-readable output.
+**Commands** (`src/commands/`): Each file exports a `register*Command(program)` function. Commands support `--json`, `--ndjson`, and `--full` flags for machine-readable output. `completion.ts` adds shell completion install/uninstall and an internal completion server.
 
 **Lib** (`src/lib/`):
 
@@ -44,6 +44,7 @@ This is a TypeScript CLI (`tw`) for Twist messaging, built with Commander.js.
 - `config.ts` - Persists config to `~/.config/twist-cli/config.json`
 - `auth.ts` - Token loading/saving/clearing (env var or config file)
 - `markdown.ts` - Terminal markdown rendering via `marked` + `marked-terminal`
+- `completion.ts` - Commander tree-walker + completion helpers for shell tab completion
 
 **Reference system**: The CLI accepts flexible references throughout - numeric IDs, `id:` prefixed IDs, full Twist URLs (parsed via `parseTwistUrl`), or fuzzy name matching for workspaces/users.
 
