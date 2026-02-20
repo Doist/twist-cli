@@ -1,3 +1,10 @@
+# [2.3.0](https://github.com/Doist/twist-cli/compare/v2.2.0...v2.3.0) (2026-02-20)
+
+
+### Features
+
+* add shell completions for tw CLI ([#40](https://github.com/Doist/twist-cli/issues/40)) ([3ad6797](https://github.com/Doist/twist-cli/commit/3ad6797075013f9b0c7ee7947025f0cba9d800af))
+
 # [2.2.0](https://github.com/Doist/twist-cli/compare/v2.1.0...v2.2.0) (2026-02-20)
 
 
