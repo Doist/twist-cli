@@ -45,7 +45,8 @@ export async function registerDynamicClient(): Promise<OAuthClient> {
         response_types: ['code'],
         token_endpoint_auth_method: 'client_secret_basic', // Use Basic auth for token exchange
         application_type: 'native', // CLI is a native application
-        logo_uri: 'https://todoist.b-cdn.net/agentist-icons/service_twist_color_72px.svg',
+        logo_uri:
+            'https://raw.githubusercontent.com/Doist/twist-cli/d65c447ff453eb36af585044c2f5f2f602bcdb34/icons/twist-cli.png',
     }
 
     try {
