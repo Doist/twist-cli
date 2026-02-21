@@ -16,6 +16,7 @@ tw auth logout                   # Remove saved token
 tw workspaces                    # List available workspaces
 tw workspace use <ref>           # Set current workspace
 tw completion install            # Install shell completions
+tw update                        # Update CLI to latest version
 \`\`\`
 
 ## View by URL
@@ -130,6 +131,13 @@ tw completion install bash       # Install for specific shell
 tw completion install zsh
 tw completion install fish
 tw completion uninstall          # Remove completions
+\`\`\`
+
+### Update
+
+\`\`\`bash
+tw update                        # Update CLI to latest version
+tw update --check                # Check for updates without installing
 \`\`\`
 
 ## Global Options

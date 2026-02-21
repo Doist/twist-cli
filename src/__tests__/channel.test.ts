@@ -14,18 +14,7 @@ vi.mock('../lib/public-channels.js', () => ({
     includePrivateChannels: vi.fn().mockReturnValue(true),
 }))
 
-vi.mock('chalk', () => ({
-    default: {
-        bold: Object.assign(
-            vi.fn((text: string) => text),
-            {
-                blue: vi.fn((text: string) => text),
-            },
-        ),
-        dim: vi.fn((text: string) => text),
-        blue: vi.fn((text: string) => text),
-    },
-}))
+vi.mock('chalk')
 
 import { registerChannelCommand } from '../commands/channel.js'
 

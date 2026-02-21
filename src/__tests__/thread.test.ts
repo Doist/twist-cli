@@ -18,18 +18,7 @@ vi.mock('../lib/input.js', () => ({
     openEditor: vi.fn().mockResolvedValue(''),
 }))
 
-vi.mock('chalk', () => ({
-    default: {
-        bold: Object.assign(
-            vi.fn((text: string) => text),
-            {
-                blue: vi.fn((text: string) => text),
-            },
-        ),
-        dim: vi.fn((text: string) => text),
-        blue: vi.fn((text: string) => text),
-    },
-}))
+vi.mock('chalk')
 
 import { registerThreadCommand } from '../commands/thread.js'
 
