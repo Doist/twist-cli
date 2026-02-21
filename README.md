@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="icons/twist-cli.png" alt="Twist CLI" width="150" height="150" />
+</p>
+
 # Twist CLI
 
 A command-line interface for Twist.
