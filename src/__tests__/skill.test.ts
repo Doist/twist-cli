@@ -37,6 +37,12 @@ describe('skill registry', () => {
         expect(installer?.name).toBe('cursor')
     })
 
+    it('returns gemini installer', () => {
+        const installer = getInstaller('gemini')
+        expect(installer).not.toBeNull()
+        expect(installer?.name).toBe('gemini')
+    })
+
     it('returns null for unknown agent', () => {
         const installer = getInstaller('unknown-agent')
         expect(installer).toBeNull()
@@ -47,6 +53,7 @@ describe('skill registry', () => {
         expect(names).toContain('claude-code')
         expect(names).toContain('codex')
         expect(names).toContain('cursor')
+        expect(names).toContain('gemini')
     })
 })
 
@@ -55,6 +62,7 @@ describe('installer paths', () => {
         { agent: 'claude-code', dir: '.claude', desc: 'Claude Code skill for Twist CLI' },
         { agent: 'codex', dir: '.codex', desc: 'Codex skill for Twist CLI' },
         { agent: 'cursor', dir: '.cursor', desc: 'Cursor skill for Twist CLI' },
+        { agent: 'gemini', dir: '.gemini', desc: 'Gemini CLI skill for Twist CLI' },
     ] as const
 
     for (const { agent, dir, desc } of cases) {
@@ -176,9 +184,9 @@ describe('listAgents', () => {
 
     it('returns agent info with installed status', async () => {
         const agents = await listAgents(true)
-        expect(agents.length).toBe(3)
+        expect(agents.length).toBe(4)
 
-        for (const name of ['claude-code', 'codex', 'cursor']) {
+        for (const name of ['claude-code', 'codex', 'cursor', 'gemini']) {
             const agent = agents.find((a) => a.name === name)
             expect(agent).toBeDefined()
             expect(agent?.installed).toBe(false)

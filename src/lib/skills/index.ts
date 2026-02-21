@@ -17,6 +17,11 @@ export const skillInstallers: Record<string, SkillInstaller> = {
         description: 'Cursor skill for Twist CLI',
         dirName: '.cursor',
     }),
+    gemini: createInstaller({
+        name: 'gemini',
+        description: 'Gemini CLI skill for Twist CLI',
+        dirName: '.gemini',
+    }),
 }
 
 export function getInstaller(name: string): SkillInstaller | null {
