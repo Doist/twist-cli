@@ -25,8 +25,9 @@ export function detectPackageManager(): string {
 }
 
 export function runInstall(pm: string): Promise<number> {
+    const command = pm === 'pnpm' ? 'add' : 'install'
     return new Promise((resolve, reject) => {
-        const child = spawn(pm, ['install', '-g', `${PACKAGE_NAME}@latest`], {
+        const child = spawn(pm, [command, '-g', `${PACKAGE_NAME}@latest`], {
             stdio: 'inherit',
         })
         child.on('error', reject)
@@ -77,7 +78,7 @@ export async function updateAction(options: UpdateOptions): Promise<void> {
         if (error instanceof Error && 'code' in error && error.code === 'EACCES') {
             console.error(
                 chalk.red('Permission denied.'),
-                `Try running with sudo: sudo ${pm} install -g ${PACKAGE_NAME}@latest`,
+                `Try running with sudo: sudo ${pm} ${pm === 'pnpm' ? 'add' : 'install'} -g ${PACKAGE_NAME}@latest`,
             )
         } else {
             const message = error instanceof Error ? error.message : 'Unknown error'

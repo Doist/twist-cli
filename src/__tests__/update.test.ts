@@ -164,6 +164,21 @@ describe('update command', () => {
             )
             expect(consoleSpy).toHaveBeenCalledWith('✓', 'Updated to v99.0.0')
         })
+
+        it('uses pnpm add when pnpm is detected', async () => {
+            mockFetch('99.0.0')
+            mockSpawnSuccess()
+            vi.stubEnv('npm_execpath', '/usr/local/lib/node_modules/pnpm/bin/pnpm.cjs')
+
+            const program = createProgram()
+            await program.parseAsync(['node', 'tw', 'update'])
+
+            expect(mockSpawn).toHaveBeenCalledWith(
+                'pnpm',
+                ['add', '-g', '@doist/twist-cli@latest'],
+                { stdio: 'inherit' },
+            )
+        })
     })
 
     describe('registry errors', () => {
