@@ -3,7 +3,7 @@ import { Command } from 'commander'
 import { getCurrentWorkspaceId, getTwistClient } from '../lib/api.js'
 import { formatRelativeDate } from '../lib/dates.js'
 import type { PaginatedViewOptions } from '../lib/options.js'
-import { colors, formatJson, formatNdjson } from '../lib/output.js'
+import { colors, formatJson, formatNdjson, isAccessible } from '../lib/output.js'
 import { getPublicChannelIds, includePrivateChannels } from '../lib/public-channels.js'
 import { resolveWorkspaceRef } from '../lib/refs.js'
 
@@ -137,7 +137,7 @@ async function showInbox(workspaceRef: string | undefined, options: InboxOptions
 
         const title = thread.isUnread ? chalk.bold(thread.title) : thread.title
         const time = colors.timestamp(formatRelativeDate(thread.posted))
-        const unreadBadge = thread.isUnread ? chalk.blue(' *') : ''
+        const unreadBadge = thread.isUnread ? chalk.blue(isAccessible() ? ' (unread)' : ' *') : ''
 
         console.log(`  ${title}${unreadBadge}`)
         console.log(`    ${time}  ${colors.timestamp(`id:${thread.id}`)}`)

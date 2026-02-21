@@ -7,7 +7,7 @@ import { formatRelativeDate } from '../lib/dates.js'
 import { openEditor, readStdin } from '../lib/input.js'
 import { renderMarkdown } from '../lib/markdown.js'
 import type { MutationOptions, PaginatedViewOptions } from '../lib/options.js'
-import { colors, formatJson } from '../lib/output.js'
+import { colors, formatJson, isAccessible } from '../lib/output.js'
 import { assertChannelIsPublic } from '../lib/public-channels.js'
 import { extractId, parseRef, resolveThreadId } from '../lib/refs.js'
 
@@ -23,7 +23,10 @@ function printSeparator(label: string): void {
     const remainingWidth = totalWidth - labelWithPadding.length
     const leftWidth = Math.floor(remainingWidth / 2)
     const rightWidth = remainingWidth - leftWidth
-    const line = chalk.dim('─'.repeat(leftWidth) + labelWithPadding + '─'.repeat(rightWidth))
+    const dashChar = isAccessible() ? '-' : '─'
+    const line = chalk.dim(
+        dashChar.repeat(leftWidth) + labelWithPadding + dashChar.repeat(rightWidth),
+    )
     console.log('')
     console.log(line)
     console.log('')

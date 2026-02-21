@@ -154,3 +154,7 @@ export function printJson<T extends object>(data: T | T[], type?: EntityType, fu
 export function printNdjson<T extends object>(items: T[], type?: EntityType, full = false): void {
     console.log(formatNdjson(items, type, full))
 }
+
+export function isAccessible(): boolean {
+    return process.env.TW_ACCESSIBLE === '1' || process.argv.includes('--accessible')
+}
