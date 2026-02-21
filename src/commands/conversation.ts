@@ -5,7 +5,7 @@ import { formatRelativeDate } from '../lib/dates.js'
 import { openEditor, readStdin } from '../lib/input.js'
 import { renderMarkdown } from '../lib/markdown.js'
 import type { MutationOptions, PaginatedViewOptions, ViewOptions } from '../lib/options.js'
-import { colors, formatJson, formatNdjson } from '../lib/output.js'
+import { colors, formatJson, formatNdjson, isAccessible } from '../lib/output.js'
 import { resolveConversationId, resolveWorkspaceRef } from '../lib/refs.js'
 
 type UnreadOptions = ViewOptions & { workspace?: string }
@@ -79,9 +79,10 @@ async function showUnread(workspaceRef: string | undefined, options: UnreadOptio
     for (const conv of conversations) {
         const participants = conv.userIds.map((id) => userMap.get(id) || `user:${id}`).join(', ')
         const title = conv.title || `Conversation with ${participants}`
-        const _unreadInfo = unreadConversations.find((uc) => uc.conversationId === conv.id)
+        const unreadInfo = unreadConversations.find((uc) => uc.conversationId === conv.id)
+        const unreadBadge = unreadInfo ? chalk.blue(isAccessible() ? ' (unread)' : ' *') : ''
 
-        console.log(chalk.bold(title))
+        console.log(`${chalk.bold(title)}${unreadBadge}`)
         console.log(`  ${colors.timestamp(`id:${conv.id}`)}  ${colors.author(participants)}`)
         console.log(`  ${colors.url(conv.url)}`)
         console.log('')

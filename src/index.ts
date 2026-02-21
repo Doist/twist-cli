@@ -58,6 +58,7 @@ program
         '--include-private-channels',
         'Include private channels in output (env: TWIST_INCLUDE_PRIVATE_CHANNELS)',
     )
+    .option('--accessible', 'Add text labels to color-coded output (also: TW_ACCESSIBLE=1)')
     .addHelpText(
         'after',
         `

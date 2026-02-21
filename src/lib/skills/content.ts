@@ -145,6 +145,7 @@ tw update --check                # Check for updates without installing
 \`\`\`bash
 --no-spinner       # Disable loading animations
 --progress-jsonl   # Machine-readable progress events (JSONL to stderr)
+--accessible       # Add text labels to color-coded output (also: TW_ACCESSIBLE=1)
 \`\`\`
 
 ## Output Formats
