@@ -1,3 +1,10 @@
+# [2.4.0](https://github.com/Doist/twist-cli/compare/v2.3.0...v2.4.0) (2026-02-21)
+
+
+### Features
+
+* add `tw update` self-update command ([#46](https://github.com/Doist/twist-cli/issues/46)) ([b6a019b](https://github.com/Doist/twist-cli/commit/b6a019bf3f8a0178754125165591ae8fe71f7a67))
+
 # [2.3.0](https://github.com/Doist/twist-cli/compare/v2.2.0...v2.3.0) (2026-02-20)
 
 
