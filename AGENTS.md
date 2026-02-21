@@ -5,14 +5,16 @@ This file provides guidance to AI coding agents when working with code in this r
 ## Commands
 
 ```bash
-npm run build          # Compile TypeScript to dist/
-npm run dev            # Watch mode compilation
+npm run build          # Compile TypeScript to dist/ (uses tsconfig.build.json, excludes tests)
+npm run dev            # Watch mode compilation (uses tsconfig.build.json, excludes tests)
 npm test               # Run all tests (vitest)
 npm run test:watch     # Run tests in watch mode
-npm run type-check     # Type check without emitting
+npm run type-check     # Type check without emitting (uses tsconfig.json, includes tests)
 npm run format         # Format with Prettier
 npm run format:check   # Check formatting
 ```
+
+The project uses two tsconfig files: `tsconfig.json` includes test files for type-checking, while `tsconfig.build.json` extends it and excludes `src/__tests__/` so that test files are not compiled into `dist/`.
 
 Run a single test file:
 
