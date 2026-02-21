@@ -21,6 +21,7 @@ const loadSkillCommand = async () => (await import('./commands/skill.js')).regis
 const loadViewCommand = async () => (await import('./commands/view.js')).registerViewCommand
 const loadCompletionCommand = async () =>
     (await import('./commands/completion.js')).registerCompletionCommand
+const loadUpdateCommand = async () => (await import('./commands/update.js')).registerUpdateCommand
 
 const commands: Record<string, [string, () => Promise<(p: Command) => void>]> = {
     workspaces: ['List all workspaces', loadWorkspaceCommand],
@@ -39,6 +40,7 @@ const commands: Record<string, [string, () => Promise<(p: Command) => void>]> = 
     skill: ['Manage agent skill integrations', loadSkillCommand],
     view: ['View a Twist entity by URL', loadViewCommand],
     completion: ['Manage shell completions', loadCompletionCommand],
+    update: ['Update the CLI to the latest version', loadUpdateCommand],
 }
 
 const commandAliases: Record<string, string> = {
