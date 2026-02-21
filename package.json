@@ -8,8 +8,8 @@
         "tw": "dist/index.js"
     },
     "scripts": {
-        "build": "tsc && chmod +x dist/index.js",
-        "dev": "tsc --watch",
+        "build": "tsc -p tsconfig.build.json && chmod +x dist/index.js",
+        "dev": "tsc -p tsconfig.build.json --watch",
         "start": "node dist/index.js",
         "type-check": "tsc --noEmit",
         "lint": "biome check --write .",
