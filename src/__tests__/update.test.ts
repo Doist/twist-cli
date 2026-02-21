@@ -6,15 +6,7 @@ vi.mock('node:child_process', () => ({
     spawn: vi.fn(),
 }))
 
-vi.mock('chalk', () => ({
-    default: {
-        green: vi.fn((text: string) => text),
-        yellow: vi.fn((text: string) => text),
-        red: vi.fn((text: string) => text),
-        blue: vi.fn((text: string) => text),
-        dim: vi.fn((text: string) => text),
-    },
-}))
+vi.mock('chalk')
 
 vi.mock('../lib/spinner.js', () => ({
     withSpinner: vi.fn((_opts: unknown, fn: () => Promise<unknown>) => fn()),

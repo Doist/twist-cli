@@ -25,12 +25,7 @@ vi.mock('../lib/public-channels.js', () => ({
 
 vi.mock('../lib/search-api.js', () => searchApiMocks)
 
-vi.mock('chalk', () => ({
-    default: {
-        bold: vi.fn((text: string) => text),
-        dim: vi.fn((text: string) => text),
-    },
-}))
+vi.mock('chalk')
 
 import { registerSearchCommand } from '../commands/search.js'
 

@@ -13,18 +13,7 @@ vi.mock('../lib/markdown.js', () => ({
     renderMarkdown: vi.fn((text: string) => text),
 }))
 
-vi.mock('chalk', () => ({
-    default: {
-        bold: Object.assign(
-            vi.fn((text: string) => text),
-            {
-                blue: vi.fn((text: string) => text),
-            },
-        ),
-        dim: vi.fn((text: string) => text),
-        blue: vi.fn((text: string) => text),
-    },
-}))
+vi.mock('chalk')
 
 import { registerMsgCommand } from '../commands/msg.js'
 

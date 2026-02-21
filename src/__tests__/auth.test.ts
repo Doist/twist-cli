@@ -51,15 +51,7 @@ vi.mock('node:readline', () => ({
 }))
 
 // Mock chalk to avoid colors in tests
-vi.mock('chalk', () => ({
-    default: {
-        green: vi.fn((text) => text),
-        yellow: vi.fn((text) => text),
-        red: vi.fn((text) => text),
-        blue: vi.fn((text) => text),
-        dim: vi.fn((text) => text),
-    },
-}))
+vi.mock('chalk')
 
 import { createInterface, type Interface } from 'node:readline'
 import { type User } from '@doist/twist-sdk'

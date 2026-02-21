@@ -11,12 +11,7 @@ vi.mock('../lib/refs.js', () => ({
     resolveWorkspaceRef: vi.fn(),
 }))
 
-vi.mock('chalk', () => ({
-    default: {
-        bold: vi.fn((text: string) => text),
-        dim: vi.fn((text: string) => text),
-    },
-}))
+vi.mock('chalk')
 
 import { registerUserCommand } from '../commands/user.js'
 
