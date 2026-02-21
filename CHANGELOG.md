@@ -1,3 +1,10 @@
+## [2.5.1](https://github.com/Doist/twist-cli/compare/v2.5.0...v2.5.1) (2026-02-21)
+
+
+### Bug Fixes
+
+* remove inaccessible renovate-config-internal preset ([#50](https://github.com/Doist/twist-cli/issues/50)) ([b36a16d](https://github.com/Doist/twist-cli/commit/b36a16db0835e10d79f34c44027c336d6af42eb9))
+
 # [2.5.0](https://github.com/Doist/twist-cli/compare/v2.4.0...v2.5.0) (2026-02-21)
 
 
