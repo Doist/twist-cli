@@ -1,3 +1,11 @@
+# [2.5.0](https://github.com/Doist/twist-cli/compare/v2.4.0...v2.5.0) (2026-02-21)
+
+
+### Features
+
+* add --accessible flag for screen-reader-friendly output ([#47](https://github.com/Doist/twist-cli/issues/47)) ([5317cdf](https://github.com/Doist/twist-cli/commit/5317cdf729e6faa43f339cbb4ef4ab1a0e7ad02a))
+* add Gemini CLI skill ([#48](https://github.com/Doist/twist-cli/issues/48)) ([7992c26](https://github.com/Doist/twist-cli/commit/7992c26f11eb9d5b23d00270a3779a05b4ed9e6c))
+
 # [2.4.0](https://github.com/Doist/twist-cli/compare/v2.3.0...v2.4.0) (2026-02-21)
 
 
