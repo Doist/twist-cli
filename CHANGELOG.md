@@ -1,3 +1,10 @@
+# [2.7.0](https://github.com/Doist/twist-cli/compare/v2.6.0...v2.7.0) (2026-02-25)
+
+
+### Features
+
+* suppress package manager output during `tw update` ([#55](https://github.com/Doist/twist-cli/issues/55)) ([fdc9d88](https://github.com/Doist/twist-cli/commit/fdc9d88026f481d1063722fdeedfcf6847fbdf5b))
+
 # [2.6.0](https://github.com/Doist/twist-cli/compare/v2.5.1...v2.6.0) (2026-02-25)
 
 
