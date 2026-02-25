@@ -1,3 +1,10 @@
+# [2.6.0](https://github.com/Doist/twist-cli/compare/v2.5.1...v2.6.0) (2026-02-25)
+
+
+### Features
+
+* upgrade OAuth pages with twist-cli branding icon ([#52](https://github.com/Doist/twist-cli/issues/52)) ([880649f](https://github.com/Doist/twist-cli/commit/880649fcdc381e6e6e94503d7173cdd60e3f1f6e))
+
 ## [2.5.1](https://github.com/Doist/twist-cli/compare/v2.5.0...v2.5.1) (2026-02-21)
 
 
