@@ -1,3 +1,10 @@
+## [2.7.1](https://github.com/Doist/twist-cli/compare/v2.7.0...v2.7.1) (2026-02-25)
+
+
+### Bug Fixes
+
+* **deps:** update dependency commander to v14.0.3 ([#57](https://github.com/Doist/twist-cli/issues/57)) ([5e92b39](https://github.com/Doist/twist-cli/commit/5e92b398973c09c76dfae8cad3c03b45305a3038))
+
 # [2.7.0](https://github.com/Doist/twist-cli/compare/v2.6.0...v2.7.0) (2026-02-25)
 
 
