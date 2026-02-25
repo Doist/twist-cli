@@ -24,14 +24,20 @@ export function detectPackageManager(): string {
     return 'npm'
 }
 
-export function runInstall(pm: string): Promise<number> {
+export function runInstall(pm: string): Promise<{ exitCode: number; stderr: string }> {
     const command = pm === 'pnpm' ? 'add' : 'install'
     return new Promise((resolve, reject) => {
         const child = spawn(pm, [command, '-g', `${PACKAGE_NAME}@latest`], {
-            stdio: 'inherit',
+            stdio: 'pipe',
         })
+
+        let stderr = ''
+        child.stderr?.on('data', (data: Buffer) => {
+            stderr += data.toString()
+        })
+
         child.on('error', reject)
-        child.on('close', (code) => resolve(code ?? 1))
+        child.on('close', (code) => resolve({ exitCode: code ?? 1, stderr }))
     })
 }
 
@@ -63,17 +69,14 @@ export async function updateAction(options: UpdateOptions): Promise<void> {
         return
     }
 
-    console.log(chalk.blue(`Updating ${PACKAGE_NAME} v${currentVersion} → v${latestVersion}...`))
-
     const pm = detectPackageManager()
 
+    let result: { exitCode: number; stderr: string }
     try {
-        const exitCode = await runInstall(pm)
-        if (exitCode !== 0) {
-            console.error(chalk.red('Update failed:'), `${pm} exited with code ${exitCode}`)
-            process.exitCode = 1
-            return
-        }
+        result = await withSpinner(
+            { text: `Updating to v${latestVersion}...`, color: 'blue' },
+            () => runInstall(pm),
+        )
     } catch (error) {
         if (error instanceof Error && 'code' in error && error.code === 'EACCES') {
             console.error(
@@ -83,6 +86,15 @@ export async function updateAction(options: UpdateOptions): Promise<void> {
         } else {
             const message = error instanceof Error ? error.message : 'Unknown error'
             console.error(chalk.red('Update failed:'), message)
+        }
+        process.exitCode = 1
+        return
+    }
+
+    if (result.exitCode !== 0) {
+        console.error(chalk.red('Update failed:'), `${pm} exited with code ${result.exitCode}`)
+        if (result.stderr) {
+            console.error(chalk.dim(result.stderr.trim()))
         }
         process.exitCode = 1
         return

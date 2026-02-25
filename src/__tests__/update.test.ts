@@ -54,6 +54,9 @@ function mockFetchNetworkError(code: string) {
 function mockSpawnSuccess() {
     mockSpawn.mockImplementation(() => {
         const child = {
+            stderr: {
+                on: vi.fn(),
+            },
             on: vi.fn((event: string, cb: (arg: unknown) => void) => {
                 if (event === 'close') {
                     setTimeout(() => cb(0), 0)
@@ -68,6 +71,9 @@ function mockSpawnSuccess() {
 function mockSpawnFailure(exitCode: number) {
     mockSpawn.mockImplementation(() => {
         const child = {
+            stderr: {
+                on: vi.fn(),
+            },
             on: vi.fn((event: string, cb: (arg: unknown) => void) => {
                 if (event === 'close') {
                     setTimeout(() => cb(exitCode), 0)
@@ -82,6 +88,9 @@ function mockSpawnFailure(exitCode: number) {
 function mockSpawnPermissionError() {
     mockSpawn.mockImplementation(() => {
         const child = {
+            stderr: {
+                on: vi.fn(),
+            },
             on: vi.fn((event: string, cb: (arg: unknown) => void) => {
                 if (event === 'error') {
                     const error = new Error('EACCES') as NodeJS.ErrnoException
@@ -160,7 +169,7 @@ describe('update command', () => {
             expect(mockSpawn).toHaveBeenCalledWith(
                 'npm',
                 ['install', '-g', '@doist/twist-cli@latest'],
-                { stdio: 'inherit' },
+                { stdio: 'pipe' },
             )
             expect(consoleSpy).toHaveBeenCalledWith('✓', 'Updated to v99.0.0')
         })
@@ -176,7 +185,7 @@ describe('update command', () => {
             expect(mockSpawn).toHaveBeenCalledWith(
                 'pnpm',
                 ['add', '-g', '@doist/twist-cli@latest'],
-                { stdio: 'inherit' },
+                { stdio: 'pipe' },
             )
         })
     })
