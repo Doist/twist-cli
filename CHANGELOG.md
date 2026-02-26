@@ -1,3 +1,10 @@
+## [2.7.2](https://github.com/Doist/twist-cli/compare/v2.7.1...v2.7.2) (2026-02-26)
+
+
+### Bug Fixes
+
+* **deps:** update dependency yocto-spinner to v1.1.0 ([#63](https://github.com/Doist/twist-cli/issues/63)) ([e1ddeb2](https://github.com/Doist/twist-cli/commit/e1ddeb260c193e23d1dd38bc9a3c99394f1e277c))
+
 ## [2.7.1](https://github.com/Doist/twist-cli/compare/v2.7.0...v2.7.1) (2026-02-25)
 
 
