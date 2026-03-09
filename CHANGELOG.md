@@ -1,3 +1,10 @@
+# [2.8.0](https://github.com/Doist/twist-cli/compare/v2.7.2...v2.8.0) (2026-03-09)
+
+
+### Features
+
+* include reactions in essential JSON output fields ([72b6bca](https://github.com/Doist/twist-cli/commit/72b6bca15422252db0fbd5ebbaa721cc11becd8f))
+
 ## [2.7.2](https://github.com/Doist/twist-cli/compare/v2.7.1...v2.7.2) (2026-02-26)
 
 
