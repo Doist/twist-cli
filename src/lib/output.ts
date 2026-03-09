@@ -18,9 +18,17 @@ const THREAD_ESSENTIAL_FIELDS = [
     'posted',
     'commentCount',
     'isArchived',
+    'reactions',
 ] as const
 
-const COMMENT_ESSENTIAL_FIELDS = ['id', 'content', 'creator', 'threadId', 'posted'] as const
+const COMMENT_ESSENTIAL_FIELDS = [
+    'id',
+    'content',
+    'creator',
+    'threadId',
+    'posted',
+    'reactions',
+] as const
 
 const CONVERSATION_ESSENTIAL_FIELDS = [
     'id',
@@ -32,7 +40,14 @@ const CONVERSATION_ESSENTIAL_FIELDS = [
     'archived',
 ] as const
 
-const MESSAGE_ESSENTIAL_FIELDS = ['id', 'content', 'creator', 'conversationId', 'posted'] as const
+const MESSAGE_ESSENTIAL_FIELDS = [
+    'id',
+    'content',
+    'creator',
+    'conversationId',
+    'posted',
+    'reactions',
+] as const
 
 const WORKSPACE_ESSENTIAL_FIELDS = ['id', 'name', 'creator', 'plan'] as const
 
