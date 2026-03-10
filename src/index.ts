@@ -21,6 +21,7 @@ const loadSkillCommand = async () => (await import('./commands/skill.js')).regis
 const loadViewCommand = async () => (await import('./commands/view.js')).registerViewCommand
 const loadCompletionCommand = async () =>
     (await import('./commands/completion.js')).registerCompletionCommand
+const loadAwayCommand = async () => (await import('./commands/away.js')).registerAwayCommand
 const loadUpdateCommand = async () => (await import('./commands/update.js')).registerUpdateCommand
 
 const commands: Record<string, [string, () => Promise<(p: Command) => void>]> = {
@@ -34,6 +35,7 @@ const commands: Record<string, [string, () => Promise<(p: Command) => void>]> = 
     conversation: ['Conversation (DM/group) operations', loadConversationCommand],
     msg: ['Conversation message operations (view, update, delete)', loadMsgCommand],
     search: ['Search content across a workspace', loadSearchCommand],
+    away: ['Manage away status', loadAwayCommand],
     react: ['Add an emoji reaction (target-type: thread, comment, message)', loadReactCommand],
     unreact: ['Remove an emoji reaction (target-type: thread, comment, message)', loadReactCommand],
     auth: ['Manage authentication', loadAuthCommand],
