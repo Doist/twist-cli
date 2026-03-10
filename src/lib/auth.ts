@@ -21,8 +21,51 @@ export async function getApiToken(): Promise<string> {
         return envToken
     }
 
+    const config = await getConfig()
+    const configToken = getConfigToken(config)
     const secureStore = createSecureStore()
-    let secureStoreAvailable = true
+
+    if (configToken) {
+        try {
+            await secureStore.setSecret(configToken)
+            const cleanupWarning = await cleanupAuthFallbackState(
+                config,
+                'Token was migrated to secure storage,',
+            )
+            if (cleanupWarning) {
+                warn(cleanupWarning)
+            }
+        } catch (error) {
+            if (error instanceof SecureStoreUnavailableError) {
+                warnSecureStoreFallback('using plaintext token from')
+            } else {
+                throw error
+            }
+        }
+
+        return configToken
+    }
+
+    if (config.pendingSecureStoreClear) {
+        try {
+            await secureStore.deleteSecret()
+            const cleanupWarning = await cleanupAuthFallbackState(
+                config,
+                'Secure-store token was removed,',
+            )
+            if (cleanupWarning) {
+                warn(cleanupWarning)
+            }
+        } catch (error) {
+            if (!(error instanceof SecureStoreUnavailableError)) {
+                throw error
+            }
+        }
+
+        throw new Error(
+            `No API token found. Set ${TOKEN_ENV_VAR} or run \`tw auth login\` or \`tw auth token <token>\`.`,
+        )
+    }
 
     try {
         const storedToken = await secureStore.getSecret()
@@ -30,38 +73,9 @@ export async function getApiToken(): Promise<string> {
             return storedToken
         }
     } catch (error) {
-        if (error instanceof SecureStoreUnavailableError) {
-            secureStoreAvailable = false
-        } else {
+        if (!(error instanceof SecureStoreUnavailableError)) {
             throw error
         }
-    }
-
-    const config = await getConfig()
-    const configToken = getConfigToken(config)
-    if (configToken) {
-        if (secureStoreAvailable) {
-            try {
-                await secureStore.setSecret(configToken)
-                const cleanupWarning = await cleanupPlaintextToken(
-                    config,
-                    'Token was migrated to secure storage,',
-                )
-                if (cleanupWarning) {
-                    warn(cleanupWarning)
-                }
-            } catch (error) {
-                if (error instanceof SecureStoreUnavailableError) {
-                    warnSecureStoreFallback('using plaintext token from')
-                } else {
-                    throw error
-                }
-            }
-        } else {
-            warnSecureStoreFallback('using plaintext token from')
-        }
-
-        return configToken
     }
 
     throw new Error(
@@ -81,7 +95,7 @@ export async function saveApiToken(token: string): Promise<TokenStorageResult> {
     try {
         await secureStore.setSecret(trimmedToken)
         const existingConfig = await getConfig()
-        const warning = await cleanupPlaintextToken(existingConfig, 'Token was stored securely,')
+        const warning = await cleanupAuthFallbackState(existingConfig, 'Token was stored securely,')
         return warning ? { storage: 'secure-store', warning } : { storage: 'secure-store' }
     } catch (error) {
         if (!(error instanceof SecureStoreUnavailableError)) {
@@ -91,6 +105,7 @@ export async function saveApiToken(token: string): Promise<TokenStorageResult> {
 
     const config = await getConfig()
     config.token = trimmedToken
+    delete config.pendingSecureStoreClear
     await writeConfig(config)
     return {
         storage: 'config-file',
@@ -104,7 +119,7 @@ export async function clearApiToken(): Promise<TokenStorageResult> {
 
     try {
         await secureStore.deleteSecret()
-        const warning = await cleanupPlaintextToken(config, 'Secure-store token was removed,')
+        const warning = await cleanupAuthFallbackState(config, 'Secure-store token was removed,')
         return warning ? { storage: 'secure-store', warning } : { storage: 'secure-store' }
     } catch (error) {
         if (!(error instanceof SecureStoreUnavailableError)) {
@@ -112,10 +127,10 @@ export async function clearApiToken(): Promise<TokenStorageResult> {
         }
     }
 
-    await writeConfig(withoutToken(config))
+    await writeConfig(withPendingSecureStoreClear(config))
     return {
         storage: 'config-file',
-        warning: buildFallbackWarning('token removed from'),
+        warning: buildFallbackWarning('local auth state cleared in'),
     }
 }
 
@@ -134,12 +149,12 @@ async function writeConfig(config: Config): Promise<void> {
     await setConfig(config)
 }
 
-async function cleanupPlaintextToken(
+async function cleanupAuthFallbackState(
     config: Config,
     warningPrefix: string,
 ): Promise<string | undefined> {
     try {
-        await writeConfig(withoutToken(config))
+        await writeConfig(withoutAuthFallbackState(config))
         return undefined
     } catch (error) {
         return buildConfigCleanupWarning(warningPrefix, error)
@@ -150,9 +165,13 @@ function getConfigToken(config: Config): string | null {
     return typeof config.token === 'string' && config.token.trim() ? config.token.trim() : null
 }
 
-function withoutToken(config: Config): Config {
-    const { token: _token, ...rest } = config
+function withoutAuthFallbackState(config: Config): Config {
+    const { token: _token, pendingSecureStoreClear: _pending, ...rest } = config
     return rest
+}
+
+function withPendingSecureStoreClear(config: Config): Config {
+    return { ...withoutAuthFallbackState(config), pendingSecureStoreClear: true }
 }
 
 function buildFallbackWarning(action: string): string {

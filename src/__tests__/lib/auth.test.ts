@@ -64,7 +64,6 @@ describe('auth token storage', () => {
     })
 
     it('migrates a legacy plaintext config token into the secure store', async () => {
-        mocks.secureTokenStore.getSecret.mockResolvedValue(null)
         mocks.secureTokenStore.setSecret.mockResolvedValue(undefined)
         mocks.getConfig.mockResolvedValue({
             token: 'legacy_token_123456',
@@ -77,6 +76,21 @@ describe('auth token storage', () => {
         expect(mocks.secureTokenStore.setSecret).toHaveBeenCalledWith('legacy_token_123456')
         expect(mocks.setConfig).toHaveBeenCalledWith({ currentWorkspace: 42 })
         expect(mocks.unlink).not.toHaveBeenCalled()
+    })
+
+    it('prefers the fallback config token over a stale secure-store token', async () => {
+        mocks.secureTokenStore.getSecret.mockResolvedValue('stale_secure_token_123456')
+        mocks.secureTokenStore.setSecret.mockResolvedValue(undefined)
+        mocks.getConfig.mockResolvedValue({
+            token: 'fresh_config_token_123456',
+            currentWorkspace: 42,
+        })
+
+        const { getApiToken } = await import('../../lib/auth.js')
+
+        await expect(getApiToken()).resolves.toBe('fresh_config_token_123456')
+        expect(mocks.secureTokenStore.setSecret).toHaveBeenCalledWith('fresh_config_token_123456')
+        expect(mocks.secureTokenStore.getSecret).not.toHaveBeenCalled()
     })
 
     it('returns the migrated token even when config cleanup fails', async () => {
@@ -142,6 +156,28 @@ describe('auth token storage', () => {
         expect(mocks.setConfig).toHaveBeenCalledWith({ currentWorkspace: 7 })
     })
 
+    it('persists pending secure-store clear state when logout falls back to config', async () => {
+        mocks.secureTokenStore.deleteSecret.mockRejectedValue(
+            new mocks.MockSecureStoreUnavailableError('No keychain access'),
+        )
+        mocks.getConfig.mockResolvedValue({
+            token: 'legacy_token_123456',
+            currentWorkspace: 7,
+        })
+
+        const { clearApiToken } = await import('../../lib/auth.js')
+
+        await expect(clearApiToken()).resolves.toEqual({
+            storage: 'config-file',
+            warning:
+                'system credential manager unavailable; local auth state cleared in /home/user/.config/twist-cli/config.json',
+        })
+        expect(mocks.setConfig).toHaveBeenCalledWith({
+            currentWorkspace: 7,
+            pendingSecureStoreClear: true,
+        })
+    })
+
     it('falls back to plaintext config storage when the secure store is unavailable', async () => {
         mocks.secureTokenStore.setSecret.mockRejectedValue(
             new mocks.MockSecureStoreUnavailableError('No keychain access'),
@@ -159,7 +195,7 @@ describe('auth token storage', () => {
     })
 
     it('reads from plaintext config with a warning when the secure store is unavailable', async () => {
-        mocks.secureTokenStore.getSecret.mockRejectedValue(
+        mocks.secureTokenStore.setSecret.mockRejectedValue(
             new mocks.MockSecureStoreUnavailableError('No keychain access'),
         )
         mocks.getConfig.mockResolvedValue({ token: 'legacy_token_123456' })
@@ -173,5 +209,21 @@ describe('auth token storage', () => {
         )
 
         errorSpy.mockRestore()
+    })
+
+    it('treats pending secure-store clear as logged out and does not reuse stale secure tokens', async () => {
+        mocks.secureTokenStore.deleteSecret.mockResolvedValue(true)
+        mocks.secureTokenStore.getSecret.mockResolvedValue('stale_secure_token_123456')
+        mocks.getConfig.mockResolvedValue({
+            pendingSecureStoreClear: true,
+            currentWorkspace: 7,
+        })
+
+        const { getApiToken } = await import('../../lib/auth.js')
+
+        await expect(getApiToken()).rejects.toThrow('No API token found')
+        expect(mocks.secureTokenStore.deleteSecret).toHaveBeenCalled()
+        expect(mocks.secureTokenStore.getSecret).not.toHaveBeenCalled()
+        expect(mocks.setConfig).toHaveBeenCalledWith({ currentWorkspace: 7 })
     })
 })
