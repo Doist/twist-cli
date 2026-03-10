@@ -38,6 +38,11 @@ type ConversationPageArgs = {
     beforeId?: number
 }
 
+type ConversationLookupResult = {
+    directConversation?: Conversation
+    groupConversationCount: number
+}
+
 function buildConversationTitle(
     conversation: Pick<Conversation, 'title' | 'userIds'>,
     userMap: Map<number, string>,
@@ -96,6 +101,54 @@ async function getConversationPages(initialArgs: ConversationPageArgs): Promise<
     }
 
     return conversations
+}
+
+async function findDirectConversation(
+    workspaceId: number,
+    sessionUserId: number,
+    targetUserId: number,
+): Promise<ConversationLookupResult> {
+    const client = await getTwistClient()
+    let groupConversationCount = 0
+
+    for (const archived of [false, true]) {
+        let beforeId: number | undefined
+
+        while (true) {
+            const pageArgs: ConversationPageArgs = {
+                workspaceId,
+                archived: archived || undefined,
+                limit: CONVERSATION_PAGE_LIMIT,
+                beforeId,
+            }
+            const page = await client.conversations.getConversations(pageArgs)
+
+            if (page.length === 0) {
+                break
+            }
+
+            for (const conversation of page) {
+                if (!conversation.userIds.includes(targetUserId)) {
+                    continue
+                }
+
+                if (
+                    conversation.userIds.length === 2 &&
+                    conversation.userIds.includes(sessionUserId)
+                ) {
+                    return { directConversation: conversation, groupConversationCount }
+                }
+
+                if (conversation.userIds.length > 2) {
+                    groupConversationCount += 1
+                }
+            }
+
+            beforeId = page[page.length - 1]?.id
+        }
+    }
+
+    return { groupConversationCount }
 }
 
 async function listConversationsWithUser(
@@ -387,37 +440,32 @@ async function findConversationWithUser(
 
         const targetUserId = userIds[0]
         const client = await getTwistClient()
-        const [sessionUser, targetUser, conversations] = await Promise.all([
+        const [sessionUser, targetUser] = await Promise.all([
             getSessionUser(),
             client.workspaceUsers.getUserById({ workspaceId, userId: targetUserId }),
-            getAllConversations(workspaceId),
         ])
 
         if (targetUser.id === sessionUser.id) {
             throw new Error('Cannot look up a conversation with yourself')
         }
 
-        const matchingConversations = conversations.filter((conversation) =>
-            conversation.userIds.includes(targetUser.id),
-        )
-
         if (options.includeGroups) {
+            const conversations = await getAllConversations(workspaceId)
+            const matchingConversations = conversations.filter((conversation) =>
+                conversation.userIds.includes(targetUser.id),
+            )
+
             await listConversationsWithUser(matchingConversations, workspaceId, options)
             return
         }
 
-        const directConversation = matchingConversations.find(
-            (conversation) =>
-                conversation.userIds.length === 2 &&
-                conversation.userIds.includes(sessionUser.id) &&
-                conversation.userIds.includes(targetUser.id),
+        const { directConversation, groupConversationCount } = await findDirectConversation(
+            workspaceId,
+            sessionUser.id,
+            targetUser.id,
         )
 
         if (!directConversation) {
-            const groupConversationCount = matchingConversations.filter(
-                (conversation) => conversation.userIds.length > 2,
-            ).length
-
             const suggestion =
                 groupConversationCount > 0
                     ? ` Found ${groupConversationCount} group conversation${groupConversationCount === 1 ? '' : 's'} with ${targetUser.name}. Use --include-groups to list them.`

@@ -248,6 +248,15 @@ describe('conversation with', () => {
         expect(refsMocks.resolveConversationId).not.toHaveBeenCalled()
         expect(client.conversationMessages.getMessages).not.toHaveBeenCalled()
         expect(consoleSpy).toHaveBeenCalledWith('Conversation with Me, Alice Example')
+        expect(client.conversations.getConversations).toHaveBeenCalledWith({
+            workspaceId: 1,
+            archived: undefined,
+            limit: 100,
+            beforeId: undefined,
+        })
+        expect(client.conversations.getConversations).not.toHaveBeenCalledWith(
+            expect.objectContaining({ archived: true }),
+        )
 
         consoleSpy.mockRestore()
     })
@@ -283,6 +292,47 @@ describe('conversation with', () => {
             beforeId: 1901,
         })
         expect(refsMocks.resolveConversationId).not.toHaveBeenCalled()
+
+        consoleSpy.mockRestore()
+    })
+
+    it('checks archived conversations only after active pages miss', async () => {
+        const archivedConversation = createConversation(42, [1, 2], '2024-05-31T12:52:09.000Z')
+        const client = createClient({
+            activeConversations: [createConversation(43, [1, 3], '2026-03-08T10:00:00.000Z')],
+            archivedConversations: [archivedConversation],
+            users: {
+                1: { id: 1, name: 'Me' },
+                2: { id: 2, name: 'Alice Example' },
+                3: { id: 3, name: 'Bob Example' },
+            },
+        })
+
+        apiMocks.getTwistClient.mockResolvedValue(client)
+
+        const program = createProgram()
+        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+        await program.parseAsync(['node', 'tw', 'conversation', 'with', 'Alice'])
+
+        expect(client.conversations.getConversations).toHaveBeenNthCalledWith(1, {
+            workspaceId: 1,
+            archived: undefined,
+            limit: 100,
+            beforeId: undefined,
+        })
+        expect(client.conversations.getConversations).toHaveBeenNthCalledWith(2, {
+            workspaceId: 1,
+            archived: undefined,
+            limit: 100,
+            beforeId: 43,
+        })
+        expect(client.conversations.getConversations).toHaveBeenNthCalledWith(3, {
+            workspaceId: 1,
+            archived: true,
+            limit: 100,
+            beforeId: undefined,
+        })
 
         consoleSpy.mockRestore()
     })
