@@ -64,10 +64,12 @@ function createConversation(id: number, userIds: number[], lastActive: string): 
 function createClient({
     activeConversations = [],
     archivedConversations = [],
+    messagesByConversation = {},
     users = {},
 }: {
     activeConversations?: TestConversation[]
     archivedConversations?: TestConversation[]
+    messagesByConversation?: Record<number, Array<Record<string, unknown>>>
     users?: Record<number, { id: number; name: string }>
 }) {
     const conversationsById = new Map(
@@ -127,7 +129,7 @@ function createClient({
                     if (options?.batch) {
                         return { kind: 'messages', conversationId, limit }
                     }
-                    return Promise.resolve([])
+                    return Promise.resolve(messagesByConversation[conversationId] ?? [])
                 },
             ),
             createMessage: vi.fn(),
@@ -145,19 +147,27 @@ function createClient({
                 },
             ),
         },
-        batch: vi.fn(async (...requests: Array<{ kind: string; id?: number; userId?: number }>) =>
-            requests.map((request) => {
-                if (request.kind === 'conversation' && request.id) {
-                    return { data: conversationsById.get(request.id) }
-                }
-                if (request.kind === 'messages') {
-                    return { data: [] }
-                }
-                if (request.kind === 'user' && request.userId) {
-                    return { data: users[request.userId] }
-                }
-                throw new Error(`Unexpected batch request: ${JSON.stringify(request)}`)
-            }),
+        batch: vi.fn(
+            async (
+                ...requests: Array<{
+                    kind: string
+                    id?: number
+                    userId?: number
+                    conversationId?: number
+                }>
+            ) =>
+                requests.map((request) => {
+                    if (request.kind === 'conversation' && request.id) {
+                        return { data: conversationsById.get(request.id) }
+                    }
+                    if (request.kind === 'messages') {
+                        return { data: messagesByConversation[request.conversationId ?? -1] ?? [] }
+                    }
+                    if (request.kind === 'user' && request.userId) {
+                        return { data: users[request.userId] }
+                    }
+                    throw new Error(`Unexpected batch request: ${JSON.stringify(request)}`)
+                }),
         ),
     }
 }
@@ -339,5 +349,100 @@ describe('conversation with', () => {
 
         exitSpy.mockRestore()
         errorSpy.mockRestore()
+    })
+})
+
+describe('conversation view machine output', () => {
+    beforeEach(() => {
+        vi.clearAllMocks()
+    })
+
+    it('filters conversation and message fields unless --full is set', async () => {
+        const conversation = createConversation(42, [1, 2], '2026-03-08T10:00:00.000Z')
+        const client = createClient({
+            activeConversations: [conversation],
+            messagesByConversation: {
+                42: [
+                    {
+                        id: 99,
+                        content: '**hello**',
+                        creator: 2,
+                        conversationId: 42,
+                        posted: new Date('2026-03-08T10:05:00.000Z'),
+                        reactions: [],
+                        extra: 'message-extra',
+                    },
+                ],
+            },
+            users: {
+                1: { id: 1, name: 'Me' },
+                2: { id: 2, name: 'Alice Example' },
+            },
+        })
+
+        apiMocks.getTwistClient.mockResolvedValue(client)
+
+        const program = createProgram()
+        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+        await program.parseAsync(['node', 'tw', 'conversation', 'view', '42', '--json'])
+
+        const jsonOutput = JSON.parse(consoleSpy.mock.calls[0][0])
+        expect(jsonOutput.conversation).toEqual({
+            id: 42,
+            workspaceId: 1,
+            userIds: [1, 2],
+            title: null,
+            messageCount: 1,
+            lastActive: '2026-03-08T10:00:00.000Z',
+            archived: false,
+        })
+        expect(jsonOutput.messages).toEqual([
+            {
+                id: 99,
+                content: '**hello**',
+                creator: 2,
+                conversationId: 42,
+                posted: '2026-03-08T10:05:00.000Z',
+                reactions: [],
+            },
+        ])
+
+        consoleSpy.mockClear()
+
+        await program.parseAsync(['node', 'tw', 'conversation', 'view', '42', '--ndjson'])
+
+        expect(consoleSpy.mock.calls.map((call) => JSON.parse(call[0]))).toEqual([
+            {
+                type: 'conversation',
+                id: 42,
+                workspaceId: 1,
+                userIds: [1, 2],
+                title: null,
+                messageCount: 1,
+                lastActive: '2026-03-08T10:00:00.000Z',
+                archived: false,
+            },
+            {
+                type: 'message',
+                id: 99,
+                content: '**hello**',
+                creator: 2,
+                conversationId: 42,
+                posted: '2026-03-08T10:05:00.000Z',
+                reactions: [],
+            },
+        ])
+
+        consoleSpy.mockClear()
+
+        await program.parseAsync(['node', 'tw', 'conversation', 'view', '42', '--json', '--full'])
+
+        const fullJsonOutput = JSON.parse(consoleSpy.mock.calls[0][0])
+        expect(fullJsonOutput.conversation.participantNames).toEqual(['Me', 'Alice Example'])
+        expect(fullJsonOutput.messages[0].creatorName).toBe('Alice Example')
+        expect(fullJsonOutput.messages[0].extra).toBe('message-extra')
+
+        consoleSpy.mockRestore()
     })
 })
