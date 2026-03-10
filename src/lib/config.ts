@@ -5,6 +5,7 @@ import { dirname, join } from 'node:path'
 const CONFIG_PATH = join(homedir(), '.config', 'twist-cli', 'config.json')
 
 export interface Config {
+    // Legacy plaintext token storage retained for migration and secure-store fallback only.
     token?: string
     currentWorkspace?: number
 }

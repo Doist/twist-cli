@@ -19,6 +19,8 @@ tw completion install            # Install shell completions
 tw update                        # Update CLI to latest version
 \`\`\`
 
+Stored auth uses the system credential manager when available. If secure storage is unavailable, \`tw\` warns and falls back to \`~/.config/twist-cli/config.json\`. \`TWIST_API_TOKEN\` always takes priority over the stored token, and legacy plaintext config tokens are migrated automatically when secure storage is available.
+
 ## View by URL
 
 \`\`\`bash

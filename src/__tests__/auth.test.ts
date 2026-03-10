@@ -12,11 +12,6 @@ vi.mock('../lib/api.js', () => ({
     getSessionUser: vi.fn(),
 }))
 
-// Mock the config module
-vi.mock('../lib/config.js', () => ({
-    getConfigPath: vi.fn(() => '/home/user/.config/twist-cli/config.json'),
-}))
-
 // Mock OAuth modules
 vi.mock('../lib/oauth.js', () => ({
     buildAuthorizationUrl: vi.fn(),
@@ -88,16 +83,19 @@ function createProgram() {
 
 describe('auth command', () => {
     let consoleSpy: ReturnType<typeof vi.spyOn>
+    let errorSpy: ReturnType<typeof vi.spyOn>
 
     beforeEach(() => {
         vi.clearAllMocks()
 
         // Mock console.log to capture output
         consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+        errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
     })
 
     afterEach(() => {
         consoleSpy.mockRestore()
+        errorSpy.mockRestore()
     })
 
     describe('token subcommand', () => {
@@ -106,7 +104,7 @@ describe('auth command', () => {
             const token = 'some_token_123456789'
 
             // Mock successful token save
-            mockSaveApiToken.mockResolvedValue(undefined)
+            mockSaveApiToken.mockResolvedValue({ storage: 'secure-store' })
 
             await program.parseAsync(['node', 'tw', 'auth', 'token', token])
 
@@ -116,7 +114,7 @@ describe('auth command', () => {
             // Verify success message
             expect(consoleSpy).toHaveBeenCalledWith('✓', 'API token saved successfully!')
             expect(consoleSpy).toHaveBeenCalledWith(
-                'Token saved to /home/user/.config/twist-cli/config.json',
+                'Token stored securely in the system credential manager',
             )
         })
 
@@ -139,7 +137,7 @@ describe('auth command', () => {
             const tokenWithWhitespace = '  some_token_123456789  '
             const expectedToken = 'some_token_123456789'
 
-            mockSaveApiToken.mockResolvedValue(undefined)
+            mockSaveApiToken.mockResolvedValue({ storage: 'secure-store' })
 
             await program.parseAsync(['node', 'tw', 'auth', 'token', tokenWithWhitespace])
 
@@ -156,7 +154,7 @@ describe('auth command', () => {
                 _writeToOutput: vi.fn(),
             }
             mockCreateInterface.mockReturnValue(mockRl as unknown as Interface)
-            mockSaveApiToken.mockResolvedValue(undefined)
+            mockSaveApiToken.mockResolvedValue({ storage: 'secure-store' })
             const writeSpy = vi.spyOn(process.stdout, 'write').mockImplementation(() => true)
 
             await program.parseAsync(['node', 'tw', 'auth', 'token'])
@@ -165,6 +163,24 @@ describe('auth command', () => {
             expect(mockRl.close).toHaveBeenCalled()
             expect(mockSaveApiToken).toHaveBeenCalledWith('interactive_token_456')
             writeSpy.mockRestore()
+        })
+
+        it('warns when secure storage falls back to the config file', async () => {
+            const program = createProgram()
+            const token = 'some_token_123456789'
+
+            mockSaveApiToken.mockResolvedValue({
+                storage: 'config-file',
+                warning:
+                    'system credential manager unavailable; token saved as plaintext in /home/user/.config/twist-cli/config.json',
+            })
+
+            await program.parseAsync(['node', 'tw', 'auth', 'token', token])
+
+            expect(errorSpy).toHaveBeenCalledWith(
+                'Warning:',
+                'system credential manager unavailable; token saved as plaintext in /home/user/.config/twist-cli/config.json',
+            )
         })
 
         it('shows error when interactive input is empty', async () => {
@@ -178,14 +194,14 @@ describe('auth command', () => {
             }
             mockCreateInterface.mockReturnValue(mockRl as unknown as Interface)
             const writeSpy = vi.spyOn(process.stdout, 'write').mockImplementation(() => true)
-            const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+            const localErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
 
             await program.parseAsync(['node', 'tw', 'auth', 'token'])
 
             expect(mockSaveApiToken).not.toHaveBeenCalled()
-            expect(errorSpy).toHaveBeenCalledWith('Error:', 'No token provided')
+            expect(localErrorSpy).toHaveBeenCalledWith('Error:', 'No token provided')
             writeSpy.mockRestore()
-            errorSpy.mockRestore()
+            localErrorSpy.mockRestore()
         })
     })
 
@@ -269,7 +285,7 @@ describe('auth command', () => {
             mockOpen.mockResolvedValue({} as Awaited<ReturnType<typeof open>>)
 
             // Mock token saving
-            mockSaveApiToken.mockResolvedValue(undefined)
+            mockSaveApiToken.mockResolvedValue({ storage: 'secure-store' })
 
             await program.parseAsync(['node', 'tw', 'auth', 'login'])
 
@@ -395,7 +411,7 @@ describe('auth command', () => {
 
             // Mock successful token exchange (flow should still continue)
             mockExchangeCodeForToken.mockResolvedValue('access_token_123')
-            mockSaveApiToken.mockResolvedValue(undefined)
+            mockSaveApiToken.mockResolvedValue({ storage: 'secure-store' })
 
             await program.parseAsync(['node', 'tw', 'auth', 'login'])
 
@@ -441,14 +457,14 @@ describe('auth command', () => {
     describe('logout subcommand', () => {
         it('clears the API token', async () => {
             const program = createProgram()
-            mockClearApiToken.mockResolvedValue(undefined)
+            mockClearApiToken.mockResolvedValue({ storage: 'secure-store' })
 
             await program.parseAsync(['node', 'tw', 'auth', 'logout'])
 
             expect(mockClearApiToken).toHaveBeenCalled()
             expect(consoleSpy).toHaveBeenCalledWith('✓', 'Logged out')
             expect(consoleSpy).toHaveBeenCalledWith(
-                'Token removed from /home/user/.config/twist-cli/config.json',
+                'Stored token removed from the system credential manager',
             )
         })
     })

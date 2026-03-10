@@ -50,7 +50,9 @@ __tests__/                   # Test suite
 Token resolution (priority order):
 
 1. Environment variable: `TWIST_API_TOKEN`
-2. Config file: `~/.config/twist-cli/config.json`
+2. System credential manager (Keychain, Credential Manager, or Secret Service)
+3. Legacy plaintext token in `~/.config/twist-cli/config.json` during auto-migration
+4. Plaintext config fallback when the OS credential store is unavailable
 
 ## Workspace Scoping
 
@@ -469,10 +471,11 @@ Location: `~/.config/twist-cli/config.json`
 
 ```json
 {
-  "token": "optional-token-here",
   "currentWorkspace": 12345
 }
 ```
+
+`token` may appear temporarily in legacy installs before migration, or as a fallback when the system credential manager is unavailable.
 
 ---
 
