@@ -9,14 +9,18 @@ type AwayType = (typeof AWAY_TYPES)[number]
 
 type SetAwayOptions = ViewOptions & MutationOptions & { from?: string }
 
+function formatLocalDate(d: Date): string {
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
 function todayStr(): string {
-    return new Date().toISOString().slice(0, 10)
+    return formatLocalDate(new Date())
 }
 
 function tomorrowStr(): string {
     const d = new Date()
     d.setDate(d.getDate() + 1)
-    return d.toISOString().slice(0, 10)
+    return formatLocalDate(d)
 }
 
 function formatAwayType(type: string): string {
@@ -88,7 +92,7 @@ async function clearAway(options: MutationOptions & ViewOptions): Promise<void> 
     }
 
     const client = await getTwistClient()
-    const user = await client.users.update({ awayMode: undefined })
+    const user = await client.users.update({ awayMode: null as never })
 
     if (options.json) {
         console.log(formatJson(user, 'user', options.full))
