@@ -127,6 +127,9 @@ async function logout(): Promise<void> {
 function logTokenStorageResult(result: TokenStorageResult, secureStoreMessage: string): void {
     if (result.storage === 'secure-store') {
         console.log(chalk.dim(secureStoreMessage))
+        if (result.warning) {
+            console.error(chalk.yellow('Warning:'), result.warning)
+        }
         return
     }
 

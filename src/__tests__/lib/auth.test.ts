@@ -79,6 +79,26 @@ describe('auth token storage', () => {
         expect(mocks.unlink).not.toHaveBeenCalled()
     })
 
+    it('returns the migrated token even when config cleanup fails', async () => {
+        mocks.secureTokenStore.getSecret.mockResolvedValue(null)
+        mocks.secureTokenStore.setSecret.mockResolvedValue(undefined)
+        mocks.getConfig.mockResolvedValue({
+            token: 'legacy_token_123456',
+            currentWorkspace: 42,
+        })
+        mocks.setConfig.mockRejectedValue(new Error('EACCES'))
+        const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+        const { getApiToken } = await import('../../lib/auth.js')
+
+        await expect(getApiToken()).resolves.toBe('legacy_token_123456')
+        expect(errorSpy).toHaveBeenCalledWith(
+            'Warning: Token was migrated to secure storage, but could not remove legacy plaintext token from /home/user/.config/twist-cli/config.json (EACCES)',
+        )
+
+        errorSpy.mockRestore()
+    })
+
     it('writes tokens to the secure store by default', async () => {
         mocks.secureTokenStore.setSecret.mockResolvedValue(undefined)
         mocks.getConfig.mockResolvedValue({})
@@ -89,6 +109,23 @@ describe('auth token storage', () => {
             storage: 'secure-store',
         })
         expect(mocks.secureTokenStore.setSecret).toHaveBeenCalledWith('secure_token_123456')
+    })
+
+    it('keeps secure-store success when plaintext cleanup fails after saving', async () => {
+        mocks.secureTokenStore.setSecret.mockResolvedValue(undefined)
+        mocks.getConfig.mockResolvedValue({
+            token: 'legacy_token_123456',
+            currentWorkspace: 42,
+        })
+        mocks.setConfig.mockRejectedValue(new Error('EACCES'))
+
+        const { saveApiToken } = await import('../../lib/auth.js')
+
+        await expect(saveApiToken('secure_token_123456')).resolves.toEqual({
+            storage: 'secure-store',
+            warning:
+                'Token was stored securely, but could not remove legacy plaintext token from /home/user/.config/twist-cli/config.json (EACCES)',
+        })
     })
 
     it('deletes tokens from the secure store and removes any legacy config token', async () => {

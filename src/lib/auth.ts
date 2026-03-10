@@ -43,7 +43,13 @@ export async function getApiToken(): Promise<string> {
         if (secureStoreAvailable) {
             try {
                 await secureStore.setSecret(configToken)
-                await writeConfig(withoutToken(config))
+                const cleanupWarning = await cleanupPlaintextToken(
+                    config,
+                    'Token was migrated to secure storage,',
+                )
+                if (cleanupWarning) {
+                    warn(cleanupWarning)
+                }
             } catch (error) {
                 if (error instanceof SecureStoreUnavailableError) {
                     warnSecureStoreFallback('using plaintext token from')
@@ -75,8 +81,8 @@ export async function saveApiToken(token: string): Promise<TokenStorageResult> {
     try {
         await secureStore.setSecret(trimmedToken)
         const existingConfig = await getConfig()
-        await writeConfig(withoutToken(existingConfig))
-        return { storage: 'secure-store' }
+        const warning = await cleanupPlaintextToken(existingConfig, 'Token was stored securely,')
+        return warning ? { storage: 'secure-store', warning } : { storage: 'secure-store' }
     } catch (error) {
         if (!(error instanceof SecureStoreUnavailableError)) {
             throw error
@@ -98,8 +104,8 @@ export async function clearApiToken(): Promise<TokenStorageResult> {
 
     try {
         await secureStore.deleteSecret()
-        await writeConfig(withoutToken(config))
-        return { storage: 'secure-store' }
+        const warning = await cleanupPlaintextToken(config, 'Secure-store token was removed,')
+        return warning ? { storage: 'secure-store', warning } : { storage: 'secure-store' }
     } catch (error) {
         if (!(error instanceof SecureStoreUnavailableError)) {
             throw error
@@ -117,13 +123,27 @@ async function writeConfig(config: Config): Promise<void> {
     if (Object.keys(config).length === 0) {
         try {
             await unlink(getConfigPath())
-        } catch {
-            // Config doesn't exist, nothing to remove
+        } catch (error) {
+            if (!isMissingFileError(error)) {
+                throw error
+            }
         }
         return
     }
 
     await setConfig(config)
+}
+
+async function cleanupPlaintextToken(
+    config: Config,
+    warningPrefix: string,
+): Promise<string | undefined> {
+    try {
+        await writeConfig(withoutToken(config))
+        return undefined
+    } catch (error) {
+        return buildConfigCleanupWarning(warningPrefix, error)
+    }
 }
 
 function getConfigToken(config: Config): string | null {
@@ -139,6 +159,19 @@ function buildFallbackWarning(action: string): string {
     return `${SECURE_STORE_DESCRIPTION} unavailable; ${action} ${getConfigPath()}`
 }
 
+function buildConfigCleanupWarning(prefix: string, error: unknown): string {
+    const detail = error instanceof Error && error.message ? ` (${error.message})` : ''
+    return `${prefix} but could not remove legacy plaintext token from ${getConfigPath()}${detail}`
+}
+
+function isMissingFileError(error: unknown): boolean {
+    return error instanceof Error && 'code' in error && error.code === 'ENOENT'
+}
+
+function warn(message: string): void {
+    console.error(`Warning: ${message}`)
+}
+
 function warnSecureStoreFallback(action: string): void {
-    console.error(`Warning: ${buildFallbackWarning(action)}`)
+    warn(buildFallbackWarning(action))
 }

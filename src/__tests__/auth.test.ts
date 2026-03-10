@@ -183,6 +183,27 @@ describe('auth command', () => {
             )
         })
 
+        it('warns when secure storage succeeds but plaintext cleanup fails', async () => {
+            const program = createProgram()
+            const token = 'some_token_123456789'
+
+            mockSaveApiToken.mockResolvedValue({
+                storage: 'secure-store',
+                warning:
+                    'Token was stored securely, but could not remove legacy plaintext token from /home/user/.config/twist-cli/config.json (EACCES)',
+            })
+
+            await program.parseAsync(['node', 'tw', 'auth', 'token', token])
+
+            expect(consoleSpy).toHaveBeenCalledWith(
+                'Token stored securely in the system credential manager',
+            )
+            expect(errorSpy).toHaveBeenCalledWith(
+                'Warning:',
+                'Token was stored securely, but could not remove legacy plaintext token from /home/user/.config/twist-cli/config.json (EACCES)',
+            )
+        })
+
         it('shows error when interactive input is empty', async () => {
             const program = createProgram()
             const mockRl = {
