@@ -34,6 +34,7 @@ const API_SPINNER_MESSAGES: Record<string, { text: string; color?: 'blue' | 'gre
         'channels.deleteChannel': { text: 'Deleting channel...', color: 'yellow' },
 
         // Conversation operations
+        'conversations.getConversations': { text: 'Loading conversations...', color: 'blue' },
         'conversations.getConversation': { text: 'Loading conversation...', color: 'blue' },
         'conversations.getUnread': { text: 'Loading unread conversations...', color: 'blue' },
         'conversations.createConversation': { text: 'Creating conversation...', color: 'green' },
