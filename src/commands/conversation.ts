@@ -6,8 +6,13 @@ import { formatRelativeDate } from '../lib/dates.js'
 import { openEditor, readStdin } from '../lib/input.js'
 import { renderMarkdown } from '../lib/markdown.js'
 import type { MutationOptions, PaginatedViewOptions, ViewOptions } from '../lib/options.js'
-import type { EntityType } from '../lib/output.js'
-import { colors, formatJson, formatNdjson, isAccessible } from '../lib/output.js'
+import {
+    colors,
+    filterEntityFields,
+    formatJson,
+    formatNdjson,
+    isAccessible,
+} from '../lib/output.js'
 import { resolveConversationId, resolveUserRefs, resolveWorkspaceRef } from '../lib/refs.js'
 
 type UnreadOptions = ViewOptions & { workspace?: string }
@@ -266,12 +271,8 @@ async function viewConversation(ref: string, options: ConversationViewOptions): 
 
     if (options.json) {
         const output = {
-            conversation: parseFormattedObjectOutput(
-                conversationOutput,
-                'conversation',
-                options.full,
-            ),
-            messages: parseFormattedArrayOutput(messageOutput, 'message', options.full),
+            conversation: filterEntityFields(conversationOutput, 'conversation', options.full),
+            messages: filterEntityFields(messageOutput, 'message', options.full),
         }
         console.log(JSON.stringify(output, null, 2))
         return
@@ -281,10 +282,10 @@ async function viewConversation(ref: string, options: ConversationViewOptions): 
         console.log(
             JSON.stringify({
                 type: 'conversation',
-                ...parseFormattedObjectOutput(conversationOutput, 'conversation', options.full),
+                ...filterEntityFields(conversationOutput, 'conversation', options.full),
             }),
         )
-        const formattedMessages = parseFormattedArrayOutput(messageOutput, 'message', options.full)
+        const formattedMessages = filterEntityFields(messageOutput, 'message', options.full)
         for (const message of formattedMessages) {
             console.log(JSON.stringify({ type: 'message', ...message }))
         }
@@ -309,22 +310,6 @@ async function viewConversation(ref: string, options: ConversationViewOptions): 
         console.log(options.raw ? message.content : renderMarkdown(message.content))
         console.log('')
     }
-}
-
-function parseFormattedObjectOutput<T extends object>(
-    data: T,
-    type: EntityType,
-    full = false,
-): T | Partial<T> {
-    return JSON.parse(formatJson(data, type, full)) as T | Partial<T>
-}
-
-function parseFormattedArrayOutput<T extends object>(
-    data: T[],
-    type: EntityType,
-    full = false,
-): Array<T | Partial<T>> {
-    return JSON.parse(formatJson(data, type, full)) as Array<T | Partial<T>>
 }
 
 async function replyToConversation(
