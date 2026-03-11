@@ -92,7 +92,7 @@ async function clearAway(options: MutationOptions & ViewOptions): Promise<void> 
     }
 
     const client = await getTwistClient()
-    const user = await client.users.update({ awayMode: null as never })
+    const user = await client.users.update({ awayMode: '' as never })
 
     if (options.json) {
         console.log(formatJson(user, 'user', options.full))

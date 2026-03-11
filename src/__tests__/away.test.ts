@@ -145,13 +145,13 @@ describe('away', () => {
     })
 
     describe('clear', () => {
-        it('calls users.update with null awayMode', async () => {
+        it('calls users.update with empty string awayMode to clear', async () => {
             const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
             const program = createProgram()
 
             await program.parseAsync(['node', 'tw', 'away', 'clear'])
 
-            expect(apiMocks.updateUser).toHaveBeenCalledWith({ awayMode: null })
+            expect(apiMocks.updateUser).toHaveBeenCalledWith({ awayMode: '' })
             expect(logSpy).toHaveBeenCalledWith('Away status cleared.')
             logSpy.mockRestore()
         })
