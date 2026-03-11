@@ -132,14 +132,17 @@ async function findDirectConversation(
                     continue
                 }
 
-                if (
-                    conversation.userIds.length === 2 &&
-                    conversation.userIds.includes(sessionUserId)
-                ) {
+                const isSelfConversation = sessionUserId === targetUserId
+                const isDirect = isSelfConversation
+                    ? conversation.userIds.length === 1
+                    : conversation.userIds.length === 2 &&
+                      conversation.userIds.includes(sessionUserId)
+
+                if (isDirect) {
                     return { directConversation: conversation, groupConversationCount }
                 }
 
-                if (conversation.userIds.length > 2) {
+                if (conversation.userIds.length > (isSelfConversation ? 1 : 2)) {
                     groupConversationCount += 1
                 }
             }
@@ -444,10 +447,6 @@ async function findConversationWithUser(
             getSessionUser(),
             client.workspaceUsers.getUserById({ workspaceId, userId: targetUserId }),
         ])
-
-        if (targetUser.id === sessionUser.id) {
-            throw new Error('Cannot look up a conversation with yourself')
-        }
 
         if (options.includeGroups) {
             const conversations = await getAllConversations(workspaceId)

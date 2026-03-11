@@ -374,6 +374,26 @@ describe('conversation with', () => {
         consoleSpy.mockRestore()
     })
 
+    it('finds the self-conversation when looking up yourself', async () => {
+        refsMocks.resolveUserRefs.mockResolvedValue([1])
+        const selfConversation = createConversation(10, [1], '2026-03-10T10:00:00.000Z')
+        const client = createClient({
+            activeConversations: [selfConversation],
+            users: { 1: { id: 1, name: 'Me' } },
+        })
+
+        apiMocks.getTwistClient.mockResolvedValue(client)
+
+        const program = createProgram()
+        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+        await program.parseAsync(['node', 'tw', 'conversation', 'with', 'Me'])
+
+        expect(consoleSpy).toHaveBeenCalledWith('Conversation with Me')
+
+        consoleSpy.mockRestore()
+    })
+
     it('prints a clean error and exits non-zero for ambiguous user refs', async () => {
         refsMocks.resolveUserRefs.mockRejectedValue(
             new Error(
