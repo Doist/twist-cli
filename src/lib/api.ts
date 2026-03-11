@@ -1,6 +1,7 @@
 import { TwistApi, type User, type Workspace, type WorkspaceUser } from '@doist/twist-sdk'
 import { getApiToken } from './auth.js'
 import { getConfig, updateConfig } from './config.js'
+import { ensureWriteAllowed, isMutatingMethod } from './permissions.js'
 import { getProgressTracker } from './progress.js'
 import { withSpinner } from './spinner.js'
 
@@ -84,61 +85,62 @@ function createNestedSpinnerProxy<T extends object>(obj: T, basePath: string): T
         get(target, property, receiver) {
             const originalMethod = Reflect.get(target, property, receiver)
 
-            // Only wrap functions that are likely API calls
-            if (typeof originalMethod === 'function' && typeof property === 'string') {
-                const fullPath = `${basePath}.${property}`
-                const spinnerConfig = API_SPINNER_MESSAGES[fullPath]
-
-                if (spinnerConfig) {
-                    return <T extends unknown[]>(...args: T) => {
-                        const progressTracker = getProgressTracker()
-
-                        // Extract cursor from args for paginated methods
-                        let cursor: string | null = null
-                        if (args.length > 0 && typeof args[0] === 'object' && args[0] !== null) {
-                            const options = args[0] as Record<string, unknown>
-                            if ('cursor' in options && typeof options.cursor === 'string') {
-                                cursor = options.cursor
-                            }
-                        }
-
-                        // Emit progress event for API call start
-                        if (progressTracker.isEnabled()) {
-                            progressTracker.emitApiCall(property, cursor)
-                        }
-
-                        const result = originalMethod.apply(target, args)
-
-                        // If the method returns a Promise, wrap it with spinner and progress tracking
-                        if (result && typeof result.then === 'function') {
-                            const wrappedPromise = result
-                                .then((response: unknown) => {
-                                    // Emit progress event for successful response
-                                    if (progressTracker.isEnabled()) {
-                                        analyzeAndEmitApiResponse(progressTracker, response)
-                                    }
-                                    return response
-                                })
-                                .catch((error: Error) => {
-                                    // Emit progress event for error
-                                    if (progressTracker.isEnabled()) {
-                                        progressTracker.emitError(
-                                            error.name || 'API_ERROR',
-                                            error.message,
-                                        )
-                                    }
-                                    throw error
-                                })
-
-                            return withSpinner(spinnerConfig, () => wrappedPromise)
-                        }
-
-                        return result
-                    }
-                }
+            if (typeof originalMethod !== 'function' || typeof property !== 'string') {
+                return originalMethod
             }
 
-            return originalMethod
+            const fullPath = `${basePath}.${property}`
+            const spinnerConfig = API_SPINNER_MESSAGES[fullPath]
+            const shouldCheckPermissions = isMutatingMethod(fullPath)
+
+            if (!spinnerConfig && !shouldCheckPermissions) {
+                return originalMethod
+            }
+
+            return async <T extends unknown[]>(...args: T) => {
+                if (shouldCheckPermissions) {
+                    await ensureWriteAllowed()
+                }
+
+                const progressTracker = getProgressTracker()
+
+                // Extract cursor from args for paginated methods
+                let cursor: string | null = null
+                if (args.length > 0 && typeof args[0] === 'object' && args[0] !== null) {
+                    const options = args[0] as Record<string, unknown>
+                    if ('cursor' in options && typeof options.cursor === 'string') {
+                        cursor = options.cursor
+                    }
+                }
+
+                // Emit progress event for API call start
+                if (progressTracker.isEnabled()) {
+                    progressTracker.emitApiCall(property, cursor)
+                }
+
+                const callApi = async () => {
+                    const response = await originalMethod.apply(target, args)
+                    if (progressTracker.isEnabled()) {
+                        analyzeAndEmitApiResponse(progressTracker, response)
+                    }
+                    return response
+                }
+
+                try {
+                    if (spinnerConfig) {
+                        return await withSpinner(spinnerConfig, callApi)
+                    }
+                    return await callApi()
+                } catch (error) {
+                    if (progressTracker.isEnabled()) {
+                        progressTracker.emitError(
+                            (error as Error).name || 'API_ERROR',
+                            (error as Error).message,
+                        )
+                    }
+                    throw error
+                }
+            }
         },
     })
 }

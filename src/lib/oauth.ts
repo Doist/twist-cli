@@ -8,8 +8,8 @@ export const TOKEN_URL = 'https://twist.com/oauth/access_token'
 export const REGISTRATION_URL = 'https://twist.com/oauth/register'
 export const OAUTH_REDIRECT_URI = 'http://localhost:8766/callback'
 
-// OAuth scopes needed for the CLI operations
-export const OAUTH_SCOPES = [
+// OAuth scopes needed for full read-write CLI operations
+export const READ_WRITE_SCOPES = [
     'user:read', // Read user information and session details
     'workspaces:read', // Read workspace information
     'channels:read', // Read channel information
@@ -23,6 +23,19 @@ export const OAUTH_SCOPES = [
     'reactions:write', // Add reactions
     'search:read', // Search functionality
     'notifications:read', // Read notifications
+].join(' ')
+
+// OAuth scopes for read-only CLI operations (no :write scopes)
+export const READ_ONLY_SCOPES = [
+    'user:read',
+    'workspaces:read',
+    'channels:read',
+    'threads:read',
+    'comments:read',
+    'messages:read',
+    'reactions:read',
+    'search:read',
+    'notifications:read',
 ].join(' ')
 
 /**
@@ -93,12 +106,14 @@ export function buildAuthorizationUrl(
     clientId: string,
     codeChallenge: string,
     state: string,
+    options: { readOnly?: boolean } = {},
 ): string {
+    const scope = options.readOnly ? READ_ONLY_SCOPES : READ_WRITE_SCOPES
     const params = new URLSearchParams({
         client_id: clientId,
         response_type: 'code',
         redirect_uri: OAUTH_REDIRECT_URI,
-        scope: OAUTH_SCOPES,
+        scope,
         state,
         code_challenge: codeChallenge,
         code_challenge_method: 'S256',

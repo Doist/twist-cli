@@ -191,7 +191,11 @@ describe('auth token storage', () => {
             warning:
                 'system credential manager unavailable; token saved as plaintext in /home/user/.config/twist-cli/config.json',
         })
-        expect(mocks.setConfig).toHaveBeenCalledWith({ token: 'fallback_token_123456' })
+        expect(mocks.setConfig).toHaveBeenCalledWith({
+            token: 'fallback_token_123456',
+            authMode: 'unknown',
+            authScope: undefined,
+        })
     })
 
     it('reads from plaintext config with a warning when the secure store is unavailable', async () => {

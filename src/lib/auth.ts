@@ -1,5 +1,5 @@
 import { unlink } from 'node:fs/promises'
-import { type Config, getConfig, getConfigPath, setConfig } from './config.js'
+import { type AuthMode, type Config, getConfig, getConfigPath, setConfig } from './config.js'
 import {
     createSecureStore,
     SECURE_STORE_DESCRIPTION,
@@ -12,6 +12,17 @@ export type TokenStorageLocation = 'secure-store' | 'config-file'
 export interface TokenStorageResult {
     storage: TokenStorageLocation
     warning?: string
+}
+
+export interface SaveApiTokenOptions {
+    authMode?: AuthMode
+    authScope?: string
+}
+
+export interface AuthMetadata {
+    authMode: AuthMode
+    authScope?: string
+    source: 'env' | 'config'
 }
 
 export async function getApiToken(): Promise<string> {
@@ -83,7 +94,24 @@ export async function getApiToken(): Promise<string> {
     )
 }
 
-export async function saveApiToken(token: string): Promise<TokenStorageResult> {
+export async function getAuthMetadata(): Promise<AuthMetadata> {
+    const envToken = process.env[TOKEN_ENV_VAR]
+    if (envToken) {
+        return { authMode: 'unknown', source: 'env' }
+    }
+
+    const config = await getConfig()
+    return {
+        authMode: config.authMode ?? 'unknown',
+        authScope: config.authScope,
+        source: 'config',
+    }
+}
+
+export async function saveApiToken(
+    token: string,
+    options: SaveApiTokenOptions = {},
+): Promise<TokenStorageResult> {
     // Validate token (non-empty, reasonable length)
     if (!token || token.trim().length < 10) {
         throw new Error('Invalid token: Token must be at least 10 characters')
@@ -96,6 +124,12 @@ export async function saveApiToken(token: string): Promise<TokenStorageResult> {
         await secureStore.setSecret(trimmedToken)
         const existingConfig = await getConfig()
         const warning = await cleanupAuthFallbackState(existingConfig, 'Token was stored securely,')
+        // Persist auth metadata to config (best-effort; non-critical if config write fails)
+        try {
+            await saveAuthMetadata(options)
+        } catch {
+            // Auth metadata is non-critical — token is already saved in secure store
+        }
         return warning ? { storage: 'secure-store', warning } : { storage: 'secure-store' }
     } catch (error) {
         if (!(error instanceof SecureStoreUnavailableError)) {
@@ -106,6 +140,8 @@ export async function saveApiToken(token: string): Promise<TokenStorageResult> {
     const config = await getConfig()
     config.token = trimmedToken
     delete config.pendingSecureStoreClear
+    config.authMode = options.authMode ?? 'unknown'
+    config.authScope = options.authScope
     await writeConfig(config)
     return {
         storage: 'config-file',
@@ -116,6 +152,9 @@ export async function saveApiToken(token: string): Promise<TokenStorageResult> {
 export async function clearApiToken(): Promise<TokenStorageResult> {
     const config = await getConfig()
     const secureStore = createSecureStore()
+
+    // Clear auth metadata from config
+    await clearAuthMetadata()
 
     try {
         await secureStore.deleteSecret()
@@ -132,6 +171,20 @@ export async function clearApiToken(): Promise<TokenStorageResult> {
         storage: 'config-file',
         warning: buildFallbackWarning('local auth state cleared in'),
     }
+}
+
+async function saveAuthMetadata(options: SaveApiTokenOptions): Promise<void> {
+    const config = await getConfig()
+    config.authMode = options.authMode ?? 'unknown'
+    config.authScope = options.authScope
+    await setConfig(config)
+}
+
+async function clearAuthMetadata(): Promise<void> {
+    const config = await getConfig()
+    delete config.authMode
+    delete config.authScope
+    await setConfig(config)
 }
 
 async function writeConfig(config: Config): Promise<void> {

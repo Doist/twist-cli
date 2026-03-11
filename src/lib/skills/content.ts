@@ -9,10 +9,11 @@ Access Twist messaging via the \`tw\` CLI. Use when the user asks about their Tw
 ## Setup
 
 \`\`\`bash
-tw auth login                    # OAuth login (opens browser)
-tw auth token <your-api-token>   # Save API token manually
-tw auth status                   # Verify authentication
-tw auth logout                   # Remove saved token
+tw auth login                    # OAuth login (opens browser, read-write)
+tw auth login --read-only        # OAuth login with read-only scope
+tw auth token <your-api-token>   # Save API token manually (scope unknown; assumed write-capable)
+tw auth status                   # Verify authentication + show mode
+tw auth logout                   # Remove saved token and auth metadata
 tw workspaces                    # List available workspaces
 tw workspace use <ref>           # Set current workspace
 tw completion install            # Install shell completions
@@ -20,6 +21,8 @@ tw update                        # Update CLI to latest version
 \`\`\`
 
 Stored auth uses the system credential manager when available. If secure storage is unavailable, \`tw\` warns and falls back to \`~/.config/twist-cli/config.json\`. \`TWIST_API_TOKEN\` always takes priority over the stored token, and legacy plaintext config tokens are migrated automatically when secure storage is available.
+
+In read-only mode (\`tw auth login --read-only\`), commands that modify Twist data (reply, archive, react, delete, etc.) are blocked by the CLI. Externally provided tokens (\`TWIST_API_TOKEN\` or \`tw auth token\`) are treated as unknown scope and assumed write-capable.
 
 ## View by URL
 
