@@ -93,6 +93,33 @@ function pickFields<T extends object>(item: T, fields: readonly string[]): Parti
     return result
 }
 
+export function filterEntityFields<T extends object>(
+    data: T,
+    type: EntityType,
+    full?: boolean,
+): T | Partial<T>
+export function filterEntityFields<T extends object>(
+    data: T[],
+    type: EntityType,
+    full?: boolean,
+): Array<T | Partial<T>>
+export function filterEntityFields<T extends object>(
+    data: T | T[],
+    type: EntityType,
+    full = false,
+): T | Partial<T> | Array<T | Partial<T>> {
+    if (full) {
+        return data
+    }
+
+    const fields = getEssentialFields(type)
+    if (Array.isArray(data)) {
+        return data.map((item) => pickFields(item, fields))
+    }
+
+    return pickFields(data, fields)
+}
+
 export function formatJson<T extends object>(
     data: T | T[],
     type?: EntityType,
@@ -101,15 +128,7 @@ export function formatJson<T extends object>(
     if (full || !type) {
         return JSON.stringify(data, null, 2)
     }
-    const fields = getEssentialFields(type)
-    if (Array.isArray(data)) {
-        return JSON.stringify(
-            data.map((item) => pickFields(item, fields)),
-            null,
-            2,
-        )
-    }
-    return JSON.stringify(pickFields(data, fields), null, 2)
+    return JSON.stringify(filterEntityFields(data, type), null, 2)
 }
 
 export function formatNdjson<T extends object>(
@@ -120,8 +139,9 @@ export function formatNdjson<T extends object>(
     if (full || !type) {
         return items.map((item) => JSON.stringify(item)).join('\n')
     }
-    const fields = getEssentialFields(type)
-    return items.map((item) => JSON.stringify(pickFields(item, fields))).join('\n')
+    return filterEntityFields(items, type)
+        .map((item) => JSON.stringify(item))
+        .join('\n')
 }
 
 export interface PaginatedOutput<T> {
@@ -134,8 +154,7 @@ export function formatPaginatedJson<T extends object>(
     type?: EntityType,
     full = false,
 ): string {
-    const fields = type && !full ? getEssentialFields(type) : null
-    const results = fields ? data.results.map((item) => pickFields(item, fields)) : data.results
+    const results = type ? filterEntityFields(data.results, type, full) : data.results
     return JSON.stringify({ results, nextCursor: data.nextCursor }, null, 2)
 }
 
@@ -144,10 +163,8 @@ export function formatPaginatedNdjson<T extends object>(
     type?: EntityType,
     full = false,
 ): string {
-    const fields = type && !full ? getEssentialFields(type) : null
-    const lines = data.results.map((item) =>
-        JSON.stringify(fields ? pickFields(item, fields) : item),
-    )
+    const results = type ? filterEntityFields(data.results, type, full) : data.results
+    const lines = results.map((item) => JSON.stringify(item))
     if (data.nextCursor) {
         lines.push(JSON.stringify({ _meta: true, nextCursor: data.nextCursor }))
     }

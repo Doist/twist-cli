@@ -1,20 +1,219 @@
+import type { Conversation } from '@doist/twist-sdk'
 import chalk from 'chalk'
 import { Command } from 'commander'
-import { getCurrentWorkspaceId, getTwistClient } from '../lib/api.js'
+import { getCurrentWorkspaceId, getSessionUser, getTwistClient } from '../lib/api.js'
 import { formatRelativeDate } from '../lib/dates.js'
 import { openEditor, readStdin } from '../lib/input.js'
 import { renderMarkdown } from '../lib/markdown.js'
 import type { MutationOptions, PaginatedViewOptions, ViewOptions } from '../lib/options.js'
-import { colors, formatJson, formatNdjson, isAccessible } from '../lib/output.js'
-import { resolveConversationId, resolveWorkspaceRef } from '../lib/refs.js'
+import {
+    colors,
+    filterEntityFields,
+    formatJson,
+    formatNdjson,
+    isAccessible,
+} from '../lib/output.js'
+import { resolveConversationId, resolveUserRefs, resolveWorkspaceRef } from '../lib/refs.js'
 
 type UnreadOptions = ViewOptions & { workspace?: string }
 
 type ConversationViewOptions = PaginatedViewOptions
 
+type ConversationWithOptions = PaginatedViewOptions & {
+    workspace?: string
+    includeGroups?: boolean
+    snippet?: boolean
+}
+
 type ReplyOptions = MutationOptions
 
 type DoneOptions = MutationOptions
+
+const CONVERSATION_PAGE_LIMIT = 100
+
+type ConversationPageArgs = {
+    workspaceId: number
+    archived?: boolean
+    limit: number
+    beforeId?: number
+}
+
+type ConversationLookupResult = {
+    directConversation?: Conversation
+    groupConversationCount: number
+}
+
+function buildConversationTitle(
+    conversation: Pick<Conversation, 'title' | 'userIds'>,
+    userMap: Map<number, string>,
+): string {
+    const participants = conversation.userIds
+        .map((id) => userMap.get(id) || `user:${id}`)
+        .join(', ')
+    return conversation.title || `Conversation with ${participants}`
+}
+
+function sortByLastActiveDescending(a: Conversation, b: Conversation): number {
+    return new Date(b.lastActive).getTime() - new Date(a.lastActive).getTime()
+}
+
+async function getAllConversations(workspaceId: number): Promise<Conversation[]> {
+    const [activeConversations, archivedConversations] = await Promise.all([
+        getConversationPages({ workspaceId, limit: CONVERSATION_PAGE_LIMIT }),
+        getConversationPages({ workspaceId, archived: true, limit: CONVERSATION_PAGE_LIMIT }),
+    ])
+
+    const byId = new Map<number, Conversation>()
+    for (const conversation of [...activeConversations, ...archivedConversations]) {
+        byId.set(conversation.id, conversation)
+    }
+
+    return [...byId.values()].sort(sortByLastActiveDescending)
+}
+
+async function getConversationPages(initialArgs: ConversationPageArgs): Promise<Conversation[]> {
+    const client = await getTwistClient()
+    const conversations: Conversation[] = []
+    let beforeId = initialArgs.beforeId
+
+    while (true) {
+        const pageArgs: ConversationPageArgs = {
+            ...initialArgs,
+            beforeId,
+        }
+        const page = await client.conversations.getConversations(pageArgs)
+
+        if (page.length === 0) {
+            break
+        }
+
+        conversations.push(...page)
+
+        if (page.length < initialArgs.limit) {
+            break
+        }
+
+        const nextBeforeId = page[page.length - 1]?.id
+        if (!nextBeforeId || nextBeforeId === beforeId) {
+            break
+        }
+        beforeId = nextBeforeId
+    }
+
+    return conversations
+}
+
+async function findDirectConversation(
+    workspaceId: number,
+    sessionUserId: number,
+    targetUserId: number,
+): Promise<ConversationLookupResult> {
+    const client = await getTwistClient()
+    let groupConversationCount = 0
+
+    for (const archived of [false, true]) {
+        let beforeId: number | undefined
+
+        while (true) {
+            const pageArgs: ConversationPageArgs = {
+                workspaceId,
+                archived: archived || undefined,
+                limit: CONVERSATION_PAGE_LIMIT,
+                beforeId,
+            }
+            const page = await client.conversations.getConversations(pageArgs)
+
+            if (page.length === 0) {
+                break
+            }
+
+            for (const conversation of page) {
+                if (!conversation.userIds.includes(targetUserId)) {
+                    continue
+                }
+
+                const isSelfConversation = sessionUserId === targetUserId
+                const isDirect = isSelfConversation
+                    ? conversation.userIds.length === 1
+                    : conversation.userIds.length === 2 &&
+                      conversation.userIds.includes(sessionUserId)
+
+                if (isDirect) {
+                    return { directConversation: conversation, groupConversationCount }
+                }
+
+                if (conversation.userIds.length > (isSelfConversation ? 1 : 2)) {
+                    groupConversationCount += 1
+                }
+            }
+
+            beforeId = page[page.length - 1]?.id
+        }
+    }
+
+    return { groupConversationCount }
+}
+
+async function listConversationsWithUser(
+    conversations: Conversation[],
+    workspaceId: number,
+    options: ConversationWithOptions,
+): Promise<void> {
+    if (conversations.length === 0) {
+        console.log('No matching conversations found.')
+        return
+    }
+
+    const client = await getTwistClient()
+    const userIds = new Set<number>()
+    for (const conversation of conversations) {
+        for (const userId of conversation.userIds) {
+            userIds.add(userId)
+        }
+    }
+
+    const userCalls = [...userIds].map((userId) =>
+        client.workspaceUsers.getUserById({ workspaceId, userId }, { batch: true }),
+    )
+    const userResponses = await client.batch(...userCalls)
+    const userMap = new Map(userResponses.map((response) => [response.data.id, response.data.name]))
+
+    const output = conversations.map((conversation) => ({
+        ...conversation,
+        participantNames: conversation.userIds.map((id) => userMap.get(id)),
+    }))
+
+    if (options.json) {
+        console.log(formatJson(output, 'conversation', options.full))
+        return
+    }
+
+    if (options.ndjson) {
+        console.log(formatNdjson(output, 'conversation', options.full))
+        return
+    }
+
+    for (const conversation of conversations) {
+        const participants = conversation.userIds
+            .map((id) => userMap.get(id) || `user:${id}`)
+            .join(', ')
+        const title = buildConversationTitle(conversation, userMap)
+        const archivedBadge = conversation.archived
+            ? chalk.yellow(isAccessible() ? ' (archived)' : ' [archived]')
+            : ''
+
+        console.log(`${chalk.bold(title)}${archivedBadge}`)
+        console.log(
+            `  ${colors.timestamp(`id:${conversation.id}`)}  ${colors.author(participants)}`,
+        )
+        if (options.snippet && conversation.snippet) {
+            console.log(renderMarkdown(conversation.snippet))
+        }
+        console.log(`  ${colors.timestamp(formatRelativeDate(conversation.lastActive))}`)
+        console.log(`  ${colors.url(conversation.url)}`)
+        console.log('')
+    }
+}
 
 async function showUnread(workspaceRef: string | undefined, options: UnreadOptions): Promise<void> {
     if (workspaceRef && options.workspace) {
@@ -117,19 +316,21 @@ async function viewConversation(ref: string, options: ConversationViewOptions): 
     )
     const userResponses = await client.batch(...userCalls)
     const userMap = new Map(userResponses.map((r) => [r.data.id, r.data.name]))
+    const conversationOutput = {
+        ...conversation,
+        participantNames: conversation.userIds.map((id) => userMap.get(id)),
+    }
+    const messageOutput = messages.map((m) => ({
+        ...m,
+        creatorName: userMap.get(m.creator),
+    }))
 
     if (options.json) {
         const output = {
-            conversation: {
-                ...conversation,
-                participantNames: conversation.userIds.map((id) => userMap.get(id)),
-            },
-            messages: messages.map((m) => ({
-                ...m,
-                creatorName: userMap.get(m.creator),
-            })),
+            conversation: filterEntityFields(conversationOutput, 'conversation', options.full),
+            messages: filterEntityFields(messageOutput, 'message', options.full),
         }
-        console.log(formatJson(output, undefined, options.full))
+        console.log(JSON.stringify(output, null, 2))
         return
     }
 
@@ -137,22 +338,17 @@ async function viewConversation(ref: string, options: ConversationViewOptions): 
         console.log(
             JSON.stringify({
                 type: 'conversation',
-                ...conversation,
-                participantNames: conversation.userIds.map((id) => userMap.get(id)),
+                ...filterEntityFields(conversationOutput, 'conversation', options.full),
             }),
         )
-        for (const m of messages) {
-            console.log(
-                JSON.stringify({ type: 'message', ...m, creatorName: userMap.get(m.creator) }),
-            )
+        const formattedMessages = filterEntityFields(messageOutput, 'message', options.full)
+        for (const message of formattedMessages) {
+            console.log(JSON.stringify({ type: 'message', ...message }))
         }
         return
     }
 
-    const participants = conversation.userIds
-        .map((id) => userMap.get(id) || `user:${id}`)
-        .join(', ')
-    const title = conversation.title || `Conversation with ${participants}`
+    const title = buildConversationTitle(conversation, userMap)
 
     console.log(chalk.bold(title))
     console.log(colors.timestamp(`id:${conversation.id}`))
@@ -220,6 +416,71 @@ async function markConversationDone(ref: string, options: DoneOptions): Promise<
     console.log(`Conversation ${conversationId} archived.`)
 }
 
+async function findConversationWithUser(
+    userRef: string,
+    workspaceRef: string | undefined,
+    options: ConversationWithOptions,
+): Promise<void> {
+    try {
+        if (workspaceRef && options.workspace) {
+            throw new Error('Cannot specify workspace both as argument and --workspace flag')
+        }
+
+        let workspaceId: number
+        const ref = workspaceRef || options.workspace
+
+        if (ref) {
+            const workspace = await resolveWorkspaceRef(ref)
+            workspaceId = workspace.id
+        } else {
+            workspaceId = await getCurrentWorkspaceId()
+        }
+
+        const userIds = await resolveUserRefs(userRef, workspaceId)
+        if (userIds.length !== 1) {
+            throw new Error('Expected a single user reference')
+        }
+
+        const targetUserId = userIds[0]
+        const client = await getTwistClient()
+        const [sessionUser, targetUser] = await Promise.all([
+            getSessionUser(),
+            client.workspaceUsers.getUserById({ workspaceId, userId: targetUserId }),
+        ])
+
+        if (options.includeGroups) {
+            const conversations = await getAllConversations(workspaceId)
+            const matchingConversations = conversations.filter((conversation) =>
+                conversation.userIds.includes(targetUser.id),
+            )
+
+            await listConversationsWithUser(matchingConversations, workspaceId, options)
+            return
+        }
+
+        const { directConversation, groupConversationCount } = await findDirectConversation(
+            workspaceId,
+            sessionUser.id,
+            targetUser.id,
+        )
+
+        if (!directConversation) {
+            const suggestion =
+                groupConversationCount > 0
+                    ? ` Found ${groupConversationCount} group conversation${groupConversationCount === 1 ? '' : 's'} with ${targetUser.name}. Use --include-groups to list them.`
+                    : ''
+
+            console.log(`No 1:1 conversation found with ${targetUser.name}.${suggestion}`)
+            return
+        }
+
+        await listConversationsWithUser([directConversation], workspaceId, options)
+    } catch (error) {
+        console.error((error as Error).message)
+        process.exit(1)
+    }
+}
+
 export function registerConversationCommand(program: Command): void {
     const conversation = program
         .command('conversation')
@@ -252,6 +513,17 @@ export function registerConversationCommand(program: Command): void {
             }
             return viewConversation(ref, options)
         })
+
+    conversation
+        .command('with <user-ref> [workspace-ref]')
+        .description('Find your 1:1 conversation with a user')
+        .option('--workspace <ref>', 'Workspace ID or name')
+        .option('--include-groups', 'List any conversation that includes this user')
+        .option('--snippet', 'Include the latest message snippet in text output')
+        .option('--json', 'Output as JSON')
+        .option('--ndjson', 'Output as newline-delimited JSON')
+        .option('--full', 'Include all fields in JSON output')
+        .action(findConversationWithUser)
 
     conversation
         .command('reply <conversation-ref> [content]')

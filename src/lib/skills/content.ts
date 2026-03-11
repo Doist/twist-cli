@@ -69,6 +69,9 @@ Default \`--notify\` is EVERYONE_IN_THREAD. Options: EVERYONE, EVERYONE_IN_THREA
 tw conversation unread                    # List unread conversations
 tw conversation <conversation-ref>        # View conversation (shorthand for view)
 tw conversation view <conversation-ref>   # View conversation messages
+tw conversation with <user-ref>           # Find your 1:1 DM with a user
+tw conversation with <user-ref> --snippet # Include the latest message preview
+tw conversation with <user-ref> --include-groups # List any conversations with that user
 tw conversation reply <ref> "content"     # Send a message
 tw conversation done <ref>                # Archive conversation
 \`\`\`
@@ -193,6 +196,7 @@ tw thread view <thread-id>
 \`\`\`bash
 tw conversation unread --json
 tw conversation view <conversation-id>
+tw conversation with "Alice Example"
 tw conversation reply <id> "Got it, thanks!"
 \`\`\`
 `
