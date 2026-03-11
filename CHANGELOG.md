@@ -1,3 +1,10 @@
+# [2.9.0](https://github.com/Doist/twist-cli/compare/v2.8.0...v2.9.0) (2026-03-11)
+
+
+### Features
+
+* add conversation lookup by user ([#76](https://github.com/Doist/twist-cli/issues/76)) ([50ebe3b](https://github.com/Doist/twist-cli/commit/50ebe3bd43019703e80a7fc5dace94c82182aad7))
+
 # [2.8.0](https://github.com/Doist/twist-cli/compare/v2.7.2...v2.8.0) (2026-03-09)
 
 
