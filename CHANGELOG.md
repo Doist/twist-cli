@@ -1,3 +1,10 @@
+# [2.10.0](https://github.com/Doist/twist-cli/compare/v2.9.1...v2.10.0) (2026-03-11)
+
+
+### Features
+
+* store auth tokens in OS credential storage ([#77](https://github.com/Doist/twist-cli/issues/77)) ([b67a11b](https://github.com/Doist/twist-cli/commit/b67a11b36ecf82aed2f21a9e5deecc52146f801e))
+
 ## [2.9.1](https://github.com/Doist/twist-cli/compare/v2.9.0...v2.9.1) (2026-03-11)
 
 
