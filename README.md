@@ -26,10 +26,39 @@ This makes the `tw` command available globally.
 
 ## Setup
 
-Set up your Twist API token:
-
 ```bash
 tw auth login
+```
+
+This opens your browser to authenticate with Twist. Once approved, the token is stored in your OS credential manager:
+
+- macOS: Keychain
+- Windows: Credential Manager
+- Linux: Secret Service/libsecret
+
+If secure storage is unavailable, the CLI warns and falls back to `~/.config/twist-cli/config.json`. Existing plaintext tokens are migrated automatically the next time the CLI reads them successfully from the config file. Non-secret settings such as the current workspace remain in the config file.
+
+### Alternative methods
+
+**Manual token:**
+
+```bash
+tw auth token "your-token"
+```
+
+**Environment variable:**
+
+```bash
+export TWIST_API_TOKEN="your-token"
+```
+
+`TWIST_API_TOKEN` always takes priority over the stored token.
+
+### Auth commands
+
+```bash
+tw auth status   # check if authenticated
+tw auth logout   # remove saved token
 ```
 
 ## Usage

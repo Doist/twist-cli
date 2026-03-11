@@ -3,8 +3,7 @@ import chalk from 'chalk'
 import { Command } from 'commander'
 import open from 'open'
 import { getSessionUser } from '../lib/api.js'
-import { clearApiToken, saveApiToken } from '../lib/auth.js'
-import { getConfigPath } from '../lib/config.js'
+import { clearApiToken, saveApiToken, type TokenStorageResult } from '../lib/auth.js'
 import { buildAuthorizationUrl, exchangeCodeForToken, registerDynamicClient } from '../lib/oauth.js'
 import { startCallbackServer } from '../lib/oauth-server.js'
 import { generateCodeChallenge, generateCodeVerifier, generateState } from '../lib/pkce.js'
@@ -46,11 +45,12 @@ async function loginWithOAuth(): Promise<void> {
             console.log(chalk.dim('Exchanging authorization code for token...'))
             const accessToken = await exchangeCodeForToken(result.code, codeVerifier, client)
 
-            // Save token using existing logic
-            await saveApiToken(accessToken)
-
+            const saveResult = await saveApiToken(accessToken)
             console.log(chalk.green('✓'), 'OAuth authentication successful!')
-            console.log(chalk.dim(`Token saved to ${getConfigPath()}`))
+            logTokenStorageResult(
+                saveResult,
+                'Token stored securely in the system credential manager',
+            )
         } finally {
             // Always cleanup the server
             if (cleanup) {
@@ -95,11 +95,9 @@ async function loginWithToken(token?: string): Promise<void> {
             return
         }
     }
-    // Save token to config
-    await saveApiToken(token.trim())
-
+    const saveResult = await saveApiToken(token.trim())
     console.log(chalk.green('✓'), 'API token saved successfully!')
-    console.log(chalk.dim(`Token saved to ${getConfigPath()}`))
+    logTokenStorageResult(saveResult, 'Token stored securely in the system credential manager')
 }
 
 async function showStatus(): Promise<void> {
@@ -121,9 +119,21 @@ async function showStatus(): Promise<void> {
 }
 
 async function logout(): Promise<void> {
-    await clearApiToken()
+    const clearResult = await clearApiToken()
     console.log(chalk.green('✓'), 'Logged out')
-    console.log(chalk.dim(`Token removed from ${getConfigPath()}`))
+    logTokenStorageResult(clearResult, 'Stored token removed from the system credential manager')
+}
+
+function logTokenStorageResult(result: TokenStorageResult, secureStoreMessage: string): void {
+    if (result.storage === 'secure-store') {
+        console.log(chalk.dim(secureStoreMessage))
+        if (result.warning) {
+            console.error(chalk.yellow('Warning:'), result.warning)
+        }
+        return
+    }
+
+    console.error(chalk.yellow('Warning:'), result.warning)
 }
 
 export function registerAuthCommand(program: Command): void {
@@ -134,7 +144,7 @@ export function registerAuthCommand(program: Command): void {
         .action(loginWithOAuth)
 
     auth.command('token [token]')
-        .description('Save API token to config file (manual method)')
+        .description('Save API token for CLI authentication')
         .action(loginWithToken)
 
     auth.command('status').description('Show current authentication status').action(showStatus)
