@@ -1,11 +1,9 @@
+import { AWAY_MODE_TYPES, type AwayModeType } from '@doist/twist-sdk'
 import chalk from 'chalk'
 import { Command } from 'commander'
 import { getSessionUser, getTwistClient } from '../lib/api.js'
 import type { MutationOptions, ViewOptions } from '../lib/options.js'
 import { colors, formatJson } from '../lib/output.js'
-
-const AWAY_TYPES = ['vacation', 'parental', 'sickleave', 'other'] as const
-type AwayType = (typeof AWAY_TYPES)[number]
 
 type SetAwayOptions = ViewOptions & MutationOptions & { from?: string }
 
@@ -57,8 +55,8 @@ async function setAway(
     until: string | undefined,
     options: SetAwayOptions,
 ): Promise<void> {
-    if (!AWAY_TYPES.includes(type as AwayType)) {
-        console.error(`Invalid away type: ${type}. Use: ${AWAY_TYPES.join(', ')}`)
+    if (!AWAY_MODE_TYPES.includes(type as AwayModeType)) {
+        console.error(`Invalid away type: ${type}. Use: ${AWAY_MODE_TYPES.join(', ')}`)
         process.exit(1)
     }
 
@@ -74,7 +72,7 @@ async function setAway(
 
     const client = await getTwistClient()
     const user = await client.users.update({
-        awayMode: { type: type as AwayType, dateFrom, dateTo },
+        awayMode: { type: type as AwayModeType, dateFrom, dateTo },
     })
 
     if (options.json) {
