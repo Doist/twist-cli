@@ -1,3 +1,4 @@
+import { TwistRequestError } from '@doist/twist-sdk'
 import { Command } from 'commander'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -125,6 +126,32 @@ describe('away', () => {
             expect(apiMocks.updateUser).not.toHaveBeenCalled()
             expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('Dry run'))
             logSpy.mockRestore()
+        })
+
+        it('shows friendly error on insufficient scope (403)', async () => {
+            const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+            const exitSpy = vi.spyOn(process, 'exit').mockImplementation(() => {
+                throw new Error('process.exit')
+            })
+            apiMocks.updateUser.mockRejectedValue(
+                new TwistRequestError('Request failed with status 403', 403, {
+                    error_code: 109,
+                    error_string: 'Insufficient scope provided: user:write',
+                }),
+            )
+            const program = createProgram()
+
+            await expect(
+                program.parseAsync(['node', 'tw', 'away', 'set', 'vacation', '2026-03-20']),
+            ).rejects.toThrow()
+
+            expect(errorSpy).toHaveBeenCalledWith(
+                expect.anything(),
+                'The away status feature requires additional permissions.',
+            )
+            expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('tw auth login'))
+            errorSpy.mockRestore()
+            exitSpy.mockRestore()
         })
 
         it('rejects invalid away type', async () => {

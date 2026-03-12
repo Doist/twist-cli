@@ -1,4 +1,4 @@
-import { AWAY_MODE_TYPES, type AwayModeType } from '@doist/twist-sdk'
+import { AWAY_MODE_TYPES, type AwayModeType, TwistRequestError } from '@doist/twist-sdk'
 import chalk from 'chalk'
 import { Command } from 'commander'
 import { getSessionUser, getTwistClient } from '../lib/api.js'
@@ -71,16 +71,20 @@ async function setAway(
     }
 
     const client = await getTwistClient()
-    const user = await client.users.update({
-        awayMode: { type: type as AwayModeType, dateFrom, dateTo },
-    })
+    try {
+        const user = await client.users.update({
+            awayMode: { type: type as AwayModeType, dateFrom, dateTo },
+        })
 
-    if (options.json) {
-        console.log(formatJson(user, 'user', options.full))
-        return
+        if (options.json) {
+            console.log(formatJson(user, 'user', options.full))
+            return
+        }
+
+        console.log(`Set away: ${formatAwayType(type)} from ${dateFrom} until ${dateTo}`)
+    } catch (error) {
+        handleAwayError(error)
     }
-
-    console.log(`Set away: ${formatAwayType(type)} from ${dateFrom} until ${dateTo}`)
 }
 
 async function clearAway(options: MutationOptions & ViewOptions): Promise<void> {
@@ -90,14 +94,40 @@ async function clearAway(options: MutationOptions & ViewOptions): Promise<void> 
     }
 
     const client = await getTwistClient()
-    const user = await client.users.update({ awayMode: '' as never })
+    try {
+        const user = await client.users.update({ awayMode: '' as never })
 
-    if (options.json) {
-        console.log(formatJson(user, 'user', options.full))
-        return
+        if (options.json) {
+            console.log(formatJson(user, 'user', options.full))
+            return
+        }
+
+        console.log('Away status cleared.')
+    } catch (error) {
+        handleAwayError(error)
     }
+}
 
-    console.log('Away status cleared.')
+function isInsufficientScope(error: unknown): boolean {
+    if (!(error instanceof TwistRequestError)) return false
+    const data = error.responseData as { error_string?: string } | undefined
+    return (
+        error.httpStatusCode === 403 && data?.error_string?.includes('Insufficient scope') === true
+    )
+}
+
+function handleAwayError(error: unknown): never {
+    if (isInsufficientScope(error)) {
+        console.error(
+            chalk.red('Permission denied.'),
+            'The away status feature requires additional permissions.',
+        )
+        console.error(
+            `Run ${chalk.cyan('tw auth login')} to re-authenticate with the required scopes.`,
+        )
+        process.exit(1)
+    }
+    throw error
 }
 
 export function registerAwayCommand(program: Command): void {
@@ -109,6 +139,7 @@ export function registerAwayCommand(program: Command): void {
         .action((options: ViewOptions) => showAwayStatus(options))
 
     away.command('set <type> [until]')
+        .usage('<type> [until] [options]')
         .description('Set away status (type: vacation, parental, sickleave, other)')
         .option('--from <date>', 'Start date (YYYY-MM-DD, defaults to today)')
         .option('--dry-run', 'Show what would happen without executing')
