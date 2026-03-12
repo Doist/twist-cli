@@ -74,6 +74,9 @@ tw conversation view <ref>         # view conversation messages
 tw msg view <ref>                  # view a conversation message
 tw search "keyword"                # search across workspace
 tw react thread <ref> 👍          # add reaction
+tw away                            # show away status
+tw away set vacation 2026-03-20    # set away until date
+tw away clear                      # clear away status
 ```
 
 References accept IDs (`123` or `id:123`), Twist URLs, or fuzzy names (for workspaces/users).

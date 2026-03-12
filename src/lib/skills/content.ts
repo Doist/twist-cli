@@ -117,6 +117,16 @@ tw users --search <text>         # Filter by name/email
 tw channels                      # List workspace channels
 \`\`\`
 
+## Away Status
+
+\`\`\`bash
+tw away                          # Show current away status
+tw away set <type> [until]       # Set away (type: vacation, parental, sickleave, other)
+tw away set vacation 2026-03-20  # Away until March 20
+tw away set vacation 2026-03-20 --from 2026-03-15  # Custom start date
+tw away clear                    # Clear away status
+\`\`\`
+
 ## Reactions
 
 \`\`\`bash

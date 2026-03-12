@@ -11,6 +11,7 @@ export const OAUTH_REDIRECT_URI = 'http://localhost:8766/callback'
 // OAuth scopes needed for the CLI operations
 export const OAUTH_SCOPES = [
     'user:read', // Read user information and session details
+    'user:write', // Update user settings (e.g. away status)
     'workspaces:read', // Read workspace information
     'channels:read', // Read channel information
     'threads:read', // Read thread information

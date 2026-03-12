@@ -10,6 +10,8 @@ const API_SPINNER_MESSAGES: Record<string, { text: string; color?: 'blue' | 'gre
         // User operations
         'users.getSessionUser': { text: 'Checking authentication...', color: 'blue' },
 
+        'users.update': { text: 'Updating user...', color: 'yellow' },
+
         // Workspace operations
         'workspaces.getWorkspaces': { text: 'Loading workspaces...', color: 'blue' },
         'workspaceUsers.getWorkspaceUsers': { text: 'Loading workspace users...', color: 'blue' },
