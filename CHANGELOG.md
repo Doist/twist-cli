@@ -1,3 +1,10 @@
+# [2.11.0](https://github.com/Doist/twist-cli/compare/v2.10.0...v2.11.0) (2026-03-12)
+
+
+### Features
+
+* add away status command ([#79](https://github.com/Doist/twist-cli/issues/79)) ([9fd71e7](https://github.com/Doist/twist-cli/commit/9fd71e7a7ce05c4092e65944be52390ddec9b7ff))
+
 # [2.10.0](https://github.com/Doist/twist-cli/compare/v2.9.1...v2.10.0) (2026-03-11)
 
 
