@@ -1,5 +1,6 @@
 import { getTwistClient } from '../../lib/api.js'
 import type { MutationOptions } from '../../lib/options.js'
+import { formatJson } from '../../lib/output.js'
 import { assertChannelIsPublic } from '../../lib/public-channels.js'
 import { resolveThreadId } from '../../lib/refs.js'
 
@@ -17,5 +18,11 @@ export async function markThreadDone(ref: string, options: DoneOptions): Promise
     const thread = await client.threads.getThread(threadId)
     await assertChannelIsPublic(thread.channelId, thread.workspaceId)
     await client.inbox.archiveThread(threadId)
+
+    if (options.json) {
+        console.log(formatJson({ id: threadId, isArchived: true }))
+        return
+    }
+
     console.log(`Thread ${threadId} archived.`)
 }

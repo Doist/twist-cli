@@ -54,6 +54,7 @@ This is a TypeScript CLI (`tw`) for Twist messaging, built with Commander.js.
 
 - **Implicit view subcommand**: `tw thread <ref>` defaults to `tw thread view <ref>` via Commander's `{ isDefault: true }`. Same for `conversation` and `msg`. Edge case: if a ref matches a subcommand name (e.g., "reply"), the subcommand wins — user must use `tw thread view reply`
 - **Named flag aliases**: Where commands accept positional `[workspace-ref]`, the `--workspace` flag is also accepted. Error if both positional and flag are provided
+- **JSON output on mutating commands**: Mutating commands (create, update, delete, archive) should support `--json` output where it provides scripting value. Commands that return an object from the API (create/update) should also support `--full`. Commands where the API returns void should output a minimal status object (e.g. `{ id, deleted: true }` or `{ id, isArchived: true }`). Extend `MutationOptions` in `src/lib/options.ts` (which already includes `json` and `full`) rather than adding these fields ad hoc. Use `formatJson()` from `src/lib/output.ts` for the output. See `src/commands/away.ts` as the reference implementation.
 
 ## Pre-commit Hooks
 

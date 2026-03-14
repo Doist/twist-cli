@@ -400,6 +400,11 @@ async function replyToConversation(
         content: replyContent,
     })
 
+    if (options.json) {
+        console.log(formatJson(message, 'message', options.full))
+        return
+    }
+
     console.log(`Message sent: ${message.url}`)
 }
 
@@ -413,6 +418,12 @@ async function markConversationDone(ref: string, options: DoneOptions): Promise<
 
     const client = await getTwistClient()
     await client.conversations.archiveConversation(conversationId)
+
+    if (options.json) {
+        console.log(formatJson({ id: conversationId, archived: true }))
+        return
+    }
+
     console.log(`Conversation ${conversationId} archived.`)
 }
 
@@ -529,11 +540,14 @@ export function registerConversationCommand(program: Command): void {
         .command('reply <conversation-ref> [content]')
         .description('Send a message in a conversation')
         .option('--dry-run', 'Show what would be sent without sending')
+        .option('--json', 'Output sent message as JSON')
+        .option('--full', 'Include all fields in JSON output')
         .action(replyToConversation)
 
     conversation
         .command('done <conversation-ref>')
         .description('Archive a conversation')
         .option('--dry-run', 'Show what would happen without executing')
+        .option('--json', 'Output result as JSON')
         .action(markConversationDone)
 }

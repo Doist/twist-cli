@@ -1,6 +1,7 @@
 import { getTwistClient } from '../../lib/api.js'
 import { openEditor, readStdin } from '../../lib/input.js'
 import type { MutationOptions } from '../../lib/options.js'
+import { formatJson } from '../../lib/output.js'
 import { assertChannelIsPublic } from '../../lib/public-channels.js'
 import { extractId, resolveThreadId } from '../../lib/refs.js'
 
@@ -65,6 +66,11 @@ export async function replyToThread(
         content: replyContent,
         recipients,
     } as Parameters<typeof client.comments.createComment>[0])
+
+    if (options.json) {
+        console.log(formatJson(comment, 'comment', options.full))
+        return
+    }
 
     console.log(`Comment posted: ${comment.url}`)
 }
