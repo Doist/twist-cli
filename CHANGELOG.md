@@ -1,3 +1,10 @@
+# [2.12.0](https://github.com/Doist/twist-cli/compare/v2.11.0...v2.12.0) (2026-03-14)
+
+
+### Features
+
+* add --json support to mutating commands ([#84](https://github.com/Doist/twist-cli/issues/84)) ([738ecf2](https://github.com/Doist/twist-cli/commit/738ecf209fccf3675f52b92fe8c697d94c562496))
+
 # [2.11.0](https://github.com/Doist/twist-cli/compare/v2.10.0...v2.11.0) (2026-03-12)
 
 
