@@ -41,11 +41,14 @@ export function registerThreadCommand(program: Command): void {
             ),
         )
         .option('--dry-run', 'Show what would be posted without posting')
+        .option('--json', 'Output posted comment as JSON')
+        .option('--full', 'Include all fields in JSON output')
         .action(replyToThread)
 
     thread
         .command('done <thread-ref>')
         .description('Archive a thread (mark as done)')
         .option('--dry-run', 'Show what would happen without executing')
+        .option('--json', 'Output result as JSON')
         .action(markThreadDone)
 }

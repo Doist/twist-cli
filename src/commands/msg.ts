@@ -73,6 +73,11 @@ async function updateMessage(
         content: newContent,
     })
 
+    if (options.json) {
+        console.log(formatJson(message, 'message', options.full))
+        return
+    }
+
     console.log(`Message updated: ${message.url}`)
 }
 
@@ -86,6 +91,12 @@ async function deleteMessage(ref: string, options: DeleteOptions): Promise<void>
 
     const client = await getTwistClient()
     await client.conversationMessages.deleteMessage(messageId)
+
+    if (options.json) {
+        console.log(formatJson({ id: messageId, deleted: true }))
+        return
+    }
+
     console.log(`Message ${messageId} deleted.`)
 }
 
@@ -112,10 +123,13 @@ export function registerMsgCommand(program: Command): void {
     msg.command('update <message-ref> [content]')
         .description('Edit a conversation message')
         .option('--dry-run', 'Show what would be updated without updating')
+        .option('--json', 'Output updated message as JSON')
+        .option('--full', 'Include all fields in JSON output')
         .action(updateMessage)
 
     msg.command('delete <message-ref>')
         .description('Delete a conversation message')
         .option('--dry-run', 'Show what would happen without executing')
+        .option('--json', 'Output result as JSON')
         .action(deleteMessage)
 }
