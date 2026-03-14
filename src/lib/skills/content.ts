@@ -61,6 +61,7 @@ tw thread reply <ref> "content"  # Post a comment
 tw thread reply <ref> "content" --notify EVERYONE  # Notify all workspace members
 tw thread reply <ref> "content" --notify 123,id:456   # Notify specific user IDs
 tw thread reply <ref> "content" --json  # Post and return comment as JSON
+tw thread reply <ref> "content" --json --full  # Include all comment fields
 tw thread done <ref>             # Archive thread (mark done)
 tw thread done <ref> --json      # Archive and return status as JSON
 \`\`\`
@@ -78,6 +79,7 @@ tw conversation with <user-ref> --snippet # Include the latest message preview
 tw conversation with <user-ref> --include-groups # List any conversations with that user
 tw conversation reply <ref> "content"     # Send a message
 tw conversation reply <ref> "content" --json  # Send and return message as JSON
+tw conversation reply <ref> "content" --json --full  # Include all message fields
 tw conversation done <ref>                # Archive conversation
 tw conversation done <ref> --json         # Archive and return status as JSON
 \`\`\`
@@ -91,6 +93,7 @@ tw msg <message-ref>             # View a message (shorthand for view)
 tw msg view <message-ref>        # View a single conversation message
 tw msg update <ref> "content"    # Edit a conversation message
 tw msg update <ref> "content" --json  # Edit and return updated message as JSON
+tw msg update <ref> "content" --json --full  # Include all message fields
 tw msg delete <ref>              # Delete a conversation message
 tw msg delete <ref> --json       # Delete and return status as JSON
 \`\`\`
