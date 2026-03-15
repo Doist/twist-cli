@@ -1,3 +1,10 @@
+# [2.13.0](https://github.com/Doist/twist-cli/compare/v2.12.0...v2.13.0) (2026-03-15)
+
+
+### Features
+
+* show version transition during tw update ([#85](https://github.com/Doist/twist-cli/issues/85)) ([99134d8](https://github.com/Doist/twist-cli/commit/99134d8280283ecd2f72a6f300d3a356d89a592b))
+
 # [2.12.0](https://github.com/Doist/twist-cli/compare/v2.11.0...v2.12.0) (2026-03-14)
 
 
