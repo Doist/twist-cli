@@ -1,3 +1,10 @@
+## [2.14.1](https://github.com/Doist/twist-cli/compare/v2.14.0...v2.14.1) (2026-03-15)
+
+
+### Bug Fixes
+
+* make thread view --unread filter correctly across all output modes ([#86](https://github.com/Doist/twist-cli/issues/86)) ([92478c9](https://github.com/Doist/twist-cli/commit/92478c98811124d3d87738f7288a0451574562b0))
+
 # [2.14.0](https://github.com/Doist/twist-cli/compare/v2.13.0...v2.14.0) (2026-03-15)
 
 
