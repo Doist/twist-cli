@@ -63,8 +63,11 @@ export async function updateAction(options: UpdateOptions): Promise<void> {
         return
     }
 
+    console.log(
+        `Update available: ${chalk.dim(`v${currentVersion}`)} → ${chalk.green(`v${latestVersion}`)}`,
+    )
+
     if (options.check) {
-        console.log(chalk.yellow('Update available:'), `v${currentVersion} → v${latestVersion}`)
         console.log(chalk.dim('Run `tw update` to install'))
         return
     }
