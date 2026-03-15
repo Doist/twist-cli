@@ -124,11 +124,15 @@ export async function saveApiToken(
         await secureStore.setSecret(trimmedToken)
         const existingConfig = await getConfig()
         const warning = await cleanupAuthFallbackState(existingConfig, 'Token was stored securely,')
-        // Persist auth metadata to config (best-effort; non-critical if config write fails)
+        // Persist auth metadata to config — needed for ensureWriteAllowed() enforcement
         try {
             await saveAuthMetadata(options)
         } catch {
-            // Auth metadata is non-critical — token is already saved in secure store
+            if (options.authMode && options.authMode !== 'unknown') {
+                warn(
+                    `Could not persist auth mode '${options.authMode}' to config. CLI-side write protection may not work in future sessions.`,
+                )
+            }
         }
         return warning ? { storage: 'secure-store', warning } : { storage: 'secure-store' }
     } catch (error) {
@@ -153,8 +157,11 @@ export async function clearApiToken(): Promise<TokenStorageResult> {
     const config = await getConfig()
     const secureStore = createSecureStore()
 
-    // Clear auth metadata from config
-    await clearAuthMetadata()
+    // Clear auth metadata from the in-memory config object so all subsequent
+    // writes (cleanupAuthFallbackState, withPendingSecureStoreClear) persist
+    // the removal atomically alongside other state changes.
+    delete config.authMode
+    delete config.authScope
 
     try {
         await secureStore.deleteSecret()
@@ -177,13 +184,6 @@ async function saveAuthMetadata(options: SaveApiTokenOptions): Promise<void> {
     const config = await getConfig()
     config.authMode = options.authMode ?? 'unknown'
     config.authScope = options.authScope
-    await setConfig(config)
-}
-
-async function clearAuthMetadata(): Promise<void> {
-    const config = await getConfig()
-    delete config.authMode
-    delete config.authScope
     await setConfig(config)
 }
 

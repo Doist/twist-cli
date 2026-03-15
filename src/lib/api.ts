@@ -97,11 +97,7 @@ function createNestedSpinnerProxy<T extends object>(obj: T, basePath: string): T
                 return originalMethod
             }
 
-            return async <T extends unknown[]>(...args: T) => {
-                if (shouldCheckPermissions) {
-                    await ensureWriteAllowed()
-                }
-
+            return <T extends unknown[]>(...args: T) => {
                 const progressTracker = getProgressTracker()
 
                 // Extract cursor from args for paginated methods
@@ -118,31 +114,49 @@ function createNestedSpinnerProxy<T extends object>(obj: T, basePath: string): T
                     progressTracker.emitApiCall(property, cursor)
                 }
 
-                const callApi = async () => {
-                    const response = await originalMethod.apply(target, args)
-                    if (progressTracker.isEnabled()) {
-                        analyzeAndEmitApiResponse(progressTracker, response)
-                    }
-                    return response
+                // For mutating methods, check permissions before calling the API
+                if (shouldCheckPermissions) {
+                    return ensureWriteAllowed().then(() => {
+                        const result = originalMethod.apply(target, args)
+                        return wrapResult(result, progressTracker, spinnerConfig)
+                    })
                 }
 
-                try {
-                    if (spinnerConfig) {
-                        return await withSpinner(spinnerConfig, callApi)
-                    }
-                    return await callApi()
-                } catch (error) {
-                    if (progressTracker.isEnabled()) {
-                        progressTracker.emitError(
-                            (error as Error).name || 'API_ERROR',
-                            (error as Error).message,
-                        )
-                    }
-                    throw error
-                }
+                const result = originalMethod.apply(target, args)
+                return wrapResult(result, progressTracker, spinnerConfig)
             }
         },
     })
+}
+
+function wrapResult(
+    result: unknown,
+    progressTracker: ReturnType<typeof getProgressTracker>,
+    spinnerConfig: (typeof API_SPINNER_MESSAGES)[string] | undefined,
+): unknown {
+    // If the method returns a non-thenable (e.g. batch request builder), return as-is
+    if (!result || typeof (result as { then?: unknown }).then !== 'function') {
+        return result
+    }
+
+    const wrappedPromise = (result as Promise<unknown>)
+        .then((response: unknown) => {
+            if (progressTracker.isEnabled()) {
+                analyzeAndEmitApiResponse(progressTracker, response)
+            }
+            return response
+        })
+        .catch((error: Error) => {
+            if (progressTracker.isEnabled()) {
+                progressTracker.emitError(error.name || 'API_ERROR', error.message)
+            }
+            throw error
+        })
+
+    if (spinnerConfig) {
+        return withSpinner(spinnerConfig, () => wrappedPromise)
+    }
+    return wrappedPromise
 }
 
 function analyzeAndEmitApiResponse(
