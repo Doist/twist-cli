@@ -1,3 +1,10 @@
+# [2.14.0](https://github.com/Doist/twist-cli/compare/v2.13.0...v2.14.0) (2026-03-15)
+
+
+### Features
+
+* Add read-only OAuth mode for safe autonomous tool use ([#81](https://github.com/Doist/twist-cli/issues/81)) ([6e4ea5d](https://github.com/Doist/twist-cli/commit/6e4ea5dfffa89fe1bf176753e57ad93879a9cd25))
+
 # [2.13.0](https://github.com/Doist/twist-cli/compare/v2.12.0...v2.13.0) (2026-03-15)
 
 
