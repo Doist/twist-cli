@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 vi.mock('../lib/auth.js', () => ({
     saveApiToken: vi.fn(),
     clearApiToken: vi.fn(),
+    getAuthMetadata: vi.fn(),
 }))
 
 // Mock the api module
@@ -13,11 +14,15 @@ vi.mock('../lib/api.js', () => ({
 }))
 
 // Mock OAuth modules
-vi.mock('../lib/oauth.js', () => ({
-    buildAuthorizationUrl: vi.fn(),
-    exchangeCodeForToken: vi.fn(),
-    registerDynamicClient: vi.fn(),
-}))
+vi.mock('../lib/oauth.js', async (importOriginal) => {
+    const actual = await importOriginal<typeof import('../lib/oauth.js')>()
+    return {
+        ...actual,
+        buildAuthorizationUrl: vi.fn(),
+        exchangeCodeForToken: vi.fn(),
+        registerDynamicClient: vi.fn(),
+    }
+})
 
 vi.mock('../lib/oauth-server.js', () => ({
     startCallbackServer: vi.fn(),
@@ -53,7 +58,7 @@ import { type User } from '@doist/twist-sdk'
 import open from 'open'
 import { registerAuthCommand } from '../commands/auth.js'
 import { getSessionUser } from '../lib/api.js'
-import { clearApiToken, saveApiToken } from '../lib/auth.js'
+import { clearApiToken, getAuthMetadata, saveApiToken } from '../lib/auth.js'
 import { buildAuthorizationUrl, exchangeCodeForToken, registerDynamicClient } from '../lib/oauth.js'
 import { startCallbackServer } from '../lib/oauth-server.js'
 import { generateCodeChallenge, generateCodeVerifier, generateState } from '../lib/pkce.js'
@@ -62,6 +67,7 @@ const mockCreateInterface = vi.mocked(createInterface)
 
 const mockSaveApiToken = vi.mocked(saveApiToken)
 const mockClearApiToken = vi.mocked(clearApiToken)
+const mockGetAuthMetadata = vi.mocked(getAuthMetadata)
 const mockGetSessionUser = vi.mocked(getSessionUser)
 
 // OAuth mocks
@@ -108,8 +114,8 @@ describe('auth command', () => {
 
             await program.parseAsync(['node', 'tw', 'auth', 'token', token])
 
-            // Verify token was saved
-            expect(mockSaveApiToken).toHaveBeenCalledWith(token)
+            // Verify token was saved with unknown auth mode
+            expect(mockSaveApiToken).toHaveBeenCalledWith(token, { authMode: 'unknown' })
 
             // Verify success message
             expect(consoleSpy).toHaveBeenCalledWith('✓', 'API token saved successfully!')
@@ -129,7 +135,7 @@ describe('auth command', () => {
                 program.parseAsync(['node', 'tw', 'auth', 'token', token]),
             ).rejects.toThrow('Permission denied')
 
-            expect(mockSaveApiToken).toHaveBeenCalledWith(token)
+            expect(mockSaveApiToken).toHaveBeenCalledWith(token, { authMode: 'unknown' })
         })
 
         it('trims whitespace from token', async () => {
@@ -141,7 +147,7 @@ describe('auth command', () => {
 
             await program.parseAsync(['node', 'tw', 'auth', 'token', tokenWithWhitespace])
 
-            expect(mockSaveApiToken).toHaveBeenCalledWith(expectedToken)
+            expect(mockSaveApiToken).toHaveBeenCalledWith(expectedToken, { authMode: 'unknown' })
         })
 
         it('prompts interactively when no token argument given', async () => {
@@ -161,7 +167,9 @@ describe('auth command', () => {
 
             expect(mockRl.question).toHaveBeenCalled()
             expect(mockRl.close).toHaveBeenCalled()
-            expect(mockSaveApiToken).toHaveBeenCalledWith('interactive_token_456')
+            expect(mockSaveApiToken).toHaveBeenCalledWith('interactive_token_456', {
+                authMode: 'unknown',
+            })
             writeSpy.mockRestore()
         })
 
@@ -242,6 +250,10 @@ describe('auth command', () => {
             }
 
             mockGetSessionUser.mockResolvedValue(mockUser)
+            mockGetAuthMetadata.mockResolvedValue({
+                authMode: 'read-write',
+                source: 'config',
+            })
 
             await program.parseAsync(['node', 'tw', 'auth', 'status'])
 
@@ -249,6 +261,7 @@ describe('auth command', () => {
             expect(consoleSpy).toHaveBeenCalledWith('✓', 'Authenticated')
             expect(consoleSpy).toHaveBeenCalledWith('  Email: test@example.com')
             expect(consoleSpy).toHaveBeenCalledWith('  Name:  Test User')
+            expect(consoleSpy).toHaveBeenCalledWith('  Mode:  read-write')
         })
 
         it('shows not authenticated when no token', async () => {
@@ -319,6 +332,8 @@ describe('auth command', () => {
             expect(mockGenerateState).toHaveBeenCalled()
 
             // Verify authorization URL was built with dynamic client ID
+            // Note: the actual buildAuthorizationUrl call happens inside a setTimeout,
+            // so we verify the mock's simulation call from startCallbackServer instead
             expect(mockBuildAuthorizationUrl).toHaveBeenCalledWith(
                 'twd_dynamic_client_id',
                 'test_code_challenge',
@@ -341,14 +356,17 @@ describe('auth command', () => {
                 },
             )
 
-            // Verify token was saved
-            expect(mockSaveApiToken).toHaveBeenCalledWith('access_token_123')
+            // Verify token was saved with read-write auth metadata
+            expect(mockSaveApiToken).toHaveBeenCalledWith('access_token_123', {
+                authMode: 'read-write',
+                authScope: expect.any(String),
+            })
 
             // Verify cleanup was called
             expect(mockCleanup).toHaveBeenCalled()
 
             // Verify success messages
-            expect(consoleSpy).toHaveBeenCalledWith('Starting OAuth authentication...')
+            expect(consoleSpy).toHaveBeenCalledWith('Starting OAuth authentication (read-write)...')
             expect(consoleSpy).toHaveBeenCalledWith('✓', 'OAuth authentication successful!')
         })
 

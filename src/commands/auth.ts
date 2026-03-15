@@ -3,13 +3,25 @@ import chalk from 'chalk'
 import { Command } from 'commander'
 import open from 'open'
 import { getSessionUser } from '../lib/api.js'
-import { clearApiToken, saveApiToken, type TokenStorageResult } from '../lib/auth.js'
-import { buildAuthorizationUrl, exchangeCodeForToken, registerDynamicClient } from '../lib/oauth.js'
+import {
+    clearApiToken,
+    getAuthMetadata,
+    saveApiToken,
+    type TokenStorageResult,
+} from '../lib/auth.js'
+import {
+    buildAuthorizationUrl,
+    exchangeCodeForToken,
+    READ_ONLY_SCOPES,
+    READ_WRITE_SCOPES,
+    registerDynamicClient,
+} from '../lib/oauth.js'
 import { startCallbackServer } from '../lib/oauth-server.js'
 import { generateCodeChallenge, generateCodeVerifier, generateState } from '../lib/pkce.js'
 
-async function loginWithOAuth(): Promise<void> {
-    console.log(chalk.blue('Starting OAuth authentication...'))
+async function loginWithOAuth(options: { readOnly?: boolean }): Promise<void> {
+    const modeLabel = options.readOnly ? 'read-only' : 'read-write'
+    console.log(chalk.blue(`Starting OAuth authentication (${modeLabel})...`))
 
     try {
         // Register dynamic client
@@ -29,7 +41,9 @@ async function loginWithOAuth(): Promise<void> {
             // Open browser in background after a delay
             setTimeout(async () => {
                 try {
-                    const authUrl = buildAuthorizationUrl(client.client_id, codeChallenge, state)
+                    const authUrl = buildAuthorizationUrl(client.client_id, codeChallenge, state, {
+                        readOnly: options.readOnly,
+                    })
                     console.log(chalk.dim('Opening browser for authorization...'))
                     console.log(chalk.dim(`If the browser doesn't open, visit: ${authUrl}`))
                     await open(authUrl)
@@ -45,7 +59,10 @@ async function loginWithOAuth(): Promise<void> {
             console.log(chalk.dim('Exchanging authorization code for token...'))
             const accessToken = await exchangeCodeForToken(result.code, codeVerifier, client)
 
-            const saveResult = await saveApiToken(accessToken)
+            const saveResult = await saveApiToken(accessToken, {
+                authMode: options.readOnly ? 'read-only' : 'read-write',
+                authScope: options.readOnly ? READ_ONLY_SCOPES : READ_WRITE_SCOPES,
+            })
             console.log(chalk.green('✓'), 'OAuth authentication successful!')
             logTokenStorageResult(
                 saveResult,
@@ -95,7 +112,7 @@ async function loginWithToken(token?: string): Promise<void> {
             return
         }
     }
-    const saveResult = await saveApiToken(token.trim())
+    const saveResult = await saveApiToken(token.trim(), { authMode: 'unknown' })
     console.log(chalk.green('✓'), 'API token saved successfully!')
     logTokenStorageResult(saveResult, 'Token stored securely in the system credential manager')
 }
@@ -104,10 +121,18 @@ async function showStatus(): Promise<void> {
     try {
         // Try to get session user to verify the token works
         const user = await getSessionUser()
+        const metadata = await getAuthMetadata()
+        const modeLabel =
+            metadata.authMode === 'read-only'
+                ? `read-only (scope: ${metadata.authScope ?? 'unknown'})`
+                : metadata.authMode === 'read-write'
+                  ? 'read-write'
+                  : 'unknown (manual token or env var; assuming write access)'
 
         console.log(chalk.green('✓'), 'Authenticated')
         console.log(`  Email: ${user.email}`)
         console.log(`  Name:  ${user.name}`)
+        console.log(`  Mode:  ${modeLabel}`)
     } catch {
         console.log(chalk.yellow('Not authenticated'))
         console.log(
@@ -141,6 +166,7 @@ export function registerAuthCommand(program: Command): void {
 
     auth.command('login')
         .description('Authenticate using OAuth (opens browser)')
+        .option('--read-only', 'Authenticate with read-only scope (no write operations)')
         .action(loginWithOAuth)
 
     auth.command('token [token]')

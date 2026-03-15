@@ -1,6 +1,7 @@
 import { TwistApi, type User, type Workspace, type WorkspaceUser } from '@doist/twist-sdk'
 import { getApiToken } from './auth.js'
 import { getConfig, updateConfig } from './config.js'
+import { ensureWriteAllowed, isMutatingMethod } from './permissions.js'
 import { getProgressTracker } from './progress.js'
 import { withSpinner } from './spinner.js'
 
@@ -86,63 +87,78 @@ function createNestedSpinnerProxy<T extends object>(obj: T, basePath: string): T
         get(target, property, receiver) {
             const originalMethod = Reflect.get(target, property, receiver)
 
-            // Only wrap functions that are likely API calls
-            if (typeof originalMethod === 'function' && typeof property === 'string') {
-                const fullPath = `${basePath}.${property}`
-                const spinnerConfig = API_SPINNER_MESSAGES[fullPath]
-
-                if (spinnerConfig) {
-                    return <T extends unknown[]>(...args: T) => {
-                        const progressTracker = getProgressTracker()
-
-                        // Extract cursor from args for paginated methods
-                        let cursor: string | null = null
-                        if (args.length > 0 && typeof args[0] === 'object' && args[0] !== null) {
-                            const options = args[0] as Record<string, unknown>
-                            if ('cursor' in options && typeof options.cursor === 'string') {
-                                cursor = options.cursor
-                            }
-                        }
-
-                        // Emit progress event for API call start
-                        if (progressTracker.isEnabled()) {
-                            progressTracker.emitApiCall(property, cursor)
-                        }
-
-                        const result = originalMethod.apply(target, args)
-
-                        // If the method returns a Promise, wrap it with spinner and progress tracking
-                        if (result && typeof result.then === 'function') {
-                            const wrappedPromise = result
-                                .then((response: unknown) => {
-                                    // Emit progress event for successful response
-                                    if (progressTracker.isEnabled()) {
-                                        analyzeAndEmitApiResponse(progressTracker, response)
-                                    }
-                                    return response
-                                })
-                                .catch((error: Error) => {
-                                    // Emit progress event for error
-                                    if (progressTracker.isEnabled()) {
-                                        progressTracker.emitError(
-                                            error.name || 'API_ERROR',
-                                            error.message,
-                                        )
-                                    }
-                                    throw error
-                                })
-
-                            return withSpinner(spinnerConfig, () => wrappedPromise)
-                        }
-
-                        return result
-                    }
-                }
+            if (typeof originalMethod !== 'function' || typeof property !== 'string') {
+                return originalMethod
             }
 
-            return originalMethod
+            const fullPath = `${basePath}.${property}`
+            const spinnerConfig = API_SPINNER_MESSAGES[fullPath]
+            const shouldCheckPermissions = isMutatingMethod(fullPath)
+
+            if (!spinnerConfig && !shouldCheckPermissions) {
+                return originalMethod
+            }
+
+            return <T extends unknown[]>(...args: T) => {
+                const progressTracker = getProgressTracker()
+
+                // Extract cursor from args for paginated methods
+                let cursor: string | null = null
+                if (args.length > 0 && typeof args[0] === 'object' && args[0] !== null) {
+                    const options = args[0] as Record<string, unknown>
+                    if ('cursor' in options && typeof options.cursor === 'string') {
+                        cursor = options.cursor
+                    }
+                }
+
+                // Emit progress event for API call start
+                if (progressTracker.isEnabled()) {
+                    progressTracker.emitApiCall(property, cursor)
+                }
+
+                // For mutating methods, check permissions before calling the API
+                if (shouldCheckPermissions) {
+                    return ensureWriteAllowed().then(() => {
+                        const result = originalMethod.apply(target, args)
+                        return wrapResult(result, progressTracker, spinnerConfig)
+                    })
+                }
+
+                const result = originalMethod.apply(target, args)
+                return wrapResult(result, progressTracker, spinnerConfig)
+            }
         },
     })
+}
+
+function wrapResult(
+    result: unknown,
+    progressTracker: ReturnType<typeof getProgressTracker>,
+    spinnerConfig: (typeof API_SPINNER_MESSAGES)[string] | undefined,
+): unknown {
+    // If the method returns a non-thenable (e.g. batch request builder), return as-is
+    if (!result || typeof (result as { then?: unknown }).then !== 'function') {
+        return result
+    }
+
+    const wrappedPromise = (result as Promise<unknown>)
+        .then((response: unknown) => {
+            if (progressTracker.isEnabled()) {
+                analyzeAndEmitApiResponse(progressTracker, response)
+            }
+            return response
+        })
+        .catch((error: Error) => {
+            if (progressTracker.isEnabled()) {
+                progressTracker.emitError(error.name || 'API_ERROR', error.message)
+            }
+            throw error
+        })
+
+    if (spinnerConfig) {
+        return withSpinner(spinnerConfig, () => wrappedPromise)
+    }
+    return wrappedPromise
 }
 
 function analyzeAndEmitApiResponse(
