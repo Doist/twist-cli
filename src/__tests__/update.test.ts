@@ -139,10 +139,7 @@ describe('update command', () => {
             const program = createProgram()
             await program.parseAsync(['node', 'tw', 'update', '--check'])
 
-            expect(consoleSpy).toHaveBeenCalledWith(
-                'Update available:',
-                expect.stringContaining('→ v99.0.0'),
-            )
+            expect(consoleSpy).toHaveBeenCalledWith(`Update available: v${pkg.version} → v99.0.0`)
             expect(consoleSpy).toHaveBeenCalledWith('Run `tw update` to install')
             expect(mockSpawn).not.toHaveBeenCalled()
         })
@@ -171,6 +168,7 @@ describe('update command', () => {
                 ['install', '-g', '@doist/twist-cli@latest'],
                 { stdio: 'pipe' },
             )
+            expect(consoleSpy).toHaveBeenCalledWith(`Update available: v${pkg.version} → v99.0.0`)
             expect(consoleSpy).toHaveBeenCalledWith('✓', 'Updated to v99.0.0')
         })
 
