@@ -107,15 +107,30 @@ export async function viewThread(ref: string, options: ViewOptions): Promise<voi
 
     await assertChannelIsPublic(thread.channelId, thread.workspaceId)
 
-    let lastReadObjIndex: number | null = null
+    // Resolve unread state and filter comments before any output
+    let displayComments = comments
+    let contextComments: typeof comments = []
+    let lastReadObjIndex = 0
+    let hasUnread = false
+
     if (options.unread) {
         const unreadData = await client.threads.getUnread(thread.workspaceId)
         const threadUnread = unreadData.find((u) => u.threadId === threadId)
-        if (!threadUnread) {
-            console.log('No unread comments in this thread.')
-            return
+
+        if (threadUnread) {
+            lastReadObjIndex = threadUnread.objIndex
+            const contextSize = options.context ? parseInt(options.context, 10) : 0
+            displayComments = comments.filter((c) => (c.objIndex ?? 0) > lastReadObjIndex)
+            contextComments = comments
+                .filter((c) => (c.objIndex ?? 0) <= lastReadObjIndex)
+                .sort((a, b) => (b.objIndex ?? 0) - (a.objIndex ?? 0))
+                .slice(0, contextSize)
+                .reverse()
+            hasUnread = displayComments.length > 0
+        } else {
+            displayComments = []
+            hasUnread = false
         }
-        lastReadObjIndex = threadUnread.objIndex
     }
 
     const userIds = new Set<number>([thread.creator, ...comments.map((c) => c.creator)])
@@ -140,7 +155,7 @@ export async function viewThread(ref: string, options: ViewOptions): Promise<voi
                 channelName: channel.name,
                 creatorName: userMap.get(thread.creator),
             },
-            comments: comments.map((c) => ({
+            comments: displayComments.map((c) => ({
                 ...c,
                 creatorName: userMap.get(c.creator),
             })),
@@ -157,7 +172,7 @@ export async function viewThread(ref: string, options: ViewOptions): Promise<voi
             creatorName: userMap.get(thread.creator),
         }
         console.log(JSON.stringify(threadOutput))
-        for (const c of comments) {
+        for (const c of displayComments) {
             console.log(
                 JSON.stringify({ type: 'comment', ...c, creatorName: userMap.get(c.creator) }),
             )
@@ -169,26 +184,19 @@ export async function viewThread(ref: string, options: ViewOptions): Promise<voi
     console.log(colors.channel(`[${channel.name}]`))
     console.log('')
 
-    if (options.unread && lastReadObjIndex !== null) {
-        const contextSize = options.context ? parseInt(options.context, 10) : 0
-        const unreadComments = comments.filter((c) => (c.objIndex ?? 0) > lastReadObjIndex)
-        const contextComments = comments
-            .filter((c) => (c.objIndex ?? 0) <= lastReadObjIndex)
-            .sort((a, b) => (b.objIndex ?? 0) - (a.objIndex ?? 0))
-            .slice(0, contextSize)
-            .reverse()
-
-        if (unreadComments.length === 0) {
-            console.log('No unread comments.')
-            return
-        }
-
+    if (options.unread) {
         const creatorName = userMap.get(thread.creator) || `user:${thread.creator}`
         console.log(
             `${colors.author(creatorName)}  ${colors.timestamp(formatRelativeDate(thread.posted))}  ${chalk.dim('(original post)')}`,
         )
         console.log('')
         console.log(options.raw ? thread.content : renderMarkdown(thread.content))
+
+        if (!hasUnread) {
+            console.log('')
+            console.log('No unread comments.')
+            return
+        }
 
         if (contextComments.length > 0) {
             const firstContextIndex = contextComments[0].objIndex ?? 0
@@ -205,9 +213,9 @@ export async function viewThread(ref: string, options: ViewOptions): Promise<voi
             printSeparator(`${lastReadObjIndex} ${pluralize(lastReadObjIndex, 'comment')} skipped`)
         }
 
-        printSeparator(`UNREAD (${unreadComments.length} new)`)
+        printSeparator(`UNREAD (${displayComments.length} new)`)
 
-        for (const comment of unreadComments) {
+        for (const comment of displayComments) {
             printComment(comment, userMap, options.raw ?? false)
         }
     } else {
