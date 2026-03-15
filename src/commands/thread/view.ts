@@ -133,7 +133,11 @@ export async function viewThread(ref: string, options: ViewOptions): Promise<voi
         }
     }
 
-    const userIds = new Set<number>([thread.creator, ...comments.map((c) => c.creator)])
+    const userIds = new Set<number>([
+        thread.creator,
+        ...displayComments.map((c) => c.creator),
+        ...contextComments.map((c) => c.creator),
+    ])
     const userCalls = [...userIds].map((id) =>
         client.workspaceUsers.getUserById(
             { workspaceId: thread.workspaceId, userId: id },

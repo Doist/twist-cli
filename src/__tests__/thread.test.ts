@@ -163,7 +163,7 @@ describe('thread implicit view', () => {
 
 describe('thread view --unread', () => {
     beforeEach(() => {
-        vi.clearAllMocks()
+        vi.resetAllMocks()
     })
 
     it('shows original post and "No unread comments" when thread has no unread data', async () => {
