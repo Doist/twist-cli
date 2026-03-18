@@ -1,3 +1,10 @@
+## [2.14.2](https://github.com/Doist/twist-cli/compare/v2.14.1...v2.14.2) (2026-03-18)
+
+
+### Bug Fixes
+
+* handle batch response errors in thread view ([#91](https://github.com/Doist/twist-cli/issues/91)) ([a6e7fd6](https://github.com/Doist/twist-cli/commit/a6e7fd6ae81ef50a5fc7575dcaa95056de9c0af8))
+
 ## [2.14.1](https://github.com/Doist/twist-cli/compare/v2.14.0...v2.14.1) (2026-03-15)
 
 
