@@ -42,7 +42,9 @@ async function viewSingleComment(
     )
 
     const channel = assertBatchData(channelResponse, 'channel')
-    const userMap = new Map(userResponses.map((r) => [r.data.id, r.data.name]))
+    const userMap = new Map(
+        userResponses.filter((r) => r.data != null).map((r) => [r.data.id, r.data.name]),
+    )
 
     if (options.json) {
         const output = {
@@ -150,7 +152,9 @@ export async function viewThread(ref: string, options: ViewOptions): Promise<voi
     )
 
     const channel = assertBatchData(channelResponse, 'channel')
-    const userMap = new Map(userResponses.map((r) => [r.data.id, r.data.name]))
+    const userMap = new Map(
+        userResponses.filter((r) => r.data != null).map((r) => [r.data.id, r.data.name]),
+    )
 
     if (options.json) {
         const output = {

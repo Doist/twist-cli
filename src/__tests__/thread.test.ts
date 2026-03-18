@@ -3,15 +3,12 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const apiMocks = vi.hoisted(() => ({
     getTwistClient: vi.fn(),
-    assertBatchData: vi.fn(<T>(response: { code: number; data: T }, label: string): T => {
-        if (response.code >= 400 || response.data == null) {
-            throw new Error(`Failed to fetch ${label}.`)
-        }
-        return response.data
-    }),
 }))
 
-vi.mock('../lib/api.js', () => apiMocks)
+vi.mock('../lib/api.js', async (importOriginal) => ({
+    ...(await importOriginal<typeof import('../lib/api.js')>()),
+    getTwistClient: apiMocks.getTwistClient,
+}))
 
 vi.mock('../lib/public-channels.js', () => ({
     assertChannelIsPublic: vi.fn(),
