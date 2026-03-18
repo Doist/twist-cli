@@ -1,6 +1,6 @@
 import type { TwistApi } from '@doist/twist-sdk'
 import chalk from 'chalk'
-import { getTwistClient } from '../../lib/api.js'
+import { assertBatchData, getTwistClient } from '../../lib/api.js'
 import { formatRelativeDate } from '../../lib/dates.js'
 import { renderMarkdown } from '../../lib/markdown.js'
 import type { PaginatedViewOptions } from '../../lib/options.js'
@@ -26,8 +26,8 @@ async function viewSingleComment(
         client.comments.getComment(commentId, { batch: true }),
     )
 
-    const thread = threadResponse.data
-    const comment = commentResponse.data
+    const thread = assertBatchData(threadResponse, 'thread')
+    const comment = assertBatchData(commentResponse, `comment ${commentId}`)
 
     const userIds = new Set([thread.creator, comment.creator])
     const userCalls = [...userIds].map((id) =>
@@ -41,7 +41,7 @@ async function viewSingleComment(
         ...userCalls,
     )
 
-    const channel = channelResponse.data
+    const channel = assertBatchData(channelResponse, 'channel')
     const userMap = new Map(userResponses.map((r) => [r.data.id, r.data.name]))
 
     if (options.json) {
@@ -102,8 +102,8 @@ export async function viewThread(ref: string, options: ViewOptions): Promise<voi
         ),
     )
 
-    const thread = threadResponse.data
-    const comments = commentsResponse.data
+    const thread = assertBatchData(threadResponse, 'thread')
+    const comments = assertBatchData(commentsResponse, 'comments')
 
     await assertChannelIsPublic(thread.channelId, thread.workspaceId)
 
@@ -149,7 +149,7 @@ export async function viewThread(ref: string, options: ViewOptions): Promise<voi
         ...userCalls,
     )
 
-    const channel = channelResponse.data
+    const channel = assertBatchData(channelResponse, 'channel')
     const userMap = new Map(userResponses.map((r) => [r.data.id, r.data.name]))
 
     if (options.json) {

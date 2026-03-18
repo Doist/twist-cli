@@ -3,6 +3,12 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const apiMocks = vi.hoisted(() => ({
     getTwistClient: vi.fn(),
+    assertBatchData: vi.fn(<T>(response: { code: number; data: T }, label: string): T => {
+        if (response.code >= 400 || response.data == null) {
+            throw new Error(`Failed to fetch ${label}.`)
+        }
+        return response.data
+    }),
 }))
 
 vi.mock('../lib/api.js', () => apiMocks)
@@ -76,7 +82,10 @@ function createClient({
                 if (options?.batch) return { kind: 'comments' }
                 return Promise.resolve(comments)
             }),
-            getComment: vi.fn(),
+            getComment: vi.fn((_id: number, options?: { batch?: boolean }) => {
+                if (options?.batch) return { kind: 'comment', id: _id }
+                return Promise.resolve(undefined)
+            }),
         },
         channels: {
             getChannel: vi.fn((_id: number, options?: { batch?: boolean }) => {
@@ -97,11 +106,17 @@ function createClient({
         },
         batch: vi.fn(async (...requests: Array<{ kind: string; id?: number; userId?: number }>) =>
             requests.map((request) => {
-                if (request.kind === 'thread') return { data: thread }
-                if (request.kind === 'comments') return { data: comments }
-                if (request.kind === 'channel') return { data: channel }
+                if (request.kind === 'thread') return { code: 200, data: thread }
+                if (request.kind === 'comments') return { code: 200, data: comments }
+                if (request.kind === 'comment')
+                    return {
+                        code: 200,
+                        data: comments.find((c) => c.id === request.id) ?? comments[0],
+                    }
+                if (request.kind === 'channel') return { code: 200, data: channel }
                 if (request.kind === 'user' && request.userId) {
                     return {
+                        code: 200,
                         data: users[request.userId] ?? {
                             id: request.userId,
                             name: `user:${request.userId}`,
@@ -299,6 +314,52 @@ describe('thread view --unread', () => {
         expect(jsonOutput.comments).toHaveLength(2)
         // getUnread should not be called
         expect(client.threads.getUnread).not.toHaveBeenCalled()
+
+        consoleSpy.mockRestore()
+    })
+})
+
+describe('thread view with failed batch response', () => {
+    beforeEach(() => {
+        vi.resetAllMocks()
+    })
+
+    it('throws a clear error when comment batch response fails', async () => {
+        const client = createClient({
+            users: { 1: { id: 1, name: 'Alice' } },
+        })
+        // Override batch to return a 404 for the comment
+        client.batch.mockResolvedValueOnce([
+            { code: 200, data: createThread(500) },
+            { code: 404, data: null as never },
+        ])
+        apiMocks.getTwistClient.mockResolvedValue(client)
+
+        const program = createProgram()
+        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+        await expect(
+            program.parseAsync(['node', 'tw', 'thread', 'view', '500', '--comment', '99999']),
+        ).rejects.toThrow('Failed to fetch comment 99999.')
+
+        consoleSpy.mockRestore()
+    })
+
+    it('throws a clear error when thread batch response fails', async () => {
+        const client = createClient()
+        // Override batch to return a 404 for the thread
+        client.batch.mockResolvedValueOnce([
+            { code: 404, data: null as never },
+            { code: 200, data: [] },
+        ])
+        apiMocks.getTwistClient.mockResolvedValue(client)
+
+        const program = createProgram()
+        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+        await expect(program.parseAsync(['node', 'tw', 'thread', 'view', '500'])).rejects.toThrow(
+            'Failed to fetch thread.',
+        )
 
         consoleSpy.mockRestore()
     })

@@ -261,4 +261,17 @@ export function clearUserCache(): void {
     sessionUserCache = null
 }
 
+/**
+ * Validates a batch response and returns the data, throwing on errors.
+ * Also handles the case where the SDK fails to validate the response schema
+ * (e.g. when the batch API wraps entities in a key like `{comment: {...}}`).
+ * In that case, the raw transformed data is returned — check for expected fields.
+ */
+export function assertBatchData<T>(response: { code: number; data: T }, label: string): T {
+    if (response.code >= 400 || response.data == null) {
+        throw new Error(`Failed to fetch ${label}.`)
+    }
+    return response.data
+}
+
 export type { Workspace, WorkspaceUser, User }
