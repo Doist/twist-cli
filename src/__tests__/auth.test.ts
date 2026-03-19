@@ -264,6 +264,40 @@ describe('auth command', () => {
             expect(consoleSpy).toHaveBeenCalledWith('  Mode:  read-write')
         })
 
+        it('outputs JSON when --json flag is used', async () => {
+            const program = createProgram()
+
+            const mockUser: User = {
+                id: 1,
+                name: 'Test User',
+                shortName: 'test',
+                bot: false,
+                timezone: 'UTC',
+                removed: false,
+                email: 'test@example.com',
+                lang: 'en',
+            }
+
+            mockGetSessionUser.mockResolvedValue(mockUser)
+
+            await program.parseAsync(['node', 'tw', 'auth', 'status', '--json'])
+
+            expect(consoleSpy).toHaveBeenCalledWith(
+                JSON.stringify({ id: 1, email: 'test@example.com', name: 'Test User' }, null, 2),
+            )
+        })
+
+        it('outputs JSON error when --json flag is used and not authenticated', async () => {
+            const program = createProgram()
+            mockGetSessionUser.mockRejectedValue(new Error('No API token found'))
+
+            await program.parseAsync(['node', 'tw', 'auth', 'status', '--json'])
+
+            expect(consoleSpy).toHaveBeenCalledWith(
+                JSON.stringify({ error: 'Not authenticated' }, null, 2),
+            )
+        })
+
         it('shows not authenticated when no token', async () => {
             const program = createProgram()
             mockGetSessionUser.mockRejectedValue(new Error('No API token found'))
