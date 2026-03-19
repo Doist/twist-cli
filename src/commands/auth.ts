@@ -117,10 +117,16 @@ async function loginWithToken(token?: string): Promise<void> {
     logTokenStorageResult(saveResult, 'Token stored securely in the system credential manager')
 }
 
-async function showStatus(): Promise<void> {
+async function showStatus(options: { json?: boolean }): Promise<void> {
     try {
         // Try to get session user to verify the token works
         const user = await getSessionUser()
+        if (options.json) {
+            console.log(
+                JSON.stringify({ id: user.id, email: user.email, name: user.name }, null, 2),
+            )
+            return
+        }
         const metadata = await getAuthMetadata()
         const modeLabel =
             metadata.authMode === 'read-only'
@@ -134,6 +140,11 @@ async function showStatus(): Promise<void> {
         console.log(`  Name:  ${user.name}`)
         console.log(`  Mode:  ${modeLabel}`)
     } catch {
+        if (options.json) {
+            console.log(JSON.stringify({ error: 'Not authenticated' }, null, 2))
+            process.exitCode = 1
+            return
+        }
         console.log(chalk.yellow('Not authenticated'))
         console.log(
             chalk.dim(
@@ -173,7 +184,10 @@ export function registerAuthCommand(program: Command): void {
         .description('Save API token for CLI authentication')
         .action(loginWithToken)
 
-    auth.command('status').description('Show current authentication status').action(showStatus)
+    auth.command('status')
+        .description('Show current authentication status')
+        .option('--json', 'Output as JSON')
+        .action(showStatus)
 
     auth.command('logout').description('Remove saved authentication token').action(logout)
 }

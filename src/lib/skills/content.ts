@@ -13,6 +13,7 @@ tw auth login                    # OAuth login (opens browser, read-write)
 tw auth login --read-only        # OAuth login with read-only scope
 tw auth token <your-api-token>   # Save API token manually (scope unknown; assumed write-capable)
 tw auth status                   # Verify authentication + show mode
+tw auth status --json            # JSON output: { id, email, name }
 tw auth logout                   # Remove saved token and auth metadata
 tw workspaces                    # List available workspaces
 tw workspace use <ref>           # Set current workspace
