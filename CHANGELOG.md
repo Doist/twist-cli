@@ -1,3 +1,10 @@
+# [2.15.0](https://github.com/Doist/twist-cli/compare/v2.14.2...v2.15.0) (2026-03-19)
+
+
+### Features
+
+* add --json output to auth status command ([#93](https://github.com/Doist/twist-cli/issues/93)) ([7bdec70](https://github.com/Doist/twist-cli/commit/7bdec7071e4e711f1c67d6a300d8db6d857c7eb1))
+
 ## [2.14.2](https://github.com/Doist/twist-cli/compare/v2.14.1...v2.14.2) (2026-03-18)
 
 
