@@ -3,7 +3,7 @@ import { openEditor, readStdin } from '../../lib/input.js'
 import type { MutationOptions } from '../../lib/options.js'
 import { formatJson } from '../../lib/output.js'
 import { assertChannelIsPublic } from '../../lib/public-channels.js'
-import { extractId, resolveChannelId } from '../../lib/refs.js'
+import { parseUserIdRefs, resolveChannelId } from '../../lib/refs.js'
 
 type CreateOptions = MutationOptions & {
     notify?: string
@@ -29,24 +29,7 @@ export async function createThread(
         process.exit(1)
     }
 
-    let recipients: number[] | undefined
-    if (options.notify) {
-        recipients = options.notify.split(',').map((userRef) => {
-            const trimmed = userRef.trim()
-            if (!trimmed) {
-                console.error('Invalid user reference list: found empty value')
-                process.exit(1)
-                return 0
-            }
-            try {
-                return extractId(trimmed)
-            } catch {
-                console.error(`Invalid user reference: ${trimmed}. Use 123 or id:123`)
-                process.exit(1)
-                return 0
-            }
-        })
-    }
+    const recipients = options.notify ? parseUserIdRefs(options.notify) : undefined
 
     if (options.dryRun) {
         console.log('Dry run: would create thread in channel', channelId)

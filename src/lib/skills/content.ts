@@ -65,6 +65,7 @@ tw thread create <channel-ref> "Title" "content"    # Create a new thread
 tw thread create <channel-ref> "Title" "content" --json       # Create and return as JSON
 tw thread create <channel-ref> "Title" "content" --json --full # Include all thread fields
 tw thread create <channel-ref> "Title" "content" --notify 123,456  # Notify specific users
+tw thread create <channel-ref> "Title" "content" --dry-run  # Preview without posting
 tw thread reply <ref> "content"  # Post a comment
 tw thread reply <ref> "content" --notify EVERYONE  # Notify all workspace members
 tw thread reply <ref> "content" --notify 123,id:456   # Notify specific user IDs

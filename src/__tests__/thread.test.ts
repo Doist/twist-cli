@@ -504,9 +504,13 @@ describe('thread create', () => {
         const program = createProgram()
         const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
         const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
-        const exitSpy = vi.spyOn(process, 'exit').mockImplementation(() => undefined as never)
+        const exitSpy = vi.spyOn(process, 'exit').mockImplementation(() => {
+            throw new Error('process.exit')
+        })
 
-        await program.parseAsync(['node', 'tw', 'thread', 'create', '100', 'My Title'])
+        await expect(
+            program.parseAsync(['node', 'tw', 'thread', 'create', '100', 'My Title']),
+        ).rejects.toThrow('process.exit')
 
         expect(errorSpy).toHaveBeenCalledWith('No content provided.')
         expect(exitSpy).toHaveBeenCalledWith(1)
