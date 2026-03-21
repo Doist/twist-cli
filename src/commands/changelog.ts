@@ -15,21 +15,32 @@ function formatInline(text: string): string {
 }
 
 function formatForTerminal(text: string): string {
+    let inBullet = false
     return text
         .split('\n')
         .map((line) => {
             // Version headers: # 1.25.0 or ## 1.25.0 (date) → bold green
             if (/^#{1,2} \d/.test(line)) {
+                inBullet = false
                 const content = line.replace(/^#{1,2} /, '')
                 return chalk.green.bold(content)
             }
             // Section headers: ### Features → bold
             if (line.startsWith('### ')) {
+                inBullet = false
                 return chalk.bold(line.slice(4))
             }
             // Bullet items: * description → dimmed bullet + text
             if (line.startsWith('* ')) {
+                inBullet = true
                 return `  ${chalk.dim('•')} ${formatInline(line.slice(2))}`
+            }
+            // Continuation lines of a bullet item → indent to match
+            if (inBullet && line.length > 0) {
+                return `    ${formatInline(line)}`
+            }
+            if (line.length === 0) {
+                inBullet = false
             }
             return formatInline(line)
         })
@@ -57,10 +68,19 @@ function cleanChangelog(text: string): string {
     )
 }
 
+function isEmptyAfterClean(section: string): boolean {
+    const cleaned = cleanChangelog(section)
+    // A section is empty if it only contains the version header line(s) and whitespace
+    const withoutHeader = cleaned.replace(/^#{1,2} .+$/m, '').trim()
+    return withoutHeader.length === 0
+}
+
 function parseChangelog(content: string, count: number): { text: string; hasMore: boolean } {
     const sections = content.split(/\n(?=#{1,2} \[)/)
     // Skip preamble (non-version content) if present
-    const versionSections = /^#{1,2} \[/.test(sections[0]) ? sections : sections.slice(1)
+    const allVersions = /^#{1,2} \[/.test(sections[0]) ? sections : sections.slice(1)
+    // Filter out versions that become empty after cleaning (e.g. deps-only releases)
+    const versionSections = allVersions.filter((s) => !isEmptyAfterClean(s))
     const selected = versionSections.slice(0, count)
 
     if (selected.length === 0) {

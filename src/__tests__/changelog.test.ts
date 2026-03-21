@@ -131,6 +131,40 @@ describe('changelog command', () => {
         expect(process.exitCode).toBe(1)
     })
 
+    it('skips dependency-only versions', async () => {
+        const depsChangelog = `# [1.3.0](https://example.com) (2026-03-15)
+
+
+### Features
+
+* real feature
+
+## [1.2.1](https://example.com) (2026-03-14)
+
+
+### Bug Fixes
+
+* **deps:** update dependency foo to v2
+
+# [1.2.0](https://example.com) (2026-03-13)
+
+
+### Features
+
+* another feature
+`
+        mockReadFile.mockResolvedValue(depsChangelog)
+
+        const program = createProgram()
+        await program.parseAsync(['node', 'tw', 'changelog'])
+
+        const output = consoleSpy.mock.calls[0][0] as string
+        expect(output).toContain('1.3.0')
+        expect(output).toContain('1.2.0')
+        // The deps-only version should be filtered out
+        expect(output).not.toContain('1.2.1')
+    })
+
     it('handles invalid count', async () => {
         const program = createProgram()
         await program.parseAsync(['node', 'tw', 'changelog', '-n', 'abc'])
