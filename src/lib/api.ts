@@ -275,4 +275,4 @@ export function assertBatchData<T>(response: { code: number; data: T }, label: s
     return response.data
 }
 
-export type { Workspace, WorkspaceUser, User }
+export type { User, Workspace, WorkspaceUser }
