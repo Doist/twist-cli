@@ -1,3 +1,10 @@
+# [2.17.0](https://github.com/Doist/twist-cli/compare/v2.16.0...v2.17.0) (2026-03-21)
+
+
+### Features
+
+* add changelog command and post-update hint ([#96](https://github.com/Doist/twist-cli/issues/96)) ([daed3da](https://github.com/Doist/twist-cli/commit/daed3da5c11d79c8c3da9d102c8f73f10276817e))
+
 # [2.16.0](https://github.com/Doist/twist-cli/compare/v2.15.0...v2.16.0) (2026-03-21)
 
 
