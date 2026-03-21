@@ -19,6 +19,7 @@ tw workspaces                    # List available workspaces
 tw workspace use <ref>           # Set current workspace
 tw completion install            # Install shell completions
 tw update                        # Update CLI to latest version
+tw changelog                     # Show recent changelog entries
 \`\`\`
 
 Stored auth uses the system credential manager when available. If secure storage is unavailable, \`tw\` warns and falls back to \`~/.config/twist-cli/config.json\`. \`TWIST_API_TOKEN\` always takes priority over the stored token, and legacy plaintext config tokens are migrated automatically when secure storage is available.
@@ -171,6 +172,13 @@ tw completion uninstall          # Remove completions
 \`\`\`bash
 tw update                        # Update CLI to latest version
 tw update --check                # Check for updates without installing
+\`\`\`
+
+### Changelog
+\`\`\`bash
+tw changelog                     # Show last 5 versions
+tw changelog -n 3                # Show last 3 versions
+tw changelog --count 10          # Show last 10 versions
 \`\`\`
 
 ## Global Options

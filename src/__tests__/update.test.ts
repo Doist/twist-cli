@@ -170,6 +170,11 @@ describe('update command', () => {
             )
             expect(consoleSpy).toHaveBeenCalledWith(`Update available: v${pkg.version} → v99.0.0`)
             expect(consoleSpy).toHaveBeenCalledWith('✓', 'Updated to v99.0.0')
+            expect(consoleSpy).toHaveBeenCalledWith(
+                expect.anything(),
+                expect.stringContaining('tw changelog'),
+                expect.anything(),
+            )
         })
 
         it('uses pnpm add when pnpm is detected', async () => {
