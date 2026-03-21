@@ -1,5 +1,6 @@
 import { Command, Option } from 'commander'
 import { withUnvalidatedChoices } from '../lib/completion.js'
+import { createThread } from './thread/create.js'
 import { markThreadDone } from './thread/mutate.js'
 import { replyToThread } from './thread/reply.js'
 import { viewThread } from './thread/view.js'
@@ -44,6 +45,15 @@ export function registerThreadCommand(program: Command): void {
         .option('--json', 'Output posted comment as JSON')
         .option('--full', 'Include all fields in JSON output')
         .action(replyToThread)
+
+    thread
+        .command('create <channel-ref> <title> [content]')
+        .description('Create a new thread in a channel')
+        .option('--notify <recipients>', 'Comma-separated user IDs to notify')
+        .option('--dry-run', 'Show what would be posted without posting')
+        .option('--json', 'Output created thread as JSON')
+        .option('--full', 'Include all fields in JSON output')
+        .action(createThread)
 
     thread
         .command('done <thread-ref>')

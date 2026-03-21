@@ -61,6 +61,11 @@ tw thread view <ref> --context 3 # Include 3 read comments before unread
 tw thread view <ref> --limit 20  # Limit number of comments
 tw thread view <ref> --since <date> # Comments newer than date
 tw thread view <ref> --raw       # Show raw markdown
+tw thread create <channel-ref> "Title" "content"    # Create a new thread
+tw thread create <channel-ref> "Title" "content" --json       # Create and return as JSON
+tw thread create <channel-ref> "Title" "content" --json --full # Include all thread fields
+tw thread create <channel-ref> "Title" "content" --notify 123,456  # Notify specific users
+tw thread create <channel-ref> "Title" "content" --dry-run  # Preview without posting
 tw thread reply <ref> "content"  # Post a comment
 tw thread reply <ref> "content" --notify EVERYONE  # Notify all workspace members
 tw thread reply <ref> "content" --notify 123,id:456   # Notify specific user IDs
@@ -70,7 +75,7 @@ tw thread done <ref>             # Archive thread (mark done)
 tw thread done <ref> --json      # Archive and return status as JSON
 \`\`\`
 
-Default \`--notify\` is EVERYONE_IN_THREAD. Options: EVERYONE, EVERYONE_IN_THREAD, or comma-separated user ID refs.
+Default \`--notify\` for reply is EVERYONE_IN_THREAD. Options: EVERYONE, EVERYONE_IN_THREAD, or comma-separated user ID refs.
 
 ## Conversations (DMs/Groups)
 
@@ -192,6 +197,18 @@ Commands accept flexible references:
 - **Numeric IDs**: \`123\` or \`id:123\`
 - **Twist URLs**: Full \`https://twist.com/...\` URLs (parsed automatically)
 - **Fuzzy names**: For workspaces/users - \`"My Workspace"\` or partial matches
+
+## Piping Content
+
+Commands that accept content (\`thread create\`, \`thread reply\`, \`conversation reply\`, \`msg update\`) auto-detect piped stdin:
+
+\`\`\`bash
+cat notes.md | tw thread reply <ref>
+tw thread create <channel-ref> "Title" < body.md
+echo "Quick reply" | tw conversation reply <ref>
+\`\`\`
+
+If no content argument is provided and no stdin is piped, the CLI opens \`$EDITOR\` for interactive input.
 
 ## Common Workflows
 

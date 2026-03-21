@@ -3,7 +3,7 @@ import { openEditor, readStdin } from '../../lib/input.js'
 import type { MutationOptions } from '../../lib/options.js'
 import { formatJson } from '../../lib/output.js'
 import { assertChannelIsPublic } from '../../lib/public-channels.js'
-import { extractId, resolveThreadId } from '../../lib/refs.js'
+import { parseUserIdRefs, resolveThreadId } from '../../lib/refs.js'
 
 type ReplyOptions = MutationOptions & {
     notify?: string
@@ -33,21 +33,7 @@ export async function replyToThread(
     if (notifyValue === 'EVERYONE' || notifyValue === 'EVERYONE_IN_THREAD') {
         recipients = notifyValue
     } else {
-        recipients = notifyValue.split(',').map((userRef) => {
-            const trimmed = userRef.trim()
-            if (!trimmed) {
-                console.error('Invalid user reference list: found empty value')
-                process.exit(1)
-                return 0
-            }
-            try {
-                return extractId(trimmed)
-            } catch {
-                console.error(`Invalid user reference: ${trimmed}. Use 123 or id:123`)
-                process.exit(1)
-                return 0
-            }
-        })
+        recipients = parseUserIdRefs(notifyValue)
     }
 
     if (options.dryRun) {

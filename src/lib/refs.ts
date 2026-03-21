@@ -233,6 +233,24 @@ export function classifyTwistUrl(url: string): TwistUrlRoute | null {
     return null
 }
 
+export function parseUserIdRefs(refs: string): number[] {
+    return refs.split(',').map((userRef) => {
+        const trimmed = userRef.trim()
+        if (!trimmed) {
+            console.error('Invalid user reference list: found empty value')
+            process.exit(1)
+            return 0
+        }
+        try {
+            return extractId(trimmed)
+        } catch {
+            console.error(`Invalid user reference: ${trimmed}. Use 123 or id:123`)
+            process.exit(1)
+            return 0
+        }
+    })
+}
+
 export async function resolveUserRefs(refs: string, workspaceId: number): Promise<number[]> {
     const { getWorkspaceUsers } = await import('./api.js')
     const users = await getWorkspaceUsers(workspaceId)

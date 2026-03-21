@@ -21,6 +21,7 @@ const API_SPINNER_MESSAGES: Record<string, { text: string; color?: 'blue' | 'gre
         // Thread operations
         'threads.getThread': { text: 'Loading thread...', color: 'blue' },
         'threads.getUnread': { text: 'Loading unread threads...', color: 'blue' },
+        'threads.createThread': { text: 'Creating thread...', color: 'green' },
 
         // Comment operations
         'comments.getComment': { text: 'Loading comment...', color: 'blue' },
