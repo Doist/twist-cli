@@ -44,7 +44,8 @@
         "url": "https://github.com/Doist/twist-cli/issues"
     },
     "files": [
-        "dist"
+        "dist",
+        "CHANGELOG.md"
     ],
     "dependencies": {
         "@doist/twist-sdk": "2.1.1",

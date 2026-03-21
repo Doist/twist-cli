@@ -104,6 +104,7 @@ export async function updateAction(options: UpdateOptions): Promise<void> {
     }
 
     console.log(chalk.green('✓'), `Updated to v${latestVersion}`)
+    console.log(chalk.dim('  Run'), chalk.cyan('tw changelog'), chalk.dim('to see what changed'))
 }
 
 export function registerUpdateCommand(program: Command): void {

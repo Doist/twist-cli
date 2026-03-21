@@ -23,6 +23,8 @@ const loadCompletionCommand = async () =>
     (await import('./commands/completion.js')).registerCompletionCommand
 const loadAwayCommand = async () => (await import('./commands/away.js')).registerAwayCommand
 const loadUpdateCommand = async () => (await import('./commands/update.js')).registerUpdateCommand
+const loadChangelogCommand = async () =>
+    (await import('./commands/changelog.js')).registerChangelogCommand
 
 const commands: Record<string, [string, () => Promise<(p: Command) => void>]> = {
     workspaces: ['List all workspaces', loadWorkspaceCommand],
@@ -43,6 +45,7 @@ const commands: Record<string, [string, () => Promise<(p: Command) => void>]> = 
     view: ['View a Twist entity by URL', loadViewCommand],
     completion: ['Manage shell completions', loadCompletionCommand],
     update: ['Update the CLI to the latest version', loadUpdateCommand],
+    changelog: ['Show recent changelog entries', loadChangelogCommand],
 }
 
 const commandAliases: Record<string, string> = {
