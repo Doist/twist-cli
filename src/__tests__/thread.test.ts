@@ -26,8 +26,9 @@ vi.mock('../lib/input.js', () => ({
 vi.mock('chalk')
 
 import { registerThreadCommand } from '../commands/thread.js'
+import { readStdin } from '../lib/input.js'
 
-function createThread(id: number) {
+function createThreadFixture(id: number) {
     return {
         id,
         title: 'Test Thread',
@@ -39,6 +40,7 @@ function createThread(id: number) {
         commentCount: 3,
         isArchived: false,
         reactions: [],
+        url: `https://twist.com/a/10/ch/100/t/${id}`,
     }
 }
 
@@ -55,7 +57,7 @@ function createComment(id: number, objIndex: number) {
 }
 
 function createClient({
-    thread = createThread(500),
+    thread = createThreadFixture(500),
     comments = [] as ReturnType<typeof createComment>[],
     unreadThreads = [] as Array<{
         threadId: number
@@ -64,7 +66,7 @@ function createClient({
         directMention: boolean
     }>,
     users = {} as Record<number, { id: number; name: string }>,
-    channel = { id: 100, name: 'General' },
+    channel = { id: 100, name: 'General', workspaceId: 10 },
 } = {}) {
     return {
         threads: {
@@ -73,6 +75,10 @@ function createClient({
                 return Promise.resolve(thread)
             }),
             getUnread: vi.fn(async () => unreadThreads),
+            createThread: vi.fn(
+                async (_args: { channelId: number; content: string; title?: string | null }) =>
+                    createThreadFixture(999),
+            ),
         },
         comments: {
             getComments: vi.fn((_args: unknown, options?: { batch?: boolean }) => {
@@ -327,7 +333,7 @@ describe('thread view with failed batch response', () => {
         })
         // Override batch to return a 404 for the comment
         client.batch.mockResolvedValueOnce([
-            { code: 200, data: createThread(500) },
+            { code: 200, data: createThreadFixture(500) },
             { code: 404, data: null as never },
         ])
         apiMocks.getTwistClient.mockResolvedValue(client)
@@ -359,5 +365,154 @@ describe('thread view with failed batch response', () => {
         )
 
         consoleSpy.mockRestore()
+    })
+})
+
+describe('thread create', () => {
+    beforeEach(() => {
+        vi.clearAllMocks()
+    })
+
+    it('creates a thread with positional title and content', async () => {
+        const client = createClient()
+        apiMocks.getTwistClient.mockResolvedValue(client)
+
+        const program = createProgram()
+        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+        await program.parseAsync([
+            'node',
+            'tw',
+            'thread',
+            'create',
+            '100',
+            'My Title',
+            'Thread body content',
+        ])
+
+        expect(client.threads.createThread).toHaveBeenCalledWith(
+            expect.objectContaining({
+                channelId: 100,
+                title: 'My Title',
+                content: 'Thread body content',
+            }),
+        )
+        expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('Thread created:'))
+
+        consoleSpy.mockRestore()
+    })
+
+    it('shows dry run output', async () => {
+        const program = createProgram()
+        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+        await program.parseAsync([
+            'node',
+            'tw',
+            'thread',
+            'create',
+            '100',
+            'Test Title',
+            'Dry run content',
+            '--dry-run',
+        ])
+
+        expect(consoleSpy).toHaveBeenCalledWith('Dry run: would create thread in channel', 100)
+        expect(consoleSpy).toHaveBeenCalledWith('Title: Test Title')
+        expect(consoleSpy).toHaveBeenCalledWith('Dry run content')
+
+        consoleSpy.mockRestore()
+    })
+
+    it('outputs JSON with --json', async () => {
+        const client = createClient()
+        apiMocks.getTwistClient.mockResolvedValue(client)
+
+        const program = createProgram()
+        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+        await program.parseAsync([
+            'node',
+            'tw',
+            'thread',
+            'create',
+            '100',
+            'Title',
+            'Thread body',
+            '--json',
+        ])
+
+        const jsonOutput = JSON.parse(consoleSpy.mock.calls[0][0])
+        expect(jsonOutput.id).toBe(999)
+        expect(jsonOutput.channelId).toBe(100)
+
+        consoleSpy.mockRestore()
+    })
+
+    it('reads content from stdin', async () => {
+        vi.mocked(readStdin).mockResolvedValueOnce('Content from stdin')
+        const client = createClient()
+        apiMocks.getTwistClient.mockResolvedValue(client)
+
+        const program = createProgram()
+        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+        await program.parseAsync(['node', 'tw', 'thread', 'create', '100', 'My Title'])
+
+        expect(client.threads.createThread).toHaveBeenCalledWith(
+            expect.objectContaining({
+                channelId: 100,
+                title: 'My Title',
+                content: 'Content from stdin',
+            }),
+        )
+
+        consoleSpy.mockRestore()
+    })
+
+    it('passes notify recipients', async () => {
+        const client = createClient()
+        apiMocks.getTwistClient.mockResolvedValue(client)
+
+        const program = createProgram()
+        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+        await program.parseAsync([
+            'node',
+            'tw',
+            'thread',
+            'create',
+            '100',
+            'Title',
+            'Thread body',
+            '--notify',
+            '123,456',
+        ])
+
+        expect(client.threads.createThread).toHaveBeenCalledWith(
+            expect.objectContaining({
+                channelId: 100,
+                content: 'Thread body',
+                recipients: [123, 456],
+            }),
+        )
+
+        consoleSpy.mockRestore()
+    })
+
+    it('errors when no content is provided', async () => {
+        const program = createProgram()
+        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+        const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+        const exitSpy = vi.spyOn(process, 'exit').mockImplementation(() => undefined as never)
+
+        await program.parseAsync(['node', 'tw', 'thread', 'create', '100', 'My Title'])
+
+        expect(errorSpy).toHaveBeenCalledWith('No content provided.')
+        expect(exitSpy).toHaveBeenCalledWith(1)
+
+        consoleSpy.mockRestore()
+        errorSpy.mockRestore()
+        exitSpy.mockRestore()
     })
 })
