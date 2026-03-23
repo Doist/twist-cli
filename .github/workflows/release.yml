@@ -111,7 +111,7 @@ jobs:
           {
               echo "should_announce=true"
               echo "message<<EOF"
-              echo "**${package_name} ${new_tag} published**"
+              echo "**Twist CLI ${new_tag} published** 🚀"
               echo
               printf '%s\n' "${changelog}"
               echo
