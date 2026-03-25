@@ -2,7 +2,7 @@ export const SKILL_NAME = 'twist-cli'
 
 export const SKILL_DESCRIPTION = 'Twist messaging CLI for team communication'
 
-export const SKILL_CONTENT = `# Twist CLI Skill
+export const SKILL_CONTENT = `# Twist CLI (tw)
 
 Access Twist messaging via the \`tw\` CLI. Use when the user asks about their Twist workspaces, threads, messages, or wants to interact with Twist in any way.
 
@@ -253,7 +253,7 @@ tw conversation reply <id> "Got it, thanks!"
 
 export const SKILL_FILE_CONTENT = `---
 name: ${SKILL_NAME}
-description: ${SKILL_DESCRIPTION}
+description: ${JSON.stringify(SKILL_DESCRIPTION)}
 ---
 
 ${SKILL_CONTENT}`
