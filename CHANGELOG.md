@@ -1,3 +1,10 @@
+## [2.18.2](https://github.com/Doist/twist-cli/compare/v2.18.1...v2.18.2) (2026-03-25)
+
+
+### Bug Fixes
+
+* use JSON.stringify for robust YAML description escaping ([#103](https://github.com/Doist/twist-cli/issues/103)) ([9adab77](https://github.com/Doist/twist-cli/commit/9adab777b395e43e7ebc23ed73930b188c768290))
+
 ## [2.18.1](https://github.com/Doist/twist-cli/compare/v2.18.0...v2.18.1) (2026-03-25)
 
 
