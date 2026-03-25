@@ -253,7 +253,7 @@ tw conversation reply <id> "Got it, thanks!"
 
 export const SKILL_FILE_CONTENT = `---
 name: ${SKILL_NAME}
-description: ${SKILL_DESCRIPTION}
+description: ${JSON.stringify(SKILL_DESCRIPTION)}
 ---
 
 ${SKILL_CONTENT}`
