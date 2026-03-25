@@ -1,3 +1,10 @@
+# [2.18.0](https://github.com/Doist/twist-cli/compare/v2.17.1...v2.18.0) (2026-03-25)
+
+
+### Features
+
+* add new agent skills ([#101](https://github.com/Doist/twist-cli/issues/101)) ([37fa53f](https://github.com/Doist/twist-cli/commit/37fa53f899a9031c957a81d6266ad4073023440e))
+
 ## [2.17.1](https://github.com/Doist/twist-cli/compare/v2.17.0...v2.17.1) (2026-03-23)
 
 
