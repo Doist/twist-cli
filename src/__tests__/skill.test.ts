@@ -54,6 +54,8 @@ describe('skill registry', () => {
         expect(names).toContain('codex')
         expect(names).toContain('cursor')
         expect(names).toContain('gemini')
+        expect(names).toContain('pi')
+        expect(names).toContain('universal')
     })
 })
 
@@ -63,6 +65,8 @@ describe('installer paths', () => {
         { agent: 'codex', dir: '.codex', desc: 'Codex skill for Twist CLI' },
         { agent: 'cursor', dir: '.cursor', desc: 'Cursor skill for Twist CLI' },
         { agent: 'gemini', dir: '.gemini', desc: 'Gemini CLI skill for Twist CLI' },
+        { agent: 'pi', dir: '.pi', desc: 'Pi skill for Twist CLI' },
+        { agent: 'universal', dir: '.agents', desc: 'Universal agent skill for Twist CLI' },
     ] as const
 
     for (const { agent, dir, desc } of cases) {
@@ -184,9 +188,9 @@ describe('listAgents', () => {
 
     it('returns agent info with installed status', async () => {
         const agents = await listAgents(true)
-        expect(agents.length).toBe(4)
+        expect(agents.length).toBe(6)
 
-        for (const name of ['claude-code', 'codex', 'cursor', 'gemini']) {
+        for (const name of ['claude-code', 'codex', 'cursor', 'gemini', 'pi', 'universal']) {
             const agent = agents.find((a) => a.name === name)
             expect(agent).toBeDefined()
             expect(agent?.installed).toBe(false)
@@ -342,5 +346,23 @@ describe('install detection', () => {
         await expect(installer.install({ local: false })).rejects.toThrow(
             'fake-agent does not appear to be installed',
         )
+    })
+
+    it('skips agent directory check for universal (.agents)', async () => {
+        const testDir = join(tmpdir(), `twist-cli-universal-test-${Date.now()}`)
+        await mkdir(testDir, { recursive: true })
+        const originalCwd = process.cwd()
+        process.chdir(testDir)
+        try {
+            const installer = createInstaller({
+                name: 'universal',
+                description: 'Universal agent',
+                dirName: '.agents',
+            })
+            await expect(installer.install({ local: true })).resolves.not.toThrow()
+        } finally {
+            process.chdir(originalCwd)
+            await rm(testDir, { recursive: true, force: true })
+        }
     })
 })

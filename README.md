@@ -12,7 +12,41 @@ A command-line interface for Twist.
 > npm install -g @doist/twist-cli
 > ```
 
-### Local Setup (for now)
+### Agent Skills
+
+Install skills for your coding agent:
+
+```bash
+tw skill install claude-code
+tw skill install codex
+tw skill install cursor
+tw skill install gemini
+tw skill install pi
+tw skill install universal
+```
+
+Skills are installed to `~/<agent-dir>/skills/twist-cli/SKILL.md` (e.g. `~/.claude/` for claude-code, `~/.agents/` for universal, etc.). When updating the CLI, installed skills are updated automatically. The `universal` agent is compatible with Amp, OpenCode, and other agents that read from `~/.agents/`.
+
+```bash
+tw skill list
+tw skill uninstall <agent>
+```
+
+## Uninstallation
+
+First, remove any installed agent skills:
+
+```bash
+tw skill uninstall <agent>
+```
+
+Then uninstall the CLI:
+
+```bash
+npm uninstall -g @doist/twist-cli
+```
+
+## Local Setup
 
 ```bash
 git clone https://github.com/Doist/twist-cli.git
@@ -98,7 +132,7 @@ Restart your shell or source your config file to activate. To remove:
 tw completion uninstall
 ```
 
-### Machine-readable output
+## Machine-readable output
 
 All list/view commands support `--json` and `--ndjson` flags for scripting:
 

@@ -32,7 +32,7 @@ export function createInstaller(config: InstallerConfig): SkillInstaller {
         },
 
         async install(options: InstallOptions): Promise<void> {
-            if (!options.local) {
+            if (!options.local && config.dirName !== '.agents') {
                 const agentDir = join(homedir(), config.dirName)
                 try {
                     await stat(agentDir)
