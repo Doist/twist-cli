@@ -25,7 +25,7 @@ tw skill install pi
 tw skill install universal
 ```
 
-Skills are installed globally to `~/.<agent>/skills/twist-cli/SKILL.md`. When updating the CLI, installed skills are updated automatically. The `universal` agent installs to `~/.agents/skills/twist-cli/SKILL.md` and is compatible with Amp, GitHub Copilot, OpenCode, and other agents that read from `~/.agents/`.
+Skills are installed to `~/<agent-dir>/skills/twist-cli/SKILL.md` (e.g. `~/.claude/` for claude-code, `~/.agents/` for universal, etc.). When updating the CLI, installed skills are updated automatically. The `universal` agent is compatible with Amp, OpenCode, and other agents that read from `~/.agents/`.
 
 ```bash
 tw skill list
@@ -34,14 +34,16 @@ tw skill uninstall <agent>
 
 ## Uninstallation
 
-```bash
-npm uninstall -g @doist/twist-cli
-```
-
-To also remove installed agent skills:
+First, remove any installed agent skills:
 
 ```bash
 tw skill uninstall <agent>
+```
+
+Then uninstall the CLI:
+
+```bash
+npm uninstall -g @doist/twist-cli
 ```
 
 ## Local Setup
