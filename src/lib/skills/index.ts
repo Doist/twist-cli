@@ -22,6 +22,16 @@ export const skillInstallers: Record<string, SkillInstaller> = {
         description: 'Gemini CLI skill for Twist CLI',
         dirName: '.gemini',
     }),
+    pi: createInstaller({
+        name: 'pi',
+        description: 'Pi skill for Twist CLI',
+        dirName: '.pi',
+    }),
+    universal: createInstaller({
+        name: 'universal',
+        description: 'Universal agent skill for Twist CLI',
+        dirName: '.agents',
+    }),
 }
 
 export function getInstaller(name: string): SkillInstaller | null {
