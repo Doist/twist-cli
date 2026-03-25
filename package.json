@@ -16,7 +16,7 @@
         "lint:check": "biome check .",
         "format": "biome format --write . && prettier --write '**/*.{md,yml,yaml,css}'",
         "format:check": "biome check --formatter-enabled=true . && prettier --check '**/*.{md,yml,yaml,css}'",
-        "postinstall": "node dist/postinstall.js || true",
+        "postinstall": "test -f dist/postinstall.js && node dist/postinstall.js || true",
         "test": "vitest run",
         "test:watch": "vitest"
     },
