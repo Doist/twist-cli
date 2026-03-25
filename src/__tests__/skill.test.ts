@@ -120,6 +120,7 @@ describe('installer operations', () => {
         const skillPath = installer.getInstallPath({ local: true })
         const content = await readFile(skillPath, 'utf-8')
         expect(content).toBe(SKILL_FILE_CONTENT)
+        expect(content).toContain('description: "Twist messaging CLI for team communication"')
     })
 
     it('reports not installed initially', async () => {
