@@ -347,4 +347,22 @@ describe('install detection', () => {
             'fake-agent does not appear to be installed',
         )
     })
+
+    it('skips agent directory check for universal (.agents)', async () => {
+        const testDir = join(tmpdir(), `twist-cli-universal-test-${Date.now()}`)
+        await mkdir(testDir, { recursive: true })
+        const originalCwd = process.cwd()
+        process.chdir(testDir)
+        try {
+            const installer = createInstaller({
+                name: 'universal',
+                description: 'Universal agent',
+                dirName: '.agents',
+            })
+            await expect(installer.install({ local: true })).resolves.not.toThrow()
+        } finally {
+            process.chdir(originalCwd)
+            await rm(testDir, { recursive: true, force: true })
+        }
+    })
 })
