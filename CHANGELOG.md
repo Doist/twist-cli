@@ -1,3 +1,10 @@
+## [2.18.1](https://github.com/Doist/twist-cli/compare/v2.18.0...v2.18.1) (2026-03-25)
+
+
+### Bug Fixes
+
+* use cross-platform postinstall script ([#102](https://github.com/Doist/twist-cli/issues/102)) ([dabe906](https://github.com/Doist/twist-cli/commit/dabe9069eb106349488ae79b1b0e92f21fae979b))
+
 # [2.18.0](https://github.com/Doist/twist-cli/compare/v2.17.1...v2.18.0) (2026-03-25)
 
 
