@@ -71,4 +71,9 @@ The file `src/lib/skills/content.ts` exports `SKILL_CONTENT` — a comprehensive
 - Updating the Quick Reference section when new top-level commands are introduced
 - Keeping examples accurate and consistent with actual CLI behavior
 
-After updating `SKILL_CONTENT`, run `tw skill update claude-code` (and any other installed agents) to propagate the changes to installed skill files.
+After updating `SKILL_CONTENT`:
+
+1. Run `npm run build && npm run sync:skill` to regenerate `skills/twist-cli/SKILL.md` (the standalone skill file used by `npx skills add`)
+2. Run `tw skill update claude-code` (and any other installed agents) to propagate changes to installed skill files
+
+A CI check (`npm run check:skill-sync`) runs on pull requests and will fail if `skills/twist-cli/SKILL.md` is out of sync with `content.ts`.
