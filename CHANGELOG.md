@@ -1,3 +1,10 @@
+## [2.18.3](https://github.com/Doist/twist-cli/compare/v2.18.2...v2.18.3) (2026-03-26)
+
+
+### Bug Fixes
+
+* remove inline token placeholder from skill auth example ([#106](https://github.com/Doist/twist-cli/issues/106)) ([ce0683d](https://github.com/Doist/twist-cli/commit/ce0683dea1645d33f456f2812c4d02a1a21ba0eb))
+
 ## [2.18.2](https://github.com/Doist/twist-cli/compare/v2.18.1...v2.18.2) (2026-03-25)
 
 
