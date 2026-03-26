@@ -1,3 +1,10 @@
+## [2.18.4](https://github.com/Doist/twist-cli/compare/v2.18.3...v2.18.4) (2026-03-26)
+
+
+### Bug Fixes
+
+* upgrade Twist SDK for proxy env var support ([#107](https://github.com/Doist/twist-cli/issues/107)) ([ad5bfc4](https://github.com/Doist/twist-cli/commit/ad5bfc4363975b45857cc0b799c40e6fe5f94718))
+
 ## [2.18.3](https://github.com/Doist/twist-cli/compare/v2.18.2...v2.18.3) (2026-03-26)
 
 
