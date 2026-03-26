@@ -1,9 +1,9 @@
 ---
 name: twist-cli
-description: Twist messaging CLI for team communication
+description: "Twist messaging CLI for team communication"
 ---
 
-# Twist CLI Skill
+# Twist CLI (tw)
 
 Access Twist messaging via the `tw` CLI. Use when the user asks about their Twist workspaces, threads, messages, or wants to interact with Twist in any way.
 
