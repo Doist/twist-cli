@@ -18,6 +18,11 @@ export async function replyToThread(
 ): Promise<void> {
     const threadId = resolveThreadId(ref)
 
+    if (options.close && options.reopen) {
+        console.error('Cannot use --close and --reopen together.')
+        process.exit(1)
+    }
+
     let replyContent = await readStdin()
     if (!replyContent && content) {
         replyContent = content
@@ -27,11 +32,6 @@ export async function replyToThread(
     }
     if (!replyContent || replyContent.trim() === '') {
         console.error('No content provided.')
-        process.exit(1)
-    }
-
-    if (options.close && options.reopen) {
-        console.error('Cannot use --close and --reopen together.')
         process.exit(1)
     }
 
@@ -59,17 +59,24 @@ export async function replyToThread(
     const thread = await client.threads.getThread(threadId)
     await assertChannelIsPublic(thread.channelId, thread.workspaceId)
 
-    const comment = action
-        ? await (action === 'close' ? client.threads.closeThread : client.threads.reopenThread)({
-              id: threadId,
-              content: replyContent,
-              recipients,
-          } as Parameters<typeof client.threads.closeThread>[0])
-        : await client.comments.createComment({
-              threadId,
-              content: replyContent,
-              recipients,
-          } as Parameters<typeof client.comments.createComment>[0])
+    const comment =
+        action === 'close'
+            ? await client.threads.closeThread({
+                  id: threadId,
+                  content: replyContent,
+                  recipients,
+              } as Parameters<typeof client.threads.closeThread>[0])
+            : action === 'reopen'
+              ? await client.threads.reopenThread({
+                    id: threadId,
+                    content: replyContent,
+                    recipients,
+                } as Parameters<typeof client.threads.reopenThread>[0])
+              : await client.comments.createComment({
+                    threadId,
+                    content: replyContent,
+                    recipients,
+                } as Parameters<typeof client.comments.createComment>[0])
 
     if (options.json) {
         console.log(formatJson(comment, 'comment', options.full))
