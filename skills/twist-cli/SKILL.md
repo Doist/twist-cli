@@ -73,6 +73,8 @@ tw thread reply <ref> "content" --notify EVERYONE  # Notify all workspace member
 tw thread reply <ref> "content" --notify 123,id:456   # Notify specific user IDs
 tw thread reply <ref> "content" --json  # Post and return comment as JSON
 tw thread reply <ref> "content" --json --full  # Include all comment fields
+tw thread reply <ref> "content" --close       # Reply and close the thread
+tw thread reply <ref> "content" --reopen      # Reply and reopen a closed thread
 tw thread done <ref>             # Archive thread (mark done)
 tw thread done <ref> --json      # Archive and return status as JSON
 ```

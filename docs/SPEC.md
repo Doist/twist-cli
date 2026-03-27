@@ -534,7 +534,6 @@ tw search "project" --ndjson
 
 ## Not in MVP (Future Considerations)
 
-- `tw thread create` - Create new threads
 - `tw conversation start` - Start new conversations
 - `tw thread done --all` - Bulk archive
 - `tw link` command - URLs shown in output instead

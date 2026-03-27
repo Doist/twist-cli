@@ -53,6 +53,7 @@ function createComment(id: number, objIndex: number) {
         posted: new Date('2026-03-02T00:00:00.000Z'),
         reactions: [],
         objIndex,
+        url: `https://twist.com/a/10/ch/100/t/500/c/${id}`,
     }
 }
 
@@ -79,6 +80,12 @@ function createClient({
                 async (_args: { channelId: number; content: string; title?: string | null }) =>
                     createThreadFixture(999),
             ),
+            closeThread: vi.fn(async (_args: { id: number; content: string }) =>
+                createComment(10, 10),
+            ),
+            reopenThread: vi.fn(async (_args: { id: number; content: string }) =>
+                createComment(11, 11),
+            ),
         },
         comments: {
             getComments: vi.fn((_args: unknown, options?: { batch?: boolean }) => {
@@ -89,6 +96,9 @@ function createClient({
                 if (options?.batch) return { kind: 'comment', id: _id }
                 return Promise.resolve(undefined)
             }),
+            createComment: vi.fn(async (_args: { threadId: number; content: string }) =>
+                createComment(12, 12),
+            ),
         },
         channels: {
             getChannel: vi.fn((_id: number, options?: { batch?: boolean }) => {
@@ -174,8 +184,113 @@ describe('thread implicit view', () => {
             '--dry-run',
         ])
 
-        expect(consoleSpy).toHaveBeenCalledWith('Dry run: would post comment to thread', 100)
+        expect(consoleSpy).toHaveBeenCalledWith('Dry run: would post comment to thread 100')
         consoleSpy.mockRestore()
+    })
+
+    it('--close dry-run indicates thread will be closed', async () => {
+        const program = createProgram()
+        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+        await program.parseAsync([
+            'node',
+            'tw',
+            'thread',
+            'reply',
+            '100',
+            'closing this',
+            '--close',
+            '--dry-run',
+        ])
+
+        expect(consoleSpy).toHaveBeenCalledWith(
+            'Dry run: would post comment to thread 100 and close it',
+        )
+        consoleSpy.mockRestore()
+    })
+
+    it('--reopen dry-run indicates thread will be reopened', async () => {
+        const program = createProgram()
+        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+        await program.parseAsync([
+            'node',
+            'tw',
+            'thread',
+            'reply',
+            '100',
+            'reopening this',
+            '--reopen',
+            '--dry-run',
+        ])
+
+        expect(consoleSpy).toHaveBeenCalledWith(
+            'Dry run: would post comment to thread 100 and reopen it',
+        )
+        consoleSpy.mockRestore()
+    })
+
+    it('--close calls closeThread instead of createComment', async () => {
+        const client = createClient()
+        apiMocks.getTwistClient.mockResolvedValue(client)
+
+        const program = createProgram()
+        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+        vi.mocked(readStdin).mockResolvedValueOnce('closing comment')
+        await program.parseAsync(['node', 'tw', 'thread', 'reply', '500', '--close'])
+
+        expect(client.threads.closeThread).toHaveBeenCalledWith(
+            expect.objectContaining({ id: 500, content: 'closing comment' }),
+        )
+        expect(client.comments.createComment).not.toHaveBeenCalled()
+        consoleSpy.mockRestore()
+    })
+
+    it('--reopen calls reopenThread instead of createComment', async () => {
+        const client = createClient()
+        apiMocks.getTwistClient.mockResolvedValue(client)
+
+        const program = createProgram()
+        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+        vi.mocked(readStdin).mockResolvedValueOnce('reopening comment')
+        await program.parseAsync(['node', 'tw', 'thread', 'reply', '500', '--reopen'])
+
+        expect(client.threads.reopenThread).toHaveBeenCalledWith(
+            expect.objectContaining({ id: 500, content: 'reopening comment' }),
+        )
+        expect(client.comments.createComment).not.toHaveBeenCalled()
+        consoleSpy.mockRestore()
+    })
+
+    it('--close and --reopen together produces an error', async () => {
+        const program = createProgram()
+        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+        const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+        const exitSpy = vi.spyOn(process, 'exit').mockImplementation(() => {
+            throw new Error('process.exit')
+        })
+
+        await expect(
+            program.parseAsync([
+                'node',
+                'tw',
+                'thread',
+                'reply',
+                '100',
+                'content',
+                '--close',
+                '--reopen',
+            ]),
+        ).rejects.toThrow('process.exit')
+
+        expect(errorSpy).toHaveBeenCalledWith('Cannot use --close and --reopen together.')
+        expect(exitSpy).toHaveBeenCalledWith(1)
+
+        consoleSpy.mockRestore()
+        errorSpy.mockRestore()
+        exitSpy.mockRestore()
     })
 })
 

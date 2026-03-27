@@ -41,6 +41,8 @@ export function registerThreadCommand(program: Command): void {
                 ['EVERYONE', 'EVERYONE_IN_THREAD'],
             ),
         )
+        .option('--close', 'Close the thread after replying')
+        .option('--reopen', 'Reopen the thread after replying')
         .option('--dry-run', 'Show what would be posted without posting')
         .option('--json', 'Output posted comment as JSON')
         .option('--full', 'Include all fields in JSON output')
