@@ -15,24 +15,40 @@ vi.mock('../lib/input.js', () => ({
     openEditor: vi.fn().mockResolvedValue(''),
 }))
 
+vi.mock('../lib/markdown.js', () => ({
+    renderMarkdown: vi.fn((text: string) => text),
+}))
+
 vi.mock('chalk')
 
 import { registerCommentCommand } from '../commands/comment.js'
 import { readStdin } from '../lib/input.js'
 
+function createCommentFixture(id: number) {
+    return {
+        id,
+        content: `Comment ${id}`,
+        creator: 2,
+        threadId: 500,
+        workspaceId: 10,
+        posted: new Date('2026-03-02T00:00:00.000Z'),
+        reactions: [],
+        url: `https://twist.com/a/10/ch/100/t/500/c/${id}`,
+    }
+}
+
 function createClient() {
     return {
         comments: {
+            getComment: vi.fn(async (id: number) => createCommentFixture(id)),
             updateComment: vi.fn(async (args: { id: number; content: string }) => ({
-                id: args.id,
+                ...createCommentFixture(args.id),
                 content: args.content,
-                creator: 2,
-                threadId: 500,
-                posted: new Date('2026-03-02T00:00:00.000Z'),
-                reactions: [],
-                url: `https://twist.com/a/10/ch/100/t/500/c/${args.id}`,
             })),
             deleteComment: vi.fn(async () => undefined),
+        },
+        workspaceUsers: {
+            getUserById: vi.fn(async () => ({ id: 2, name: 'Bob' })),
         },
     }
 }
@@ -44,18 +60,83 @@ function createProgram() {
     return program
 }
 
-describe('comment edit', () => {
+describe('comment implicit view', () => {
+    beforeEach(() => {
+        vi.clearAllMocks()
+        apiMocks.getTwistClient.mockRejectedValue(new Error('MOCK_API_REACHED'))
+    })
+
+    it('tw comment <ref> routes to view (not unknown command)', async () => {
+        const program = createProgram()
+        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+        await expect(program.parseAsync(['node', 'tw', 'comment', '300'])).rejects.toThrow(
+            'MOCK_API_REACHED',
+        )
+
+        consoleSpy.mockRestore()
+    })
+})
+
+describe('comment view', () => {
     beforeEach(() => {
         vi.clearAllMocks()
     })
 
-    it('edits a comment with positional content', async () => {
+    it('views a comment', async () => {
         const client = createClient()
         apiMocks.getTwistClient.mockResolvedValue(client)
         const program = createProgram()
         const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
 
-        await program.parseAsync(['node', 'tw', 'comment', 'edit', '300', 'Updated content'])
+        await program.parseAsync(['node', 'tw', 'comment', 'view', '300'])
+
+        expect(client.comments.getComment).toHaveBeenCalledWith(300)
+        expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('Comment 300'))
+        consoleSpy.mockRestore()
+    })
+
+    it('outputs JSON with --json', async () => {
+        const client = createClient()
+        apiMocks.getTwistClient.mockResolvedValue(client)
+        const program = createProgram()
+        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+        await program.parseAsync(['node', 'tw', 'comment', 'view', '300', '--json'])
+
+        const jsonOutput = JSON.parse(consoleSpy.mock.calls[0][0])
+        expect(jsonOutput.id).toBe(300)
+        expect(jsonOutput.content).toBe('Comment 300')
+        consoleSpy.mockRestore()
+    })
+
+    it('includes creatorName in --json --full output', async () => {
+        const client = createClient()
+        apiMocks.getTwistClient.mockResolvedValue(client)
+        const program = createProgram()
+        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+        await program.parseAsync(['node', 'tw', 'comment', 'view', '300', '--json', '--full'])
+
+        const jsonOutput = JSON.parse(consoleSpy.mock.calls[0][0])
+        expect(jsonOutput.id).toBe(300)
+        expect(jsonOutput.creatorName).toBe('Bob')
+        consoleSpy.mockRestore()
+    })
+})
+
+describe('comment update', () => {
+    beforeEach(() => {
+        vi.clearAllMocks()
+    })
+
+    it('updates a comment with positional content', async () => {
+        const client = createClient()
+        apiMocks.getTwistClient.mockResolvedValue(client)
+        const program = createProgram()
+        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+        await program.parseAsync(['node', 'tw', 'comment', 'update', '300', 'Updated content'])
 
         expect(client.comments.updateComment).toHaveBeenCalledWith({
             id: 300,
@@ -73,7 +154,7 @@ describe('comment edit', () => {
             'node',
             'tw',
             'comment',
-            'edit',
+            'update',
             '300',
             'New content',
             '--dry-run',
@@ -90,7 +171,7 @@ describe('comment edit', () => {
         const program = createProgram()
         const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
 
-        await program.parseAsync(['node', 'tw', 'comment', 'edit', '300', 'Updated', '--json'])
+        await program.parseAsync(['node', 'tw', 'comment', 'update', '300', 'Updated', '--json'])
 
         const jsonOutput = JSON.parse(consoleSpy.mock.calls[0][0])
         expect(jsonOutput.id).toBe(300)
@@ -105,7 +186,7 @@ describe('comment edit', () => {
         const program = createProgram()
         const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
 
-        await program.parseAsync(['node', 'tw', 'comment', 'edit', '300'])
+        await program.parseAsync(['node', 'tw', 'comment', 'update', '300'])
 
         expect(client.comments.updateComment).toHaveBeenCalledWith({
             id: 300,
@@ -122,9 +203,9 @@ describe('comment edit', () => {
             throw new Error('process.exit')
         })
 
-        await expect(program.parseAsync(['node', 'tw', 'comment', 'edit', '300'])).rejects.toThrow(
-            'process.exit',
-        )
+        await expect(
+            program.parseAsync(['node', 'tw', 'comment', 'update', '300']),
+        ).rejects.toThrow('process.exit')
 
         expect(errorSpy).toHaveBeenCalledWith('No content provided.')
         expect(exitSpy).toHaveBeenCalledWith(1)

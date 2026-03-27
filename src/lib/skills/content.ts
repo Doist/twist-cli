@@ -81,11 +81,16 @@ Default \`--notify\` for reply is EVERYONE_IN_THREAD, which may notify more peop
 ## Thread Comments
 
 \`\`\`bash
-tw comment edit <comment-ref> "new content"    # Edit a thread comment
-tw comment edit <comment-ref> "content" --json  # Edit and return updated comment as JSON
-tw comment edit <comment-ref> "content" --json --full  # Include all comment fields
-tw comment delete <comment-ref>               # Delete a thread comment
-tw comment delete <comment-ref> --json        # Delete and return status as JSON
+tw comment <comment-ref>                       # View a comment (shorthand for view)
+tw comment view <comment-ref>                  # View a single thread comment
+tw comment view <comment-ref> --raw            # Show raw markdown
+tw comment view <comment-ref> --json           # Output as JSON
+tw comment view <comment-ref> --json --full    # Include all fields in JSON output
+tw comment update <comment-ref> "new content"  # Update a thread comment
+tw comment update <comment-ref> "content" --json  # Update and return updated comment as JSON
+tw comment update <comment-ref> "content" --json --full  # Include all comment fields
+tw comment delete <comment-ref>                # Delete a thread comment
+tw comment delete <comment-ref> --json         # Delete and return status as JSON
 \`\`\`
 
 ## Conversations (DMs/Groups)
@@ -218,7 +223,7 @@ Commands accept flexible references:
 
 ## Piping Content
 
-Commands that accept content (\`thread create\`, \`thread reply\`, \`comment edit\`, \`conversation reply\`, \`msg update\`) auto-detect piped stdin:
+Commands that accept content (\`thread create\`, \`thread reply\`, \`comment update\`, \`conversation reply\`, \`msg update\`) auto-detect piped stdin:
 
 \`\`\`bash
 cat notes.md | tw thread reply <ref>

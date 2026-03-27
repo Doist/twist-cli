@@ -38,7 +38,7 @@ const commands: Record<string, [string, () => Promise<(p: Command) => void>]> = 
     thread: ['Thread operations', loadThreadCommand],
     conversation: ['Conversation (DM/group) operations', loadConversationCommand],
     msg: ['Conversation message operations (view, update, delete)', loadMsgCommand],
-    comment: ['Thread comment operations (edit, delete)', loadCommentCommand],
+    comment: ['Thread comment operations (view, update, delete)', loadCommentCommand],
     search: ['Search content across a workspace', loadSearchCommand],
     away: ['Manage away status', loadAwayCommand],
     react: ['Add an emoji reaction (target-type: thread, comment, message)', loadReactCommand],

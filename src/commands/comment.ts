@@ -1,18 +1,44 @@
 import { Command } from 'commander'
 import { getTwistClient } from '../lib/api.js'
+import { formatRelativeDate } from '../lib/dates.js'
 import { openEditor, readStdin } from '../lib/input.js'
-import type { MutationOptions } from '../lib/options.js'
-import { formatJson } from '../lib/output.js'
+import { renderMarkdown } from '../lib/markdown.js'
+import type { MutationOptions, ViewOptions } from '../lib/options.js'
+import { colors, formatJson } from '../lib/output.js'
 import { resolveCommentId } from '../lib/refs.js'
 
-type EditOptions = MutationOptions
+type UpdateOptions = MutationOptions
 
 type DeleteOptions = MutationOptions
 
-async function editComment(
+async function viewComment(ref: string, options: ViewOptions): Promise<void> {
+    const commentId = resolveCommentId(ref)
+    const client = await getTwistClient()
+    const comment = await client.comments.getComment(commentId)
+
+    const userResponse = await client.workspaceUsers.getUserById(
+        { workspaceId: comment.workspaceId, userId: comment.creator },
+        { batch: false },
+    )
+    const creatorName = userResponse.name
+
+    if (options.json) {
+        const output = { ...comment, creatorName }
+        console.log(formatJson(output, options.full ? undefined : 'comment', options.full))
+        return
+    }
+
+    const author = colors.author(creatorName)
+    const time = colors.timestamp(formatRelativeDate(comment.posted))
+    console.log(`${author}  ${time}  ${colors.timestamp(`id:${comment.id}`)}`)
+    console.log(options.raw ? comment.content : renderMarkdown(comment.content))
+    console.log('')
+}
+
+async function updateComment(
     ref: string,
     content: string | undefined,
-    options: EditOptions,
+    options: UpdateOptions,
 ): Promise<void> {
     const commentId = resolveCommentId(ref)
 
@@ -71,15 +97,29 @@ async function deleteComment(ref: string, options: DeleteOptions): Promise<void>
 export function registerCommentCommand(program: Command): void {
     const comment = program
         .command('comment')
-        .description('Thread comment operations (edit, delete)')
+        .description('Thread comment operations (view, update, delete)')
 
     comment
-        .command('edit <comment-ref> [content]')
-        .description('Edit a thread comment')
+        .command('view [comment-ref]', { isDefault: true })
+        .description('View a single thread comment')
+        .option('--raw', 'Show raw markdown instead of rendered')
+        .option('--json', 'Output as JSON')
+        .option('--full', 'Include all fields in JSON output')
+        .action((ref, options) => {
+            if (!ref) {
+                comment.help()
+                return
+            }
+            return viewComment(ref, options)
+        })
+
+    comment
+        .command('update <comment-ref> [content]')
+        .description('Update a thread comment')
         .option('--dry-run', 'Show what would be updated without updating')
         .option('--json', 'Output updated comment as JSON')
         .option('--full', 'Include all fields in JSON output')
-        .action(editComment)
+        .action(updateComment)
 
     comment
         .command('delete <comment-ref>')
