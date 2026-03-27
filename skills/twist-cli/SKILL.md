@@ -1,9 +1,9 @@
 ---
 name: twist-cli
-description: Twist messaging CLI for team communication
+description: "Twist messaging CLI for team communication"
 ---
 
-# Twist CLI Skill
+# Twist CLI (tw)
 
 Access Twist messaging via the `tw` CLI. Use when the user asks about their Twist workspaces, threads, messages, or wants to interact with Twist in any way.
 
@@ -12,7 +12,7 @@ Access Twist messaging via the `tw` CLI. Use when the user asks about their Twis
 ```bash
 tw auth login                    # OAuth login (opens browser, read-write)
 tw auth login --read-only        # OAuth login with read-only scope
-tw auth token <your-api-token>   # Save API token manually (scope unknown; assumed write-capable)
+tw auth token                    # Save API token manually (prompts securely; scope unknown, assumed write-capable)
 tw auth status                   # Verify authentication + show mode
 tw auth status --json            # JSON output: { id, email, name }
 tw auth logout                   # Remove saved token and auth metadata
@@ -68,16 +68,36 @@ tw thread create <channel-ref> "Title" "content" --json       # Create and retur
 tw thread create <channel-ref> "Title" "content" --json --full # Include all thread fields
 tw thread create <channel-ref> "Title" "content" --notify 123,456  # Notify specific users
 tw thread create <channel-ref> "Title" "content" --dry-run  # Preview without posting
-tw thread reply <ref> "content"  # Post a comment
+tw thread reply <ref> "content"  # Post a comment (notifies EVERYONE_IN_THREAD by default)
 tw thread reply <ref> "content" --notify EVERYONE  # Notify all workspace members
 tw thread reply <ref> "content" --notify 123,id:456   # Notify specific user IDs
 tw thread reply <ref> "content" --json  # Post and return comment as JSON
 tw thread reply <ref> "content" --json --full  # Include all comment fields
+tw thread reply <ref> "content" --close       # Reply and close the thread
+tw thread reply <ref> "content" --reopen      # Reply and reopen a closed thread
 tw thread done <ref>             # Archive thread (mark done)
 tw thread done <ref> --json      # Archive and return status as JSON
+tw thread mute <ref>             # Mute thread for 60 minutes (default)
+tw thread mute <ref> --minutes 480  # Mute for custom duration
+tw thread unmute <ref>           # Unmute a muted thread
 ```
 
-Default `--notify` for reply is EVERYONE_IN_THREAD. Options: EVERYONE, EVERYONE_IN_THREAD, or comma-separated user ID refs.
+Default `--notify` for reply is EVERYONE_IN_THREAD, which may notify more people than intended. Before posting, confirm with the user whether specific people should be notified instead (via `--notify <user-ids>`). Options: EVERYONE, EVERYONE_IN_THREAD, or comma-separated user ID refs.
+
+## Thread Comments
+
+```bash
+tw comment <comment-ref>                       # View a comment (shorthand for view)
+tw comment view <comment-ref>                  # View a single thread comment
+tw comment view <comment-ref> --raw            # Show raw markdown
+tw comment view <comment-ref> --json           # Output as JSON
+tw comment view <comment-ref> --json --full    # Include all fields in JSON output
+tw comment update <comment-ref> "new content"  # Update a thread comment
+tw comment update <comment-ref> "content" --json  # Update and return updated comment as JSON
+tw comment update <comment-ref> "content" --json --full  # Include all comment fields
+tw comment delete <comment-ref>                # Delete a thread comment
+tw comment delete <comment-ref> --json         # Delete and return status as JSON
+```
 
 ## Conversations (DMs/Groups)
 
@@ -93,6 +113,9 @@ tw conversation reply <ref> "content" --json  # Send and return message as JSON
 tw conversation reply <ref> "content" --json --full  # Include all message fields
 tw conversation done <ref>                # Archive conversation
 tw conversation done <ref> --json         # Archive and return status as JSON
+tw conversation mute <ref>               # Mute conversation for 60 minutes (default)
+tw conversation mute <ref> --minutes 480 # Mute for custom duration
+tw conversation unmute <ref>             # Unmute a muted conversation
 ```
 
 Alias: `tw convo` works the same as `tw conversation`.
@@ -209,7 +232,7 @@ Commands accept flexible references:
 
 ## Piping Content
 
-Commands that accept content (`thread create`, `thread reply`, `conversation reply`, `msg update`) auto-detect piped stdin:
+Commands that accept content (`thread create`, `thread reply`, `comment update`, `conversation reply`, `msg update`) auto-detect piped stdin:
 
 ```bash
 cat notes.md | tw thread reply <ref>
