@@ -7,6 +7,8 @@ import { parseUserIdRefs, resolveThreadId } from '../../lib/refs.js'
 
 type ReplyOptions = MutationOptions & {
     notify?: string
+    close?: boolean
+    reopen?: boolean
 }
 
 export async function replyToThread(
@@ -28,6 +30,11 @@ export async function replyToThread(
         process.exit(1)
     }
 
+    if (options.close && options.reopen) {
+        console.error('Cannot use --close and --reopen together.')
+        process.exit(1)
+    }
+
     const notifyValue = options.notify ?? 'EVERYONE_IN_THREAD'
     let recipients: string | number[]
     if (notifyValue === 'EVERYONE' || notifyValue === 'EVERYONE_IN_THREAD') {
@@ -36,8 +43,12 @@ export async function replyToThread(
         recipients = parseUserIdRefs(notifyValue)
     }
 
+    const action = options.close ? 'close' : options.reopen ? 'reopen' : undefined
+    const actionLabel = action === 'close' ? 'close' : action === 'reopen' ? 'reopen' : undefined
+
     if (options.dryRun) {
-        console.log('Dry run: would post comment to thread', threadId)
+        const actionSuffix = actionLabel ? ` and ${actionLabel} it` : ''
+        console.log(`Dry run: would post comment to thread ${threadId}${actionSuffix}`)
         console.log(`Notify: ${Array.isArray(recipients) ? recipients.join(', ') : recipients}`)
         console.log('')
         console.log(replyContent)
@@ -47,16 +58,24 @@ export async function replyToThread(
     const client = await getTwistClient()
     const thread = await client.threads.getThread(threadId)
     await assertChannelIsPublic(thread.channelId, thread.workspaceId)
-    const comment = await client.comments.createComment({
-        threadId,
-        content: replyContent,
-        recipients,
-    } as Parameters<typeof client.comments.createComment>[0])
+
+    const comment = action
+        ? await (action === 'close' ? client.threads.closeThread : client.threads.reopenThread)({
+              id: threadId,
+              content: replyContent,
+              recipients,
+          } as Parameters<typeof client.threads.closeThread>[0])
+        : await client.comments.createComment({
+              threadId,
+              content: replyContent,
+              recipients,
+          } as Parameters<typeof client.comments.createComment>[0])
 
     if (options.json) {
         console.log(formatJson(comment, 'comment', options.full))
         return
     }
 
-    console.log(`Comment posted: ${comment.url}`)
+    const suffix = actionLabel ? ` (thread ${actionLabel === 'close' ? 'closed' : 'reopened'})` : ''
+    console.log(`Comment posted${suffix}: ${comment.url}`)
 }
