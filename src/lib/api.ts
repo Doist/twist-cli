@@ -22,6 +22,8 @@ const API_SPINNER_MESSAGES: Record<string, { text: string; color?: 'blue' | 'gre
         'threads.getThread': { text: 'Loading thread...', color: 'blue' },
         'threads.getUnread': { text: 'Loading unread threads...', color: 'blue' },
         'threads.createThread': { text: 'Creating thread...', color: 'green' },
+        'threads.muteThread': { text: 'Muting thread...', color: 'yellow' },
+        'threads.unmuteThread': { text: 'Unmuting thread...', color: 'yellow' },
 
         // Comment operations
         'comments.getComment': { text: 'Loading comment...', color: 'blue' },
@@ -45,6 +47,11 @@ const API_SPINNER_MESSAGES: Record<string, { text: string; color?: 'blue' | 'gre
         'conversations.archiveConversation': { text: 'Archiving conversation...', color: 'yellow' },
         'conversations.unarchiveConversation': {
             text: 'Unarchiving conversation...',
+            color: 'yellow',
+        },
+        'conversations.muteConversation': { text: 'Muting conversation...', color: 'yellow' },
+        'conversations.unmuteConversation': {
+            text: 'Unmuting conversation...',
             color: 'yellow',
         },
 

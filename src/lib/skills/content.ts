@@ -76,6 +76,9 @@ tw thread reply <ref> "content" --close       # Reply and close the thread
 tw thread reply <ref> "content" --reopen      # Reply and reopen a closed thread
 tw thread done <ref>             # Archive thread (mark done)
 tw thread done <ref> --json      # Archive and return status as JSON
+tw thread mute <ref>             # Mute thread for 60 minutes (default)
+tw thread mute <ref> --minutes 480  # Mute for custom duration
+tw thread unmute <ref>           # Unmute a muted thread
 \`\`\`
 
 Default \`--notify\` for reply is EVERYONE_IN_THREAD, which may notify more people than intended. Before posting, confirm with the user whether specific people should be notified instead (via \`--notify <user-ids>\`). Options: EVERYONE, EVERYONE_IN_THREAD, or comma-separated user ID refs.
@@ -109,6 +112,9 @@ tw conversation reply <ref> "content" --json  # Send and return message as JSON
 tw conversation reply <ref> "content" --json --full  # Include all message fields
 tw conversation done <ref>                # Archive conversation
 tw conversation done <ref> --json         # Archive and return status as JSON
+tw conversation mute <ref>               # Mute conversation for 60 minutes (default)
+tw conversation mute <ref> --minutes 480 # Mute for custom duration
+tw conversation unmute <ref>             # Unmute a muted conversation
 \`\`\`
 
 Alias: \`tw convo\` works the same as \`tw conversation\`.

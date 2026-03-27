@@ -86,6 +86,14 @@ function createClient({
             reopenThread: vi.fn(async (_args: { id: number; content: string }) =>
                 createComment(11, 11),
             ),
+            muteThread: vi.fn(async (_args: { id: number; minutes: number }) => ({
+                ...thread,
+                mutedUntil: new Date(Date.now() + _args.minutes * 60000),
+            })),
+            unmuteThread: vi.fn(async (_id: number) => ({
+                ...thread,
+                mutedUntil: null,
+            })),
         },
         comments: {
             getComments: vi.fn((_args: unknown, options?: { batch?: boolean }) => {
@@ -633,5 +641,100 @@ describe('thread create', () => {
         consoleSpy.mockRestore()
         errorSpy.mockRestore()
         exitSpy.mockRestore()
+    })
+})
+
+describe('thread mute', () => {
+    beforeEach(() => {
+        vi.clearAllMocks()
+    })
+
+    it('mutes a thread with default 60 minutes', async () => {
+        const client = createClient()
+        apiMocks.getTwistClient.mockResolvedValue(client)
+
+        const program = createProgram()
+        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+        await program.parseAsync(['node', 'tw', 'thread', 'mute', '500'])
+
+        expect(client.threads.muteThread).toHaveBeenCalledWith({ id: 500, minutes: 60 })
+        expect(consoleSpy).toHaveBeenCalledWith('Thread 500 muted for 60 minutes.')
+
+        consoleSpy.mockRestore()
+    })
+
+    it('mutes a thread with custom minutes', async () => {
+        const client = createClient()
+        apiMocks.getTwistClient.mockResolvedValue(client)
+
+        const program = createProgram()
+        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+        await program.parseAsync(['node', 'tw', 'thread', 'mute', '500', '--minutes', '480'])
+
+        expect(client.threads.muteThread).toHaveBeenCalledWith({ id: 500, minutes: 480 })
+        expect(consoleSpy).toHaveBeenCalledWith('Thread 500 muted for 480 minutes.')
+
+        consoleSpy.mockRestore()
+    })
+
+    it('shows dry run output', async () => {
+        const program = createProgram()
+        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+        await program.parseAsync(['node', 'tw', 'thread', 'mute', '500', '--dry-run'])
+
+        expect(consoleSpy).toHaveBeenCalledWith('Dry run: would mute thread 500 for 60 minutes')
+
+        consoleSpy.mockRestore()
+    })
+
+    it('outputs JSON with --json', async () => {
+        const client = createClient()
+        apiMocks.getTwistClient.mockResolvedValue(client)
+
+        const program = createProgram()
+        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+        await program.parseAsync(['node', 'tw', 'thread', 'mute', '500', '--json', '--full'])
+
+        const jsonOutput = JSON.parse(consoleSpy.mock.calls[0][0])
+        expect(jsonOutput.id).toBe(500)
+        expect(jsonOutput.mutedUntil).toBeDefined()
+
+        consoleSpy.mockRestore()
+    })
+})
+
+describe('thread unmute', () => {
+    beforeEach(() => {
+        vi.clearAllMocks()
+    })
+
+    it('unmutes a thread', async () => {
+        const client = createClient()
+        apiMocks.getTwistClient.mockResolvedValue(client)
+
+        const program = createProgram()
+        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+        await program.parseAsync(['node', 'tw', 'thread', 'unmute', '500'])
+
+        expect(client.threads.unmuteThread).toHaveBeenCalledWith(500)
+        expect(consoleSpy).toHaveBeenCalledWith('Thread 500 unmuted.')
+
+        consoleSpy.mockRestore()
+    })
+
+    it('shows dry run output', async () => {
+        const program = createProgram()
+        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+        await program.parseAsync(['node', 'tw', 'thread', 'unmute', '500', '--dry-run'])
+
+        expect(consoleSpy).toHaveBeenCalledWith('Dry run: would unmute thread 500')
+
+        consoleSpy.mockRestore()
     })
 })

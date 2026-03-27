@@ -27,6 +27,8 @@ type ConversationWithOptions = PaginatedViewOptions & {
 
 type ReplyOptions = MutationOptions
 
+type MuteOptions = MutationOptions & { minutes?: string }
+
 type DoneOptions = MutationOptions
 
 const CONVERSATION_PAGE_LIMIT = 100
@@ -492,6 +494,45 @@ async function findConversationWithUser(
     }
 }
 
+async function muteConversation(ref: string, options: MuteOptions): Promise<void> {
+    const conversationId = resolveConversationId(ref)
+    const minutes = options.minutes ? parseInt(options.minutes, 10) : 60
+
+    if (options.dryRun) {
+        console.log(`Dry run: would mute conversation ${conversationId} for ${minutes} minutes`)
+        return
+    }
+
+    const client = await getTwistClient()
+    const updated = await client.conversations.muteConversation({ id: conversationId, minutes })
+
+    if (options.json) {
+        console.log(formatJson(updated, 'conversation', options.full))
+        return
+    }
+
+    console.log(`Conversation ${conversationId} muted for ${minutes} minutes.`)
+}
+
+async function unmuteConversation(ref: string, options: MutationOptions): Promise<void> {
+    const conversationId = resolveConversationId(ref)
+
+    if (options.dryRun) {
+        console.log(`Dry run: would unmute conversation ${conversationId}`)
+        return
+    }
+
+    const client = await getTwistClient()
+    const updated = await client.conversations.unmuteConversation(conversationId)
+
+    if (options.json) {
+        console.log(formatJson(updated, 'conversation', options.full))
+        return
+    }
+
+    console.log(`Conversation ${conversationId} unmuted.`)
+}
+
 export function registerConversationCommand(program: Command): void {
     const conversation = program
         .command('conversation')
@@ -550,4 +591,21 @@ export function registerConversationCommand(program: Command): void {
         .option('--dry-run', 'Show what would happen without executing')
         .option('--json', 'Output result as JSON')
         .action(markConversationDone)
+
+    conversation
+        .command('mute <conversation-ref>')
+        .description('Mute a conversation (stop notifications)')
+        .option('--minutes <n>', 'Number of minutes to mute (default: 60)')
+        .option('--dry-run', 'Show what would happen without executing')
+        .option('--json', 'Output result as JSON')
+        .option('--full', 'Include all fields in JSON output')
+        .action(muteConversation)
+
+    conversation
+        .command('unmute <conversation-ref>')
+        .description('Unmute a muted conversation (restore notifications)')
+        .option('--dry-run', 'Show what would happen without executing')
+        .option('--json', 'Output result as JSON')
+        .option('--full', 'Include all fields in JSON output')
+        .action(unmuteConversation)
 }
