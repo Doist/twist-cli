@@ -1,3 +1,10 @@
+# [2.19.0](https://github.com/Doist/twist-cli/compare/v2.18.4...v2.19.0) (2026-03-27)
+
+
+### Features
+
+* add comment edit and delete commands ([#109](https://github.com/Doist/twist-cli/issues/109)) ([2c740e5](https://github.com/Doist/twist-cli/commit/2c740e5677e78f019e85fdb96ee098884972f902))
+
 ## [2.18.4](https://github.com/Doist/twist-cli/compare/v2.18.3...v2.18.4) (2026-03-26)
 
 
