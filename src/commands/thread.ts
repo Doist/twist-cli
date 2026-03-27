@@ -2,6 +2,7 @@ import { Command, Option } from 'commander'
 import { withUnvalidatedChoices } from '../lib/completion.js'
 import { createThread } from './thread/create.js'
 import { markThreadDone } from './thread/mutate.js'
+import { muteThread, unmuteThread } from './thread/mute.js'
 import { replyToThread } from './thread/reply.js'
 import { viewThread } from './thread/view.js'
 
@@ -63,4 +64,21 @@ export function registerThreadCommand(program: Command): void {
         .option('--dry-run', 'Show what would happen without executing')
         .option('--json', 'Output result as JSON')
         .action(markThreadDone)
+
+    thread
+        .command('mute <thread-ref>')
+        .description('Mute a thread (stop inbox notifications)')
+        .option('--minutes <n>', 'Number of minutes to mute (default: 60)')
+        .option('--dry-run', 'Show what would happen without executing')
+        .option('--json', 'Output result as JSON')
+        .option('--full', 'Include all fields in JSON output')
+        .action(muteThread)
+
+    thread
+        .command('unmute <thread-ref>')
+        .description('Unmute a muted thread (restore inbox notifications)')
+        .option('--dry-run', 'Show what would happen without executing')
+        .option('--json', 'Output result as JSON')
+        .option('--full', 'Include all fields in JSON output')
+        .action(unmuteThread)
 }

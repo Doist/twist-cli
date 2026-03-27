@@ -119,6 +119,14 @@ function createClient({
                 return Promise.resolve(conversationsById.get(id))
             }),
             archiveConversation: vi.fn(),
+            muteConversation: vi.fn(async ({ id, minutes }: { id: number; minutes: number }) => ({
+                ...conversationsById.get(id),
+                mutedUntil: new Date(Date.now() + minutes * 60000),
+            })),
+            unmuteConversation: vi.fn(async (id: number) => ({
+                ...conversationsById.get(id),
+                mutedUntil: null,
+            })),
         },
         conversationMessages: {
             getMessages: vi.fn(
@@ -512,6 +520,112 @@ describe('conversation view machine output', () => {
         expect(fullJsonOutput.conversation.participantNames).toEqual(['Me', 'Alice Example'])
         expect(fullJsonOutput.messages[0].creatorName).toBe('Alice Example')
         expect(fullJsonOutput.messages[0].extra).toBe('message-extra')
+
+        consoleSpy.mockRestore()
+    })
+})
+
+describe('conversation mute', () => {
+    beforeEach(() => {
+        vi.clearAllMocks()
+    })
+
+    it('mutes a conversation with default 60 minutes', async () => {
+        const conversation = createConversation(42, [1, 2], '2026-03-08T10:00:00.000Z')
+        const client = createClient({ activeConversations: [conversation] })
+        apiMocks.getTwistClient.mockResolvedValue(client)
+
+        const program = createProgram()
+        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+        await program.parseAsync(['node', 'tw', 'conversation', 'mute', '42'])
+
+        expect(client.conversations.muteConversation).toHaveBeenCalledWith({ id: 42, minutes: 60 })
+        expect(consoleSpy).toHaveBeenCalledWith('Conversation 42 muted for 60 minutes.')
+
+        consoleSpy.mockRestore()
+    })
+
+    it('mutes a conversation with custom minutes', async () => {
+        const conversation = createConversation(42, [1, 2], '2026-03-08T10:00:00.000Z')
+        const client = createClient({ activeConversations: [conversation] })
+        apiMocks.getTwistClient.mockResolvedValue(client)
+
+        const program = createProgram()
+        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+        await program.parseAsync(['node', 'tw', 'conversation', 'mute', '42', '--minutes', '480'])
+
+        expect(client.conversations.muteConversation).toHaveBeenCalledWith({
+            id: 42,
+            minutes: 480,
+        })
+        expect(consoleSpy).toHaveBeenCalledWith('Conversation 42 muted for 480 minutes.')
+
+        consoleSpy.mockRestore()
+    })
+
+    it('shows dry run output', async () => {
+        const program = createProgram()
+        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+        await program.parseAsync(['node', 'tw', 'conversation', 'mute', '42', '--dry-run'])
+
+        expect(consoleSpy).toHaveBeenCalledWith(
+            'Dry run: would mute conversation 42 for 60 minutes',
+        )
+
+        consoleSpy.mockRestore()
+    })
+
+    it('rejects non-integer --minutes value', async () => {
+        const program = createProgram()
+        const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+        const exitSpy = vi.spyOn(process, 'exit').mockImplementation(() => {
+            throw new Error('process.exit')
+        })
+
+        await expect(
+            program.parseAsync(['node', 'tw', 'conversation', 'mute', '42', '--minutes', 'foo']),
+        ).rejects.toThrow('process.exit')
+
+        expect(errorSpy).toHaveBeenCalledWith(
+            'Invalid --minutes value: foo (must be a positive integer)',
+        )
+
+        errorSpy.mockRestore()
+        exitSpy.mockRestore()
+    })
+})
+
+describe('conversation unmute', () => {
+    beforeEach(() => {
+        vi.clearAllMocks()
+    })
+
+    it('unmutes a conversation', async () => {
+        const conversation = createConversation(42, [1, 2], '2026-03-08T10:00:00.000Z')
+        const client = createClient({ activeConversations: [conversation] })
+        apiMocks.getTwistClient.mockResolvedValue(client)
+
+        const program = createProgram()
+        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+        await program.parseAsync(['node', 'tw', 'conversation', 'unmute', '42'])
+
+        expect(client.conversations.unmuteConversation).toHaveBeenCalledWith(42)
+        expect(consoleSpy).toHaveBeenCalledWith('Conversation 42 unmuted.')
+
+        consoleSpy.mockRestore()
+    })
+
+    it('shows dry run output', async () => {
+        const program = createProgram()
+        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+        await program.parseAsync(['node', 'tw', 'conversation', 'unmute', '42', '--dry-run'])
+
+        expect(consoleSpy).toHaveBeenCalledWith('Dry run: would unmute conversation 42')
 
         consoleSpy.mockRestore()
     })
