@@ -68,7 +68,7 @@ tw thread create <channel-ref> "Title" "content" --json       # Create and retur
 tw thread create <channel-ref> "Title" "content" --json --full # Include all thread fields
 tw thread create <channel-ref> "Title" "content" --notify 123,456  # Notify specific users
 tw thread create <channel-ref> "Title" "content" --dry-run  # Preview without posting
-tw thread reply <ref> "content"  # Post a comment
+tw thread reply <ref> "content"  # Post a comment (notifies EVERYONE_IN_THREAD by default)
 tw thread reply <ref> "content" --notify EVERYONE  # Notify all workspace members
 tw thread reply <ref> "content" --notify 123,id:456   # Notify specific user IDs
 tw thread reply <ref> "content" --json  # Post and return comment as JSON
@@ -77,7 +77,7 @@ tw thread done <ref>             # Archive thread (mark done)
 tw thread done <ref> --json      # Archive and return status as JSON
 ```
 
-Default `--notify` for reply is EVERYONE_IN_THREAD. Options: EVERYONE, EVERYONE_IN_THREAD, or comma-separated user ID refs.
+Default `--notify` for reply is EVERYONE_IN_THREAD, which may notify more people than intended. Before posting, confirm with the user whether specific people should be notified instead (via `--notify <user-ids>`). Options: EVERYONE, EVERYONE_IN_THREAD, or comma-separated user ID refs.
 
 ## Thread Comments
 
