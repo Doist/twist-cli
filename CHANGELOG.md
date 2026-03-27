@@ -1,3 +1,10 @@
+# [2.20.0](https://github.com/Doist/twist-cli/compare/v2.19.0...v2.20.0) (2026-03-27)
+
+
+### Features
+
+* add --close and --reopen flags to thread reply ([#110](https://github.com/Doist/twist-cli/issues/110)) ([fc3880e](https://github.com/Doist/twist-cli/commit/fc3880ed7f8365c58cbdff2f643caf2a28b40130))
+
 # [2.19.0](https://github.com/Doist/twist-cli/compare/v2.18.4...v2.19.0) (2026-03-27)
 
 
