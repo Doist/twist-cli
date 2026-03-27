@@ -577,6 +577,25 @@ describe('conversation mute', () => {
 
         consoleSpy.mockRestore()
     })
+
+    it('rejects non-integer --minutes value', async () => {
+        const program = createProgram()
+        const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+        const exitSpy = vi.spyOn(process, 'exit').mockImplementation(() => {
+            throw new Error('process.exit')
+        })
+
+        await expect(
+            program.parseAsync(['node', 'tw', 'conversation', 'mute', '42', '--minutes', 'foo']),
+        ).rejects.toThrow('process.exit')
+
+        expect(errorSpy).toHaveBeenCalledWith(
+            'Invalid --minutes value: foo (must be a positive integer)',
+        )
+
+        errorSpy.mockRestore()
+        exitSpy.mockRestore()
+    })
 })
 
 describe('conversation unmute', () => {

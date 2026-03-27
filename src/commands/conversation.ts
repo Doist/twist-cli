@@ -494,9 +494,19 @@ async function findConversationWithUser(
     }
 }
 
+function parseMinutes(value: string | undefined): number {
+    if (!value) return 60
+    const parsed = Number(value)
+    if (!Number.isInteger(parsed) || parsed <= 0) {
+        console.error(`Invalid --minutes value: ${value} (must be a positive integer)`)
+        process.exit(1)
+    }
+    return parsed
+}
+
 async function muteConversation(ref: string, options: MuteOptions): Promise<void> {
     const conversationId = resolveConversationId(ref)
-    const minutes = options.minutes ? parseInt(options.minutes, 10) : 60
+    const minutes = parseMinutes(options.minutes)
 
     if (options.dryRun) {
         console.log(`Dry run: would mute conversation ${conversationId} for ${minutes} minutes`)
@@ -507,7 +517,11 @@ async function muteConversation(ref: string, options: MuteOptions): Promise<void
     const updated = await client.conversations.muteConversation({ id: conversationId, minutes })
 
     if (options.json) {
-        console.log(formatJson(updated, 'conversation', options.full))
+        if (options.full) {
+            console.log(formatJson(updated, 'conversation', true))
+        } else {
+            console.log(formatJson({ id: updated.id, mutedUntil: updated.mutedUntil }))
+        }
         return
     }
 
@@ -526,7 +540,11 @@ async function unmuteConversation(ref: string, options: MutationOptions): Promis
     const updated = await client.conversations.unmuteConversation(conversationId)
 
     if (options.json) {
-        console.log(formatJson(updated, 'conversation', options.full))
+        if (options.full) {
+            console.log(formatJson(updated, 'conversation', true))
+        } else {
+            console.log(formatJson({ id: updated.id, mutedUntil: updated.mutedUntil ?? null }))
+        }
         return
     }
 

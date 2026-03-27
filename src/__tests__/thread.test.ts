@@ -690,20 +690,40 @@ describe('thread mute', () => {
         consoleSpy.mockRestore()
     })
 
-    it('outputs JSON with --json', async () => {
+    it('outputs JSON with --json including id and mutedUntil', async () => {
         const client = createClient()
         apiMocks.getTwistClient.mockResolvedValue(client)
 
         const program = createProgram()
         const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
 
-        await program.parseAsync(['node', 'tw', 'thread', 'mute', '500', '--json', '--full'])
+        await program.parseAsync(['node', 'tw', 'thread', 'mute', '500', '--json'])
 
         const jsonOutput = JSON.parse(consoleSpy.mock.calls[0][0])
         expect(jsonOutput.id).toBe(500)
         expect(jsonOutput.mutedUntil).toBeDefined()
+        expect(Object.keys(jsonOutput)).toEqual(['id', 'mutedUntil'])
 
         consoleSpy.mockRestore()
+    })
+
+    it('rejects non-integer --minutes value', async () => {
+        const program = createProgram()
+        const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+        const exitSpy = vi.spyOn(process, 'exit').mockImplementation(() => {
+            throw new Error('process.exit')
+        })
+
+        await expect(
+            program.parseAsync(['node', 'tw', 'thread', 'mute', '500', '--minutes', 'foo']),
+        ).rejects.toThrow('process.exit')
+
+        expect(errorSpy).toHaveBeenCalledWith(
+            'Invalid --minutes value: foo (must be a positive integer)',
+        )
+
+        errorSpy.mockRestore()
+        exitSpy.mockRestore()
     })
 })
 

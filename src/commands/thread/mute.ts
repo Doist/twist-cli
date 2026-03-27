@@ -8,9 +8,19 @@ type MuteOptions = MutationOptions & {
     minutes?: string
 }
 
+function parseMinutes(value: string | undefined): number {
+    if (!value) return 60
+    const parsed = Number(value)
+    if (!Number.isInteger(parsed) || parsed <= 0) {
+        console.error(`Invalid --minutes value: ${value} (must be a positive integer)`)
+        process.exit(1)
+    }
+    return parsed
+}
+
 export async function muteThread(ref: string, options: MuteOptions): Promise<void> {
     const threadId = resolveThreadId(ref)
-    const minutes = options.minutes ? parseInt(options.minutes, 10) : 60
+    const minutes = parseMinutes(options.minutes)
 
     if (options.dryRun) {
         console.log(`Dry run: would mute thread ${threadId} for ${minutes} minutes`)
@@ -24,7 +34,11 @@ export async function muteThread(ref: string, options: MuteOptions): Promise<voi
     const updated = await client.threads.muteThread({ id: threadId, minutes })
 
     if (options.json) {
-        console.log(formatJson(updated, 'thread', options.full))
+        if (options.full) {
+            console.log(formatJson(updated, 'thread', true))
+        } else {
+            console.log(formatJson({ id: updated.id, mutedUntil: updated.mutedUntil }))
+        }
         return
     }
 
@@ -46,7 +60,11 @@ export async function unmuteThread(ref: string, options: MutationOptions): Promi
     const updated = await client.threads.unmuteThread(threadId)
 
     if (options.json) {
-        console.log(formatJson(updated, 'thread', options.full))
+        if (options.full) {
+            console.log(formatJson(updated, 'thread', true))
+        } else {
+            console.log(formatJson({ id: updated.id, mutedUntil: updated.mutedUntil ?? null }))
+        }
         return
     }
 
