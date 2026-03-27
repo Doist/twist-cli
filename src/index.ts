@@ -14,6 +14,8 @@ const loadThreadCommand = async () => (await import('./commands/thread.js')).reg
 const loadConversationCommand = async () =>
     (await import('./commands/conversation.js')).registerConversationCommand
 const loadMsgCommand = async () => (await import('./commands/msg.js')).registerMsgCommand
+const loadCommentCommand = async () =>
+    (await import('./commands/comment.js')).registerCommentCommand
 const loadSearchCommand = async () => (await import('./commands/search.js')).registerSearchCommand
 const loadReactCommand = async () => (await import('./commands/react.js')).registerReactCommand
 const loadAuthCommand = async () => (await import('./commands/auth.js')).registerAuthCommand
@@ -36,6 +38,7 @@ const commands: Record<string, [string, () => Promise<(p: Command) => void>]> = 
     thread: ['Thread operations', loadThreadCommand],
     conversation: ['Conversation (DM/group) operations', loadConversationCommand],
     msg: ['Conversation message operations (view, update, delete)', loadMsgCommand],
+    comment: ['Thread comment operations (edit, delete)', loadCommentCommand],
     search: ['Search content across a workspace', loadSearchCommand],
     away: ['Manage away status', loadAwayCommand],
     react: ['Add an emoji reaction (target-type: thread, comment, message)', loadReactCommand],

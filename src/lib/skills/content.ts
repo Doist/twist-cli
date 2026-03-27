@@ -78,6 +78,16 @@ tw thread done <ref> --json      # Archive and return status as JSON
 
 Default \`--notify\` for reply is EVERYONE_IN_THREAD. Options: EVERYONE, EVERYONE_IN_THREAD, or comma-separated user ID refs.
 
+## Thread Comments
+
+\`\`\`bash
+tw comment edit <comment-ref> "new content"    # Edit a thread comment
+tw comment edit <comment-ref> "content" --json  # Edit and return updated comment as JSON
+tw comment edit <comment-ref> "content" --json --full  # Include all comment fields
+tw comment delete <comment-ref>               # Delete a thread comment
+tw comment delete <comment-ref> --json        # Delete and return status as JSON
+\`\`\`
+
 ## Conversations (DMs/Groups)
 
 \`\`\`bash
@@ -208,7 +218,7 @@ Commands accept flexible references:
 
 ## Piping Content
 
-Commands that accept content (\`thread create\`, \`thread reply\`, \`conversation reply\`, \`msg update\`) auto-detect piped stdin:
+Commands that accept content (\`thread create\`, \`thread reply\`, \`comment edit\`, \`conversation reply\`, \`msg update\`) auto-detect piped stdin:
 
 \`\`\`bash
 cat notes.md | tw thread reply <ref>
