@@ -1,3 +1,10 @@
+# [2.21.0](https://github.com/Doist/twist-cli/compare/v2.20.0...v2.21.0) (2026-03-27)
+
+
+### Features
+
+* add mute and unmute commands for threads and conversations ([#111](https://github.com/Doist/twist-cli/issues/111)) ([57eae83](https://github.com/Doist/twist-cli/commit/57eae8386fc582ac8981b415deb2386fcc5a8e9c))
+
 # [2.20.0](https://github.com/Doist/twist-cli/compare/v2.19.0...v2.20.0) (2026-03-27)
 
 
