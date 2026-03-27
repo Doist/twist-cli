@@ -68,7 +68,7 @@ tw thread create <channel-ref> "Title" "content" --json       # Create and retur
 tw thread create <channel-ref> "Title" "content" --json --full # Include all thread fields
 tw thread create <channel-ref> "Title" "content" --notify 123,456  # Notify specific users
 tw thread create <channel-ref> "Title" "content" --dry-run  # Preview without posting
-tw thread reply <ref> "content"  # Post a comment
+tw thread reply <ref> "content"  # Post a comment (notifies EVERYONE_IN_THREAD by default)
 tw thread reply <ref> "content" --notify EVERYONE  # Notify all workspace members
 tw thread reply <ref> "content" --notify 123,id:456   # Notify specific user IDs
 tw thread reply <ref> "content" --json  # Post and return comment as JSON
@@ -77,7 +77,22 @@ tw thread done <ref>             # Archive thread (mark done)
 tw thread done <ref> --json      # Archive and return status as JSON
 ```
 
-Default `--notify` for reply is EVERYONE_IN_THREAD. Options: EVERYONE, EVERYONE_IN_THREAD, or comma-separated user ID refs.
+Default `--notify` for reply is EVERYONE_IN_THREAD, which may notify more people than intended. Before posting, confirm with the user whether specific people should be notified instead (via `--notify <user-ids>`). Options: EVERYONE, EVERYONE_IN_THREAD, or comma-separated user ID refs.
+
+## Thread Comments
+
+```bash
+tw comment <comment-ref>                       # View a comment (shorthand for view)
+tw comment view <comment-ref>                  # View a single thread comment
+tw comment view <comment-ref> --raw            # Show raw markdown
+tw comment view <comment-ref> --json           # Output as JSON
+tw comment view <comment-ref> --json --full    # Include all fields in JSON output
+tw comment update <comment-ref> "new content"  # Update a thread comment
+tw comment update <comment-ref> "content" --json  # Update and return updated comment as JSON
+tw comment update <comment-ref> "content" --json --full  # Include all comment fields
+tw comment delete <comment-ref>                # Delete a thread comment
+tw comment delete <comment-ref> --json         # Delete and return status as JSON
+```
 
 ## Conversations (DMs/Groups)
 
@@ -209,7 +224,7 @@ Commands accept flexible references:
 
 ## Piping Content
 
-Commands that accept content (`thread create`, `thread reply`, `conversation reply`, `msg update`) auto-detect piped stdin:
+Commands that accept content (`thread create`, `thread reply`, `comment update`, `conversation reply`, `msg update`) auto-detect piped stdin:
 
 ```bash
 cat notes.md | tw thread reply <ref>
