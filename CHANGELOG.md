@@ -1,3 +1,9 @@
+## [2.21.1](https://github.com/Doist/twist-cli/compare/v2.21.0...v2.21.1) (2026-03-28)
+
+### Bug Fixes
+
+* use Node 22 for release workflow ([#114](https://github.com/Doist/twist-cli/issues/114)) ([3c1463d](https://github.com/Doist/twist-cli/commit/3c1463d23ffcf74e182414f80b3adf1a81790899))
+
 # [2.21.0](https://github.com/Doist/twist-cli/compare/v2.20.0...v2.21.0) (2026-03-27)
 
 
