@@ -1,3 +1,9 @@
+## [2.21.2](https://github.com/Doist/twist-cli/compare/v2.21.1...v2.21.2) (2026-03-29)
+
+### Bug Fixes
+
+* add prepublishOnly script for release safety ([#115](https://github.com/Doist/twist-cli/issues/115)) ([7b50727](https://github.com/Doist/twist-cli/commit/7b5072700f8fac968161ade717cde247ff5e87fe))
+
 ## [2.21.1](https://github.com/Doist/twist-cli/compare/v2.21.0...v2.21.1) (2026-03-28)
 
 ### Bug Fixes
