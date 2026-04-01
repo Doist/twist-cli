@@ -9,6 +9,7 @@ import {
     saveApiToken,
     type TokenStorageResult,
 } from '../lib/auth.js'
+import { startCallbackServer } from '../lib/oauth-server.js'
 import {
     buildAuthorizationUrl,
     exchangeCodeForToken,
@@ -16,7 +17,6 @@ import {
     READ_WRITE_SCOPES,
     registerDynamicClient,
 } from '../lib/oauth.js'
-import { startCallbackServer } from '../lib/oauth-server.js'
 import { generateCodeChallenge, generateCodeVerifier, generateState } from '../lib/pkce.js'
 
 async function loginWithOAuth(options: { readOnly?: boolean }): Promise<void> {
@@ -87,9 +87,7 @@ function promptHiddenInput(prompt: string): Promise<string> {
             input: process.stdin,
             output: process.stdout,
         })
-        // biome-ignore lint/suspicious/noExplicitAny: accessing private readline property
         const origWrite = (rl as any)._writeToOutput
-        // biome-ignore lint/suspicious/noExplicitAny: accessing private readline property
         ;(rl as any)._writeToOutput = (str: string) => {
             if (str.includes(prompt)) {
                 origWrite.call(rl, prompt)

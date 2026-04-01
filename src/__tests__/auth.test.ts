@@ -59,8 +59,8 @@ import open from 'open'
 import { registerAuthCommand } from '../commands/auth.js'
 import { getSessionUser } from '../lib/api.js'
 import { clearApiToken, getAuthMetadata, saveApiToken } from '../lib/auth.js'
-import { buildAuthorizationUrl, exchangeCodeForToken, registerDynamicClient } from '../lib/oauth.js'
 import { startCallbackServer } from '../lib/oauth-server.js'
+import { buildAuthorizationUrl, exchangeCodeForToken, registerDynamicClient } from '../lib/oauth.js'
 import { generateCodeChallenge, generateCodeVerifier, generateState } from '../lib/pkce.js'
 
 const mockCreateInterface = vi.mocked(createInterface)

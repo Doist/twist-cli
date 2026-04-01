@@ -10,8 +10,8 @@ npm run dev            # Watch mode compilation (uses tsconfig.build.json, exclu
 npm test               # Run all tests (vitest)
 npm run test:watch     # Run tests in watch mode
 npm run type-check     # Type check without emitting (uses tsconfig.json, includes tests)
-npm run format         # Format with Prettier
-npm run format:check   # Check formatting
+npm run lint           # Fix lint issues (oxlint) + format (oxfmt + prettier)
+npm run lint:check     # Check lint + formatting (for CI)
 ```
 
 The project uses two tsconfig files: `tsconfig.json` includes test files for type-checking, while `tsconfig.build.json` extends it and excludes `src/__tests__/` so that test files are not compiled into `dist/`.
@@ -59,7 +59,7 @@ This is a TypeScript CLI (`tw`) for Twist messaging, built with Commander.js.
 
 ## Pre-commit Hooks
 
-Lefthook runs type-check and prettier on pre-commit, tests on pre-push.
+Lefthook runs type-check, oxlint, oxfmt, and prettier on pre-commit, tests on pre-push.
 
 ## Skill Content (Agent Command Reference)
 
