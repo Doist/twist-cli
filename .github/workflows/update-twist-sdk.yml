@@ -1,82 +1,82 @@
 name: Update Twist SDK
 
 on:
-  workflow_dispatch:
+    workflow_dispatch:
 
 permissions:
-  contents: write
-  pull-requests: write
+    contents: write
+    pull-requests: write
 
 jobs:
-  update-twist-sdk:
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
+    update-twist-sdk:
+        runs-on: ubuntu-latest
+        timeout-minutes: 10
 
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v5
-        with:
-          fetch-depth: 0
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v5
+              with:
+                  fetch-depth: 0
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v6
-        with:
-          node-version-file: '.nvmrc'
-          cache: 'npm'
+            - name: Setup Node.js
+              uses: actions/setup-node@v6
+              with:
+                  node-version-file: '.nvmrc'
+                  cache: 'npm'
 
-      - name: Install current dependencies
-        run: npm ci
+            - name: Install current dependencies
+              run: npm ci
 
-      - name: Update @doist/twist-sdk to latest
-        run: npm install @doist/twist-sdk@latest
+            - name: Update @doist/twist-sdk to latest
+              run: npm install @doist/twist-sdk@latest
 
-      - name: Build
-        run: npm run build
+            - name: Build
+              run: npm run build
 
-      - name: Run tests
-        run: npm test
+            - name: Run tests
+              run: npm test
 
-      - name: Type check
-        run: npm run type-check
+            - name: Type check
+              run: npm run type-check
 
-      - name: Lint & format check
-        run: npm run lint:check
+            - name: Lint & format check
+              run: npm run lint:check
 
-      - name: Check for changes
-        id: changes
-        run: |
-          if git diff --quiet package.json package-lock.json; then
-            echo "No updates available - @doist/twist-sdk is already at the latest version"
-            echo "has_changes=false" >> $GITHUB_OUTPUT
-          else
-            echo "Changes detected - @doist/twist-sdk has been updated"
-            echo "has_changes=true" >> $GITHUB_OUTPUT
-          fi
+            - name: Check for changes
+              id: changes
+              run: |
+                  if git diff --quiet package.json package-lock.json; then
+                    echo "No updates available - @doist/twist-sdk is already at the latest version"
+                    echo "has_changes=false" >> $GITHUB_OUTPUT
+                  else
+                    echo "Changes detected - @doist/twist-sdk has been updated"
+                    echo "has_changes=true" >> $GITHUB_OUTPUT
+                  fi
 
-      - name: Commit and push changes
-        if: steps.changes.outputs.has_changes == 'true'
-        run: |
-          git config --local user.email "action@github.com"
-          git config --local user.name "GitHub Action"
-          git add package.json package-lock.json
-          git commit -m "fix(deps): update to latest \`@doist/twist-sdk\` package"
-          git push
+            - name: Commit and push changes
+              if: steps.changes.outputs.has_changes == 'true'
+              run: |
+                  git config --local user.email "action@github.com"
+                  git config --local user.name "GitHub Action"
+                  git add package.json package-lock.json
+                  git commit -m "fix(deps): update to latest \`@doist/twist-sdk\` package"
+                  git push
 
-      - name: Trigger release workflow
-        if: steps.changes.outputs.has_changes == 'true'
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          echo "🚀 Triggering release workflow..."
-          gh workflow run release.yml
-          echo "✅ Release workflow triggered successfully"
+            - name: Trigger release workflow
+              if: steps.changes.outputs.has_changes == 'true'
+              env:
+                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+              run: |
+                  echo "🚀 Triggering release workflow..."
+                  gh workflow run release.yml
+                  echo "✅ Release workflow triggered successfully"
 
-      - name: Report success
-        run: |
-          if [ "${{ steps.changes.outputs.has_changes }}" == "true" ]; then
-            echo "✅ Successfully updated @doist/twist-sdk package"
-            echo "📦 Changes committed to main branch"
-            echo "🚀 Release workflow triggered - semantic release will create a new patch version"
-          else
-            echo "ℹ️  No updates needed - @doist/twist-sdk is already at the latest version"
-          fi
+            - name: Report success
+              run: |
+                  if [ "${{ steps.changes.outputs.has_changes }}" == "true" ]; then
+                    echo "✅ Successfully updated @doist/twist-sdk package"
+                    echo "📦 Changes committed to main branch"
+                    echo "🚀 Release workflow triggered - semantic release will create a new patch version"
+                  else
+                    echo "ℹ️  No updates needed - @doist/twist-sdk is already at the latest version"
+                  fi

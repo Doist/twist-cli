@@ -471,7 +471,7 @@ Location: `~/.config/twist-cli/config.json`
 
 ```json
 {
-  "currentWorkspace": 12345
+    "currentWorkspace": 12345
 }
 ```
 

@@ -1,134 +1,134 @@
 name: Release
 
 on:
-  push:
-    branches:
-      - main
+    push:
+        branches:
+            - main
 
 permissions:
-  # Enable `semantic-release` to publish a GitHub release and push commits
-  contents: write
-  # Enable `semantic-release` to post comments on issues
-  issues: write
-  # Enable `semantic-release` to post comments on pull requests
-  pull-requests: write
-  # Enable the use of OIDC for trusted publishing and npm provenance
-  id-token: write
+    # Enable `semantic-release` to publish a GitHub release and push commits
+    contents: write
+    # Enable `semantic-release` to post comments on issues
+    issues: write
+    # Enable `semantic-release` to post comments on pull requests
+    pull-requests: write
+    # Enable the use of OIDC for trusted publishing and npm provenance
+    id-token: write
 
 # Release involves crucial steps that shouldn't be cancelled mid-run,
 # so new workflow runs are queued until the previous one finishes.
 concurrency:
-  group: ${{ github.workflow }}
-  cancel-in-progress: false
+    group: ${{ github.workflow }}
+    cancel-in-progress: false
 
 jobs:
-  release:
-    name: Release
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
+    release:
+        name: Release
+        runs-on: ubuntu-latest
+        timeout-minutes: 30
 
-    steps:
-      - name: Generate bot token
-        id: generate_token
-        uses: actions/create-github-app-token@v3
-        with:
-          app-id: ${{ secrets.DOIST_RELEASE_BOT_ID }}
-          private-key: ${{ secrets.DOIST_RELEASE_BOT_PRIVATE_KEY }}
-          permission-contents: write
-          permission-issues: write
-          permission-pull-requests: write
+        steps:
+            - name: Generate bot token
+              id: generate_token
+              uses: actions/create-github-app-token@v3
+              with:
+                  app-id: ${{ secrets.DOIST_RELEASE_BOT_ID }}
+                  private-key: ${{ secrets.DOIST_RELEASE_BOT_PRIVATE_KEY }}
+                  permission-contents: write
+                  permission-issues: write
+                  permission-pull-requests: write
 
-      - name: Get bot user ID
-        id: bot_user
-        run: |
-          user_id=$(gh api "/users/${{ steps.generate_token.outputs.app-slug }}[bot]" --jq .id)
-          if [ -z "$user_id" ]; then
-              echo "Failed to get bot user ID" >&2
-              exit 1
-          fi
-          echo "id=$user_id" >> "$GITHUB_OUTPUT"
-        env:
-          GH_TOKEN: ${{ steps.generate_token.outputs.token }}
+            - name: Get bot user ID
+              id: bot_user
+              run: |
+                  user_id=$(gh api "/users/${{ steps.generate_token.outputs.app-slug }}[bot]" --jq .id)
+                  if [ -z "$user_id" ]; then
+                      echo "Failed to get bot user ID" >&2
+                      exit 1
+                  fi
+                  echo "id=$user_id" >> "$GITHUB_OUTPUT"
+              env:
+                  GH_TOKEN: ${{ steps.generate_token.outputs.token }}
 
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        with:
-          token: ${{ steps.generate_token.outputs.token }}
-          fetch-depth: 0
+            - name: Checkout repository
+              uses: actions/checkout@v4
+              with:
+                  token: ${{ steps.generate_token.outputs.token }}
+                  fetch-depth: 0
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-          cache: npm
-          scope: '@doist'
-          registry-url: 'https://registry.npmjs.org/'
+            - name: Setup Node.js
+              uses: actions/setup-node@v4
+              with:
+                  node-version: '22'
+                  cache: npm
+                  scope: '@doist'
+                  registry-url: 'https://registry.npmjs.org/'
 
-      - name: Install dependencies
-        run: npm ci
+            - name: Install dependencies
+              run: npm ci
 
-      - name: Capture previous tag
-        id: previous_tag
-        run: echo "tag=$(git describe --tags --abbrev=0 2>/dev/null || true)" >> "$GITHUB_OUTPUT"
+            - name: Capture previous tag
+              id: previous_tag
+              run: echo "tag=$(git describe --tags --abbrev=0 2>/dev/null || true)" >> "$GITHUB_OUTPUT"
 
-      - name: Release
-        run: npx semantic-release
-        env:
-          GITHUB_TOKEN: ${{ steps.generate_token.outputs.token }}
-          GIT_AUTHOR_NAME: ${{ steps.generate_token.outputs.app-slug }}[bot]
-          GIT_AUTHOR_EMAIL: ${{ steps.bot_user.outputs.id }}+${{ steps.generate_token.outputs.app-slug }}[bot]@users.noreply.github.com
-          GIT_COMMITTER_NAME: ${{ steps.generate_token.outputs.app-slug }}[bot]
-          GIT_COMMITTER_EMAIL: ${{ steps.bot_user.outputs.id }}+${{ steps.generate_token.outputs.app-slug }}[bot]@users.noreply.github.com
+            - name: Release
+              run: npx semantic-release
+              env:
+                  GITHUB_TOKEN: ${{ steps.generate_token.outputs.token }}
+                  GIT_AUTHOR_NAME: ${{ steps.generate_token.outputs.app-slug }}[bot]
+                  GIT_AUTHOR_EMAIL: ${{ steps.bot_user.outputs.id }}+${{ steps.generate_token.outputs.app-slug }}[bot]@users.noreply.github.com
+                  GIT_COMMITTER_NAME: ${{ steps.generate_token.outputs.app-slug }}[bot]
+                  GIT_COMMITTER_EMAIL: ${{ steps.bot_user.outputs.id }}+${{ steps.generate_token.outputs.app-slug }}[bot]@users.noreply.github.com
 
-      - name: Derive release announcement
-        id: announcement
-        env:
-          PREVIOUS_TAG: ${{ steps.previous_tag.outputs.tag }}
-        run: |
-          git fetch --force --tags origin
+            - name: Derive release announcement
+              id: announcement
+              env:
+                  PREVIOUS_TAG: ${{ steps.previous_tag.outputs.tag }}
+              run: |
+                  git fetch --force --tags origin
 
-          new_tag="$(git describe --tags --abbrev=0 2>/dev/null || true)"
-          if [ -z "${new_tag}" ] || [ "${new_tag}" = "${PREVIOUS_TAG}" ]; then
-              echo "should_announce=false" >> "$GITHUB_OUTPUT"
-              exit 0
-          fi
+                  new_tag="$(git describe --tags --abbrev=0 2>/dev/null || true)"
+                  if [ -z "${new_tag}" ] || [ "${new_tag}" = "${PREVIOUS_TAG}" ]; then
+                      echo "should_announce=false" >> "$GITHUB_OUTPUT"
+                      exit 0
+                  fi
 
-          package_name="$(node -p "JSON.parse(require('fs').readFileSync('package.json', 'utf8')).name")"
-          package_version="$(node -p "JSON.parse(require('fs').readFileSync('package.json', 'utf8')).version")"
-          release_version="${new_tag#v}"
+                  package_name="$(node -p "JSON.parse(require('fs').readFileSync('package.json', 'utf8')).name")"
+                  package_version="$(node -p "JSON.parse(require('fs').readFileSync('package.json', 'utf8')).version")"
+                  release_version="${new_tag#v}"
 
-          package_url="https://www.npmjs.com/package/${package_name}/v/${package_version}"
-          release_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/releases/tag/${new_tag}"
-          repo_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}"
+                  package_url="https://www.npmjs.com/package/${package_name}/v/${package_version}"
+                  release_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/releases/tag/${new_tag}"
+                  repo_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}"
 
-          if [ -n "${PREVIOUS_TAG}" ]; then
-              changelog="$(git log --no-merges --reverse --pretty='format:- %s (%H-%h)' "${PREVIOUS_TAG}..${new_tag}" | grep -v '^- chore(release): ' || true)"
-          else
-              changelog="$(git log --no-merges --reverse --pretty='format:- %s (%H-%h)' "${new_tag}" | grep -v '^- chore(release): ' || true)"
-          fi
+                  if [ -n "${PREVIOUS_TAG}" ]; then
+                      changelog="$(git log --no-merges --reverse --pretty='format:- %s (%H-%h)' "${PREVIOUS_TAG}..${new_tag}" | grep -v '^- chore(release): ' || true)"
+                  else
+                      changelog="$(git log --no-merges --reverse --pretty='format:- %s (%H-%h)' "${new_tag}" | grep -v '^- chore(release): ' || true)"
+                  fi
 
-          if [ -z "${changelog}" ]; then
-              changelog='- No additional commits listed.'
-          else
-              changelog="$(printf '%s\n' "${changelog}" | sed -E -e 's,\(([a-f0-9]+)-([a-f0-9]+)\),([`\2`]('"${repo_url}"'/commit/\1)),g' | sed -E -e 's,\(#([0-9]+)\),([#\1]('"${repo_url}"'/pull/\1)),g')"
-          fi
+                  if [ -z "${changelog}" ]; then
+                      changelog='- No additional commits listed.'
+                  else
+                      changelog="$(printf '%s\n' "${changelog}" | sed -E -e 's,\(([a-f0-9]+)-([a-f0-9]+)\),([`\2`]('"${repo_url}"'/commit/\1)),g' | sed -E -e 's,\(#([0-9]+)\),([#\1]('"${repo_url}"'/pull/\1)),g')"
+                  fi
 
-          {
-              echo "should_announce=true"
-              echo "message<<EOF"
-              echo "**Twist CLI ${new_tag} published** 🚀"
-              echo
-              printf '%s\n' "${changelog}"
-              echo
-              echo "[GitHub release](${release_url}) | [npm package](${package_url})"
-              echo "EOF"
-          } >> "$GITHUB_OUTPUT"
+                  {
+                      echo "should_announce=true"
+                      echo "message<<EOF"
+                      echo "**Twist CLI ${new_tag} published** 🚀"
+                      echo
+                      printf '%s\n' "${changelog}"
+                      echo
+                      echo "[GitHub release](${release_url}) | [npm package](${package_url})"
+                      echo "EOF"
+                  } >> "$GITHUB_OUTPUT"
 
-      - name: Announce release in Twist
-        if: ${{ steps.announcement.outputs.should_announce == 'true' }}
-        uses: Doist/twist-post-action@74a0255b75ad93c06b9eb1009960106efe13f5ca
-        with:
-          message: ${{ steps.announcement.outputs.message }}
-          install_id: ${{ secrets.TWIST_RELEASE_INSTALL_ID }}
-          install_token: ${{ secrets.TWIST_RELEASE_INSTALL_TOKEN }}
-        continue-on-error: true
+            - name: Announce release in Twist
+              if: ${{ steps.announcement.outputs.should_announce == 'true' }}
+              uses: Doist/twist-post-action@74a0255b75ad93c06b9eb1009960106efe13f5ca
+              with:
+                  message: ${{ steps.announcement.outputs.message }}
+                  install_id: ${{ secrets.TWIST_RELEASE_INSTALL_ID }}
+                  install_token: ${{ secrets.TWIST_RELEASE_INSTALL_TOKEN }}
+              continue-on-error: true
