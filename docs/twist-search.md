@@ -40,8 +40,8 @@ export async function resolveUserRefs(refs: string, workspaceId: number): Promis
 
 - Split refs by comma
 - For each ref:
-  - If numeric or `id:123` format → use directly
-  - Otherwise → fuzzy match against workspace users
+    - If numeric or `id:123` format → use directly
+    - Otherwise → fuzzy match against workspace users
 - On ambiguity → throw error with candidates list
 - On no match → throw error
 
@@ -52,8 +52,8 @@ Replace direct parseInt parsing:
 ```typescript
 // Before
 const authorIds = options.author
-  ? options.author.split(',').map((id) => parseInt(id.trim(), 10))
-  : undefined
+    ? options.author.split(',').map((id) => parseInt(id.trim(), 10))
+    : undefined
 
 // After
 const authorIds = options.author ? await resolveUserRefs(options.author, workspaceId) : undefined
@@ -69,8 +69,8 @@ From `src/lib/api.ts`:
 
 ```typescript
 export async function getWorkspaceUsers(workspaceId: number): Promise<User[]> {
-  const client = await getTwistClient()
-  return client.workspaceUsers.getWorkspaceUsers({ workspaceId })
+    const client = await getTwistClient()
+    return client.workspaceUsers.getWorkspaceUsers({ workspaceId })
 }
 ```
 
@@ -78,10 +78,10 @@ export async function getWorkspaceUsers(workspaceId: number): Promise<User[]> {
 
 ```typescript
 interface User {
-  id: number
-  name: string
-  email: string
-  // ...other fields
+    id: number
+    name: string
+    email: string
+    // ...other fields
 }
 ```
 
@@ -97,8 +97,8 @@ From `src/lib/refs.ts`, existing `parseRef()` handles:
 
 ```typescript
 function matchesUser(user: User, query: string): boolean {
-  const q = query.toLowerCase()
-  return user.name.toLowerCase().includes(q) || user.email.toLowerCase().includes(q)
+    const q = query.toLowerCase()
+    return user.name.toLowerCase().includes(q) || user.email.toLowerCase().includes(q)
 }
 ```
 
@@ -110,8 +110,8 @@ throw new Error(`No user found matching "${ref}"`)
 
 // Multiple matches
 throw new Error(
-  `Multiple users match "${ref}":\n` +
-    matches.map((u) => `  ${u.id}  ${u.name} <${u.email}>`).join('\n') +
-    `\n\nUse numeric ID to specify.`,
+    `Multiple users match "${ref}":\n` +
+        matches.map((u) => `  ${u.id}  ${u.name} <${u.email}>`).join('\n') +
+        `\n\nUse numeric ID to specify.`,
 )
 ```

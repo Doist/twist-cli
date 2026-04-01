@@ -45,9 +45,8 @@ describe('secure token store', () => {
     it('wraps keyring errors as secure-store unavailability', async () => {
         keyringMocks.entry.getPassword.mockRejectedValue(new Error('Keychain is locked'))
 
-        const { createSecureStore, SecureStoreUnavailableError } = await import(
-            '../../lib/secure-store.js'
-        )
+        const { createSecureStore, SecureStoreUnavailableError } =
+            await import('../../lib/secure-store.js')
 
         await expect(createSecureStore().getSecret()).rejects.toBeInstanceOf(
             SecureStoreUnavailableError,
