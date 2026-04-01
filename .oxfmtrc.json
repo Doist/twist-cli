@@ -15,12 +15,5 @@
         "newlinesBetween": false,
         "partitionByNewline": true
     },
-    "ignorePatterns": [
-        "**/package.json",
-        "skills/**",
-        "**/*.md",
-        "**/*.yml",
-        "**/*.yaml",
-        "**/*.css"
-    ]
+    "ignorePatterns": ["**/package.json", "skills/**"]
 }
