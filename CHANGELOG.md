@@ -1,3 +1,9 @@
+## [2.21.3](https://github.com/Doist/twist-cli/compare/v2.21.2...v2.21.3) (2026-04-01)
+
+### Bug Fixes
+
+* suppress credential manager warning on every command ([#121](https://github.com/Doist/twist-cli/issues/121)) ([8423867](https://github.com/Doist/twist-cli/commit/8423867c7c43db7ae13cb7a78d027e8d9cbb98f5))
+
 ## [2.21.2](https://github.com/Doist/twist-cli/compare/v2.21.1...v2.21.2) (2026-03-29)
 
 ### Bug Fixes
