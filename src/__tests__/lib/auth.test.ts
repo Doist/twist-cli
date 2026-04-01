@@ -198,7 +198,7 @@ describe('auth token storage', () => {
         })
     })
 
-    it('reads from plaintext config with a warning when the secure store is unavailable', async () => {
+    it('reads from plaintext config silently when the secure store is unavailable', async () => {
         mocks.secureTokenStore.setSecret.mockRejectedValue(
             new mocks.MockSecureStoreUnavailableError('No keychain access'),
         )
@@ -208,9 +208,7 @@ describe('auth token storage', () => {
         const { getApiToken } = await import('../../lib/auth.js')
 
         await expect(getApiToken()).resolves.toBe('legacy_token_123456')
-        expect(errorSpy).toHaveBeenCalledWith(
-            'Warning: system credential manager unavailable; using plaintext token from /home/user/.config/twist-cli/config.json',
-        )
+        expect(errorSpy).not.toHaveBeenCalled()
 
         errorSpy.mockRestore()
     })
