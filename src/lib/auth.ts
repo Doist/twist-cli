@@ -47,9 +47,7 @@ export async function getApiToken(): Promise<string> {
                 warn(cleanupWarning)
             }
         } catch (error) {
-            if (error instanceof SecureStoreUnavailableError) {
-                warnSecureStoreFallback('using plaintext token from')
-            } else {
+            if (!(error instanceof SecureStoreUnavailableError)) {
                 throw error
             }
         }
@@ -242,8 +240,4 @@ function isMissingFileError(error: unknown): boolean {
 
 function warn(message: string): void {
     console.error(`Warning: ${message}`)
-}
-
-function warnSecureStoreFallback(action: string): void {
-    warn(buildFallbackWarning(action))
 }
