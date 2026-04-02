@@ -118,14 +118,13 @@ export async function updateAction(options: UpdateOptions): Promise<void> {
         return
     }
 
-    console.log(
-        `Update available: ${chalk.dim(`v${currentVersion}`)} → ${chalk.green(`v${latestVersion}`)}${label}`,
-    )
-
-    if (!updateAvailable) {
+    if (updateAvailable) {
         console.log(
-            chalk.yellow('Note:'),
-            `v${latestVersion}${channel === 'pre-release' ? ' (pre-release)' : ''} is older than your current v${currentVersion}`,
+            `Update available${label}: ${chalk.dim(`v${currentVersion}`)} → ${chalk.green(`v${latestVersion}`)}`,
+        )
+    } else {
+        console.log(
+            `Downgrade available${label}: ${chalk.dim(`v${currentVersion}`)} → ${chalk.yellow(`v${latestVersion}`)}`,
         )
     }
 

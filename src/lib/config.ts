@@ -1,4 +1,4 @@
-import { mkdir, readFile, writeFile } from 'node:fs/promises'
+import { chmod, mkdir, readFile, writeFile } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { dirname, join } from 'node:path'
 
@@ -35,6 +35,7 @@ export async function setConfig(config: Config): Promise<void> {
         encoding: 'utf-8',
         mode: 0o600,
     })
+    await chmod(CONFIG_PATH, 0o600)
 }
 
 export async function updateConfig(updates: Partial<Config>): Promise<void> {

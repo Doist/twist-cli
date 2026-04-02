@@ -344,10 +344,7 @@ describe('update command', () => {
             const program = createProgram()
             await program.parseAsync(['node', 'tw', 'update'])
 
-            expect(consoleSpy).toHaveBeenCalledWith(
-                'Note:',
-                expect.stringContaining('is older than your current'),
-            )
+            expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('Downgrade available'))
             expect(mockSpawn).toHaveBeenCalled()
             expect(consoleSpy).toHaveBeenCalledWith('✓', 'Updated to v0.0.1')
         })
