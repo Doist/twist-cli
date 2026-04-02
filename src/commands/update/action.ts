@@ -90,7 +90,7 @@ export async function updateAction(options: UpdateOptions): Promise<void> {
         return
     }
 
-    const updateAvailable = currentVersion !== latestVersion
+    const updateAvailable = isNewer(currentVersion, latestVersion)
 
     if (options.check) {
         const channelLine =
@@ -98,29 +98,31 @@ export async function updateAction(options: UpdateOptions): Promise<void> {
                 ? `  Channel: ${chalk.magenta('pre-release')}`
                 : `  Channel: ${chalk.green('stable')}`
 
-        if (updateAvailable) {
+        if (currentVersion === latestVersion) {
+            console.log(chalk.green('✓'), `Already up to date (v${currentVersion})`)
+        } else if (updateAvailable) {
             console.log(
                 `Update available: ${chalk.dim(`v${currentVersion}`)} → ${chalk.green(`v${latestVersion}`)}${label}`,
             )
         } else {
-            console.log(chalk.green('✓'), `Already up to date (v${currentVersion})`)
+            console.log(
+                `Downgrade available: ${chalk.dim(`v${currentVersion}`)} → ${chalk.yellow(`v${latestVersion}`)}${label}`,
+            )
         }
         console.log(channelLine)
         return
     }
 
-    if (!updateAvailable) {
+    if (currentVersion === latestVersion) {
         console.log(chalk.green('✓'), `Already up to date (v${currentVersion})`)
         return
     }
-
-    const newer = isNewer(currentVersion, latestVersion)
 
     console.log(
         `Update available: ${chalk.dim(`v${currentVersion}`)} → ${chalk.green(`v${latestVersion}`)}${label}`,
     )
 
-    if (!newer) {
+    if (!updateAvailable) {
         console.log(
             chalk.yellow('Note:'),
             `v${latestVersion}${channel === 'pre-release' ? ' (pre-release)' : ''} is older than your current v${currentVersion}`,

@@ -30,8 +30,11 @@ export async function getConfig(): Promise<Config> {
 
 export async function setConfig(config: Config): Promise<void> {
     const dir = dirname(CONFIG_PATH)
-    await mkdir(dir, { recursive: true })
-    await writeFile(CONFIG_PATH, JSON.stringify(config, null, 2))
+    await mkdir(dir, { recursive: true, mode: 0o700 })
+    await writeFile(CONFIG_PATH, JSON.stringify(config, null, 2), {
+        encoding: 'utf-8',
+        mode: 0o600,
+    })
 }
 
 export async function updateConfig(updates: Partial<Config>): Promise<void> {
