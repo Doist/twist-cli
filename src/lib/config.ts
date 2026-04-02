@@ -5,6 +5,7 @@ import { dirname, join } from 'node:path'
 const CONFIG_PATH = join(homedir(), '.config', 'twist-cli', 'config.json')
 
 export type AuthMode = 'read-only' | 'read-write' | 'unknown'
+export type UpdateChannel = 'stable' | 'pre-release'
 
 export interface Config {
     // Legacy plaintext token storage retained for migration and secure-store fallback only.
@@ -15,6 +16,7 @@ export interface Config {
     // Auth metadata persisted alongside the token to track OAuth scope.
     authMode?: AuthMode
     authScope?: string
+    update_channel?: UpdateChannel
 }
 
 export async function getConfig(): Promise<Config> {
