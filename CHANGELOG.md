@@ -1,3 +1,9 @@
+## [2.22.1](https://github.com/Doist/twist-cli/compare/v2.22.0...v2.22.1) (2026-04-02)
+
+### Bug Fixes
+
+- secure config permissions and address update channel review feedback ([#127](https://github.com/Doist/twist-cli/issues/127)) ([017c8fa](https://github.com/Doist/twist-cli/commit/017c8fa203e543471c286021bbbbde86eb12ddbf))
+
 ## [2.22.0](https://github.com/Doist/twist-cli/compare/v2.21.3...v2.22.0) (2026-04-02)
 
 ### Features
