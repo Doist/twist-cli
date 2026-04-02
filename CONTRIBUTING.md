@@ -14,9 +14,9 @@ Every significant change is documented in the [CHANGELOG.md](CHANGELOG.md) file.
 
 ## Branch Organization
 
-Submit all changes directly to the [main](https://github.com/Doist/twist-cli/tree/main) branch (via PR). We do our best to keep `main` in good shape, with all tests passing.
+Submit all changes to the [main](https://github.com/Doist/twist-cli/tree/main) branch (via PR) by default. For pre-release work, target the `next` branch instead — see [Release Process](#release-process-core-team-only) for details.
 
-For pre-release testing, the `next` branch is used to publish pre-release versions to npm before promoting to stable. See [Release Process](#release-process-core-team-only) for details.
+We do our best to keep `main` in good shape, with all tests passing.
 
 ## Development Workflow
 
@@ -28,6 +28,7 @@ After cloning the repository and installing dependencies with `npm install`, sev
 - `npm run lint:check`: Validates code quality and formatting
 - `npm test`: Runs all tests
 - `npm run test:watch`: Runs tests in watch mode
+- `npm run type-check`: Type checks without emitting
 
 ## Sending a Pull Request
 
