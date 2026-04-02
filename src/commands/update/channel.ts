@@ -3,7 +3,7 @@ import { getConfig } from '../../lib/config.js'
 
 export async function showChannel(): Promise<void> {
     const config = await getConfig()
-    const channel = config.update_channel ?? 'stable'
+    const channel = config.updateChannel ?? 'stable'
     if (channel === 'pre-release') {
         console.log(`Update channel: ${chalk.magenta('pre-release')}`)
     } else {

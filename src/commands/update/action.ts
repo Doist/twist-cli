@@ -27,7 +27,8 @@ function isNewer(current: string, candidate: string): boolean {
     }
     if (!a.prerelease && b.prerelease) return false
     if (a.prerelease && !b.prerelease) return true
-    if (a.prerelease && b.prerelease) return b.prerelease > a.prerelease
+    if (a.prerelease && b.prerelease)
+        return b.prerelease.localeCompare(a.prerelease, undefined, { numeric: true }) > 0
     return false
 }
 
@@ -73,7 +74,7 @@ interface UpdateOptions {
 export async function updateAction(options: UpdateOptions): Promise<void> {
     const currentVersion = pkg.version
     const config = await getConfig()
-    const channel = config.update_channel ?? 'stable'
+    const channel = config.updateChannel ?? 'stable'
     const tag = channel === 'pre-release' ? 'next' : 'latest'
     const label = channel === 'pre-release' ? ` ${chalk.magenta('(pre-release)')}` : ''
 
@@ -89,7 +90,26 @@ export async function updateAction(options: UpdateOptions): Promise<void> {
         return
     }
 
-    if (currentVersion === latestVersion) {
+    const updateAvailable = currentVersion !== latestVersion
+
+    if (options.check) {
+        const channelLine =
+            channel === 'pre-release'
+                ? `  Channel: ${chalk.magenta('pre-release')}`
+                : `  Channel: ${chalk.green('stable')}`
+
+        if (updateAvailable) {
+            console.log(
+                `Update available: ${chalk.dim(`v${currentVersion}`)} → ${chalk.green(`v${latestVersion}`)}${label}`,
+            )
+        } else {
+            console.log(chalk.green('✓'), `Already up to date (v${currentVersion})`)
+        }
+        console.log(channelLine)
+        return
+    }
+
+    if (!updateAvailable) {
         console.log(chalk.green('✓'), `Already up to date (v${currentVersion})`)
         return
     }
@@ -105,14 +125,6 @@ export async function updateAction(options: UpdateOptions): Promise<void> {
             chalk.yellow('Note:'),
             `v${latestVersion}${channel === 'pre-release' ? ' (pre-release)' : ''} is older than your current v${currentVersion}`,
         )
-    }
-
-    if (options.check) {
-        const channelLabel =
-            channel === 'pre-release' ? chalk.magenta('pre-release') : chalk.green('stable')
-        console.log(`Channel: ${channelLabel}`)
-        console.log(chalk.dim('Run `tw update` to install'))
-        return
     }
 
     const pm = detectPackageManager()

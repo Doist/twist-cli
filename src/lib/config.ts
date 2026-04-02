@@ -16,7 +16,7 @@ export interface Config {
     // Auth metadata persisted alongside the token to track OAuth scope.
     authMode?: AuthMode
     authScope?: string
-    update_channel?: UpdateChannel
+    updateChannel?: UpdateChannel
 }
 
 export async function getConfig(): Promise<Config> {
