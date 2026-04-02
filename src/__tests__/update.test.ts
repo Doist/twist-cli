@@ -326,6 +326,17 @@ describe('update command', () => {
             )
         })
 
+        it('treats next.10 as newer than next.2 (multi-digit prerelease)', async () => {
+            mockFetch('99.0.0-next.10')
+            mockSpawnSuccess()
+
+            const program = createProgram()
+            await program.parseAsync(['node', 'tw', 'update'])
+
+            expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('Update available'))
+            expect(mockSpawn).toHaveBeenCalled()
+        })
+
         it('warns on downgrade but still installs', async () => {
             mockFetch('0.0.1')
             mockSpawnSuccess()
