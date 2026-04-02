@@ -1,3 +1,9 @@
+## [2.22.0](https://github.com/Doist/twist-cli/compare/v2.21.3...v2.22.0) (2026-04-02)
+
+### Features
+
+- allow switching between stable and pre-release update channels ([#126](https://github.com/Doist/twist-cli/issues/126)) ([78ee76f](https://github.com/Doist/twist-cli/commit/78ee76f0776e98b5f5782ffde24044115cc9f658))
+
 ## [2.21.3](https://github.com/Doist/twist-cli/compare/v2.21.2...v2.21.3) (2026-04-01)
 
 ### Bug Fixes
