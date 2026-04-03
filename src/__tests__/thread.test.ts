@@ -826,6 +826,23 @@ describe('thread delete', () => {
         consoleSpy.mockRestore()
     })
 
+    it('errors when --json is used without --yes', async () => {
+        const client = createClient()
+        apiMocks.getTwistClient.mockResolvedValue(client)
+        const program = createProgram()
+        const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+        await program.parseAsync(['node', 'tw', 'thread', 'delete', '500', '--json'])
+
+        expect(consoleSpy).toHaveBeenCalledWith(
+            'Error: --yes is required to execute deletion in --json mode.',
+        )
+        expect(process.exitCode).toBe(1)
+        expect(client.threads.deleteThread).not.toHaveBeenCalled()
+        consoleSpy.mockRestore()
+        process.exitCode = undefined
+    })
+
     it('errors when thread creator does not match session user', async () => {
         const client = createClient({ sessionUser: { id: 999, name: 'Other User' } })
         apiMocks.getTwistClient.mockResolvedValue(client)
