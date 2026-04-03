@@ -426,23 +426,49 @@ describe('update command', () => {
         })
     })
 
-    describe('channel subcommand', () => {
+    describe('--channel flag', () => {
         it('shows stable by default', async () => {
             mockGetConfig.mockResolvedValue({})
 
             const program = createProgram()
-            await program.parseAsync(['node', 'tw', 'update', 'channel'])
+            await program.parseAsync(['node', 'tw', 'update', '--channel'])
 
             expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('stable'))
+            expect(mockSpawn).not.toHaveBeenCalled()
         })
 
         it('shows pre-release when configured', async () => {
             mockGetConfig.mockResolvedValue({ updateChannel: 'pre-release' })
 
             const program = createProgram()
-            await program.parseAsync(['node', 'tw', 'update', 'channel'])
+            await program.parseAsync(['node', 'tw', 'update', '--channel'])
 
             expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('pre-release'))
+            expect(mockSpawn).not.toHaveBeenCalled()
+        })
+
+        it('does not fetch from registry', async () => {
+            mockGetConfig.mockResolvedValue({})
+            const fetchSpy = vi.spyOn(global, 'fetch')
+
+            const program = createProgram()
+            await program.parseAsync(['node', 'tw', 'update', '--channel'])
+
+            expect(fetchSpy).not.toHaveBeenCalled()
+            fetchSpy.mockRestore()
+        })
+
+        it('errors when combined with --check', async () => {
+            mockGetConfig.mockResolvedValue({})
+
+            const program = createProgram()
+            await program.parseAsync(['node', 'tw', 'update', '--channel', '--check'])
+
+            expect(consoleErrorSpy).toHaveBeenCalledWith(
+                'Error:',
+                'Specify either --check or --channel, not both.',
+            )
+            expect(mockSpawn).not.toHaveBeenCalled()
         })
     })
 })
