@@ -88,7 +88,9 @@ tw thread delete <ref> --yes       # Permanently delete a thread
 tw thread delete <ref> --yes --json # Delete and return status as JSON
 ```
 
-Default `--notify` for reply is EVERYONE_IN_THREAD, which may notify more people than intended. Before posting, confirm with the user whether specific people should be notified instead (via `--notify <user-ids>`). Options: EVERYONE, EVERYONE_IN_THREAD, or comma-separated user ID refs.
+Default `--notify` for reply is EVERYONE_IN_THREAD, which may notify more people than intended. Before posting, confirm with the user whether specific people should be notified instead (via `--notify <user-ids>`). Options: EVERYONE, EVERYONE_IN_THREAD, or comma-separated ID refs.
+
+`--notify` automatically resolves IDs: group IDs are routed to the `groups` API field, user IDs to `recipients`. No special syntax needed.
 
 ## Thread Comments
 
@@ -160,13 +162,17 @@ tw search "query" --limit <n>    # Max results (default: 50)
 tw search "query" --cursor <cur> # Pagination cursor
 ```
 
-## Users & Channels
+## Users, Channels & Groups
 
 ```bash
 tw user                          # Show current user info
 tw users                         # List workspace users
 tw users --search <text>         # Filter by name/email
 tw channels                      # List workspace channels
+tw groups                        # List workspace groups
+tw groups "frontend"             # Filter groups by name (case-insensitive)
+tw groups --json                 # JSON output
+tw groups --json --full          # Include all fields in JSON output
 ```
 
 ## Away Status

@@ -1,4 +1,10 @@
-import { TwistApi, type User, type Workspace, type WorkspaceUser } from '@doist/twist-sdk'
+import {
+    type Group,
+    TwistApi,
+    type User,
+    type Workspace,
+    type WorkspaceUser,
+} from '@doist/twist-sdk'
 import { getApiToken } from './auth.js'
 import { getConfig, updateConfig } from './config.js'
 import { CliError } from './errors.js'
@@ -65,6 +71,9 @@ const API_SPINNER_MESSAGES: Record<string, { text: string; color?: 'blue' | 'gre
         'conversationMessages.createMessage': { text: 'Sending message...', color: 'green' },
         'conversationMessages.updateMessage': { text: 'Updating message...', color: 'yellow' },
         'conversationMessages.deleteMessage': { text: 'Deleting message...', color: 'yellow' },
+
+        // Group operations
+        'groups.getGroups': { text: 'Loading groups...', color: 'blue' },
 
         // Inbox operations
         'inbox.getInbox': { text: 'Loading inbox...', color: 'blue' },
@@ -271,6 +280,11 @@ export async function getWorkspaceUsers(workspaceId: number): Promise<WorkspaceU
     return client.workspaceUsers.getWorkspaceUsers({ workspaceId })
 }
 
+export async function getWorkspaceGroups(workspaceId: number): Promise<Group[]> {
+    const client = await getTwistClient()
+    return client.groups.getGroups(workspaceId)
+}
+
 export function clearUserCache(): void {
     sessionUserCache = null
 }
@@ -288,4 +302,4 @@ export function assertBatchData<T>(response: { code: number; data: T }, label: s
     return response.data
 }
 
-export type { User, Workspace, WorkspaceUser }
+export type { Group, User, Workspace, WorkspaceUser }

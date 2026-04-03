@@ -56,6 +56,8 @@ const USER_ESSENTIAL_FIELDS = ['id', 'name', 'email', 'timezone', 'userType', 'a
 
 const CHANNEL_ESSENTIAL_FIELDS = ['id', 'name', 'workspaceId'] as const
 
+const GROUP_ESSENTIAL_FIELDS = ['id', 'name', 'workspaceId', 'userIds'] as const
+
 export type EntityType =
     | 'thread'
     | 'comment'
@@ -64,6 +66,7 @@ export type EntityType =
     | 'workspace'
     | 'user'
     | 'channel'
+    | 'group'
 
 function getEssentialFields(type: EntityType): readonly string[] {
     switch (type) {
@@ -81,6 +84,8 @@ function getEssentialFields(type: EntityType): readonly string[] {
             return USER_ESSENTIAL_FIELDS
         case 'channel':
             return CHANNEL_ESSENTIAL_FIELDS
+        case 'group':
+            return GROUP_ESSENTIAL_FIELDS
     }
 }
 

@@ -1,10 +1,10 @@
-import { getTwistClient } from '../../lib/api.js'
+import { getTwistClient, getWorkspaceGroups } from '../../lib/api.js'
 import { CliError } from '../../lib/errors.js'
 import { openEditor, readStdin } from '../../lib/input.js'
 import type { MutationOptions } from '../../lib/options.js'
 import { formatJson } from '../../lib/output.js'
 import { assertChannelIsPublic } from '../../lib/public-channels.js'
-import { parseUserIdRefs, resolveChannelId } from '../../lib/refs.js'
+import { parseUserIdRefs, partitionNotifyIds, resolveChannelId } from '../../lib/refs.js'
 
 type CreateOptions = MutationOptions & {
     notify?: string
@@ -32,27 +32,42 @@ export async function createThread(
         )
     }
 
-    const recipients = options.notify ? parseUserIdRefs(options.notify) : undefined
+    const allIds = options.notify ? parseUserIdRefs(options.notify) : undefined
+
+    const client = await getTwistClient()
+    const channel = await client.channels.getChannel(channelId)
+    await assertChannelIsPublic(channelId, channel.workspaceId)
+
+    let recipients: number[] | undefined
+    let groups: number[] | undefined
+    if (allIds) {
+        const workspaceGroups = await getWorkspaceGroups(channel.workspaceId)
+        const groupIdSet = new Set(workspaceGroups.map((g) => g.id))
+        const partitioned = partitionNotifyIds(allIds, groupIdSet)
+        recipients = partitioned.userIds.length > 0 ? partitioned.userIds : undefined
+        groups = partitioned.groupIds.length > 0 ? partitioned.groupIds : undefined
+    }
 
     if (options.dryRun) {
         console.log('Dry run: would create thread in channel', channelId)
         console.log(`Title: ${title}`)
         if (recipients) {
-            console.log(`Notify: ${recipients.join(', ')}`)
+            console.log(`Notify users: ${recipients.join(', ')}`)
+        }
+        if (groups) {
+            console.log(`Notify groups: ${groups.join(', ')}`)
         }
         console.log('')
         console.log(threadContent)
         return
     }
 
-    const client = await getTwistClient()
-    const channel = await client.channels.getChannel(channelId)
-    await assertChannelIsPublic(channelId, channel.workspaceId)
     const thread = await client.threads.createThread({
         channelId,
         title,
         content: threadContent,
         recipients,
+        groups,
     })
 
     if (options.json) {
