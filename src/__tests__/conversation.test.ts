@@ -23,7 +23,7 @@ vi.mock('../lib/markdown.js', () => ({
 
 vi.mock('chalk')
 
-import { registerConversationCommand } from '../commands/conversation.js'
+import { registerConversationCommand } from '../commands/conversation/index.js'
 
 type TestConversation = {
     id: number

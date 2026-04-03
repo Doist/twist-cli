@@ -15,7 +15,7 @@ vi.mock('../lib/markdown.js', () => ({
 
 vi.mock('chalk')
 
-import { registerMsgCommand } from '../commands/msg.js'
+import { registerMsgCommand } from '../commands/msg/index.js'
 
 function createProgram() {
     const program = new Command()

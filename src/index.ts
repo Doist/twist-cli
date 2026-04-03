@@ -10,20 +10,22 @@ const loadUserCommand = async () => (await import('./commands/user.js')).registe
 const loadChannelCommand = async () =>
     (await import('./commands/channel.js')).registerChannelCommand
 const loadInboxCommand = async () => (await import('./commands/inbox.js')).registerInboxCommand
-const loadThreadCommand = async () => (await import('./commands/thread.js')).registerThreadCommand
+const loadThreadCommand = async () =>
+    (await import('./commands/thread/index.js')).registerThreadCommand
 const loadConversationCommand = async () =>
-    (await import('./commands/conversation.js')).registerConversationCommand
-const loadMsgCommand = async () => (await import('./commands/msg.js')).registerMsgCommand
+    (await import('./commands/conversation/index.js')).registerConversationCommand
+const loadMsgCommand = async () => (await import('./commands/msg/index.js')).registerMsgCommand
 const loadCommentCommand = async () =>
-    (await import('./commands/comment.js')).registerCommentCommand
+    (await import('./commands/comment/index.js')).registerCommentCommand
 const loadSearchCommand = async () => (await import('./commands/search.js')).registerSearchCommand
 const loadReactCommand = async () => (await import('./commands/react.js')).registerReactCommand
-const loadAuthCommand = async () => (await import('./commands/auth.js')).registerAuthCommand
-const loadSkillCommand = async () => (await import('./commands/skill.js')).registerSkillCommand
+const loadAuthCommand = async () => (await import('./commands/auth/index.js')).registerAuthCommand
+const loadSkillCommand = async () =>
+    (await import('./commands/skill/index.js')).registerSkillCommand
 const loadViewCommand = async () => (await import('./commands/view.js')).registerViewCommand
 const loadCompletionCommand = async () =>
-    (await import('./commands/completion.js')).registerCompletionCommand
-const loadAwayCommand = async () => (await import('./commands/away.js')).registerAwayCommand
+    (await import('./commands/completion/index.js')).registerCompletionCommand
+const loadAwayCommand = async () => (await import('./commands/away/index.js')).registerAwayCommand
 const loadUpdateCommand = async () =>
     (await import('./commands/update/index.js')).registerUpdateCommand
 const loadChangelogCommand = async () =>

@@ -63,25 +63,26 @@ Examples:
             switch (route.entityType) {
                 case 'thread':
                     await runRoutedCommand(
-                        async () => (await import('./thread.js')).registerThreadCommand,
+                        async () => (await import('./thread/index.js')).registerThreadCommand,
                         ['thread', 'view', resolvedUrl, ...passthroughArgs],
                     )
                     break
                 case 'comment':
                     await runRoutedCommand(
-                        async () => (await import('./thread.js')).registerThreadCommand,
+                        async () => (await import('./thread/index.js')).registerThreadCommand,
                         ['thread', 'view', resolvedUrl, ...passthroughArgs],
                     )
                     break
                 case 'conversation':
                     await runRoutedCommand(
-                        async () => (await import('./conversation.js')).registerConversationCommand,
+                        async () =>
+                            (await import('./conversation/index.js')).registerConversationCommand,
                         ['conversation', 'view', resolvedUrl, ...passthroughArgs],
                     )
                     break
                 case 'message':
                     await runRoutedCommand(
-                        async () => (await import('./msg.js')).registerMsgCommand,
+                        async () => (await import('./msg/index.js')).registerMsgCommand,
                         ['msg', 'view', resolvedUrl, ...passthroughArgs],
                     )
                     break

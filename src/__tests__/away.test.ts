@@ -15,7 +15,7 @@ vi.mock('../lib/api.js', () => ({
 
 vi.mock('chalk')
 
-import { registerAwayCommand } from '../commands/away.js'
+import { registerAwayCommand } from '../commands/away/index.js'
 
 function createProgram() {
     const program = new Command()
