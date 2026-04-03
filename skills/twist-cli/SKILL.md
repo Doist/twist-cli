@@ -83,6 +83,9 @@ tw thread mute <ref> --json      # Mute and return { id, mutedUntil } as JSON
 tw thread mute <ref> --json --full  # Mute and return full thread as JSON
 tw thread unmute <ref>           # Unmute a muted thread
 tw thread unmute <ref> --json    # Unmute and return { id, mutedUntil } as JSON
+tw thread delete <ref>             # Preview thread deletion (requires --yes to execute)
+tw thread delete <ref> --yes       # Permanently delete a thread
+tw thread delete <ref> --yes --json # Delete and return status as JSON
 ```
 
 Default `--notify` for reply is EVERYONE_IN_THREAD, which may notify more people than intended. Before posting, confirm with the user whether specific people should be notified instead (via `--notify <user-ids>`). Options: EVERYONE, EVERYONE_IN_THREAD, or comma-separated user ID refs.

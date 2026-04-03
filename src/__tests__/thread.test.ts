@@ -68,6 +68,7 @@ function createClient({
     }>,
     users = {} as Record<number, { id: number; name: string }>,
     channel = { id: 100, name: 'General', workspaceId: 10 },
+    sessionUser = { id: 1, name: 'Test User' },
 } = {}) {
     return {
         threads: {
@@ -94,6 +95,13 @@ function createClient({
                 ...thread,
                 mutedUntil: null,
             })),
+            deleteThread: vi.fn(async () => undefined),
+        },
+        users: {
+            getSessionUser: vi.fn((_options?: { batch?: boolean }) => {
+                if (_options?.batch) return { kind: 'sessionUser' }
+                return Promise.resolve(sessionUser)
+            }),
         },
         comments: {
             getComments: vi.fn((_args: unknown, options?: { batch?: boolean }) => {
@@ -135,6 +143,7 @@ function createClient({
                         data: comments.find((c) => c.id === request.id) ?? comments[0],
                     }
                 if (request.kind === 'channel') return { code: 200, data: channel }
+                if (request.kind === 'sessionUser') return { code: 200, data: sessionUser }
                 if (request.kind === 'user' && request.userId) {
                     return {
                         code: 200,
@@ -756,5 +765,96 @@ describe('thread unmute', () => {
         expect(consoleSpy).toHaveBeenCalledWith('Dry run: would unmute thread 500')
 
         consoleSpy.mockRestore()
+    })
+})
+
+describe('thread delete', () => {
+    beforeEach(() => {
+        vi.clearAllMocks()
+    })
+
+    it('deletes a thread with --yes', async () => {
+        const client = createClient()
+        apiMocks.getTwistClient.mockResolvedValue(client)
+        const program = createProgram()
+        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+        await program.parseAsync(['node', 'tw', 'thread', 'delete', '500', '--yes'])
+
+        expect(client.threads.deleteThread).toHaveBeenCalledWith(500)
+        expect(consoleSpy).toHaveBeenCalledWith('Thread Test Thread (500) deleted.')
+        consoleSpy.mockRestore()
+    })
+
+    it('prompts for confirmation without --yes', async () => {
+        const client = createClient()
+        apiMocks.getTwistClient.mockResolvedValue(client)
+        const program = createProgram()
+        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+        await program.parseAsync(['node', 'tw', 'thread', 'delete', '500'])
+
+        expect(consoleSpy).toHaveBeenCalledWith('Would delete: Test Thread')
+        expect(consoleSpy).toHaveBeenCalledWith('Use --yes to confirm.')
+        expect(client.threads.deleteThread).not.toHaveBeenCalled()
+        consoleSpy.mockRestore()
+    })
+
+    it('shows dry run output', async () => {
+        const client = createClient()
+        apiMocks.getTwistClient.mockResolvedValue(client)
+        const program = createProgram()
+        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+        await program.parseAsync(['node', 'tw', 'thread', 'delete', '500', '--dry-run'])
+
+        expect(consoleSpy).toHaveBeenCalledWith('Dry run: would delete thread 500')
+        expect(client.threads.deleteThread).not.toHaveBeenCalled()
+        consoleSpy.mockRestore()
+    })
+
+    it('outputs JSON with --json --yes', async () => {
+        const client = createClient()
+        apiMocks.getTwistClient.mockResolvedValue(client)
+        const program = createProgram()
+        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+        await program.parseAsync(['node', 'tw', 'thread', 'delete', '500', '--json', '--yes'])
+
+        const jsonOutput = JSON.parse(consoleSpy.mock.calls[0][0])
+        expect(jsonOutput).toEqual({ id: 500, deleted: true })
+        consoleSpy.mockRestore()
+    })
+
+    it('errors when --json is used without --yes', async () => {
+        const client = createClient()
+        apiMocks.getTwistClient.mockResolvedValue(client)
+        const program = createProgram()
+        const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+        await program.parseAsync(['node', 'tw', 'thread', 'delete', '500', '--json'])
+
+        expect(consoleSpy).toHaveBeenCalledWith(
+            'Error: --yes is required to execute deletion in --json mode.',
+        )
+        expect(process.exitCode).toBe(1)
+        expect(client.threads.deleteThread).not.toHaveBeenCalled()
+        consoleSpy.mockRestore()
+        process.exitCode = undefined
+    })
+
+    it('errors when thread creator does not match session user', async () => {
+        const client = createClient({ sessionUser: { id: 999, name: 'Other User' } })
+        apiMocks.getTwistClient.mockResolvedValue(client)
+        const program = createProgram()
+        const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+        await program.parseAsync(['node', 'tw', 'thread', 'delete', '500', '--yes'])
+
+        expect(consoleSpy).toHaveBeenCalledWith('You can only delete threads that you created.')
+        expect(process.exitCode).toBe(1)
+        expect(client.threads.deleteThread).not.toHaveBeenCalled()
+        consoleSpy.mockRestore()
+        process.exitCode = undefined
     })
 })

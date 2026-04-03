@@ -57,6 +57,10 @@ This is a TypeScript CLI (`tw`) for Twist messaging, built with Commander.js.
 - **JSON output on mutating commands**: Mutating commands (create, update, delete, archive) should support `--json` output where it provides scripting value. Commands that return an object from the API (create/update) should also support `--full`. Commands where the API returns void should output a minimal status object (e.g. `{ id, deleted: true }` or `{ id, isArchived: true }`). Extend `MutationOptions` in `src/lib/options.ts` (which already includes `json` and `full`) rather than adding these fields ad hoc. Use `formatJson()` from `src/lib/output.ts` for the output. See `src/commands/away.ts` as the reference implementation.
 - **Spinner messages**: When adding new SDK method calls, add a corresponding entry in the `API_SPINNER_MESSAGES` map in `src/lib/api.ts`. Every user-facing API call should have a spinner message so the CLI shows progress feedback.
 
+## Error Handling
+
+- **Never use `process.exit(1)` in command handlers.** It terminates immediately without running `finally` blocks, which leaves the early loading spinner stuck in the terminal. Use `process.exitCode = 1` followed by `return` instead �� this lets the process exit cleanly after spinner cleanup.
+
 ## Pre-commit Hooks
 
 Lefthook runs type-check, oxlint, and oxfmt on pre-commit, tests on pre-push.
