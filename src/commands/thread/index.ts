@@ -1,6 +1,7 @@
 import { Command, Option } from 'commander'
 import { withUnvalidatedChoices } from '../../lib/completion.js'
 import { createThread } from './create.js'
+import { deleteThread } from './delete.js'
 import { markThreadDone } from './mutate.js'
 import { muteThread, unmuteThread } from './mute.js'
 import { replyToThread } from './reply.js'
@@ -64,6 +65,14 @@ export function registerThreadCommand(program: Command): void {
         .option('--dry-run', 'Show what would happen without executing')
         .option('--json', 'Output result as JSON')
         .action(markThreadDone)
+
+    thread
+        .command('delete <thread-ref>')
+        .description('Permanently delete a thread')
+        .option('--yes', 'Confirm deletion')
+        .option('--dry-run', 'Show what would happen without executing')
+        .option('--json', 'Output result as JSON')
+        .action(deleteThread)
 
     thread
         .command('mute <thread-ref>')

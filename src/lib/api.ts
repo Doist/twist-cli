@@ -26,6 +26,7 @@ const API_SPINNER_MESSAGES: Record<string, { text: string; color?: 'blue' | 'gre
         'threads.reopenThread': { text: 'Reopening thread...', color: 'yellow' },
         'threads.muteThread': { text: 'Muting thread...', color: 'yellow' },
         'threads.unmuteThread': { text: 'Unmuting thread...', color: 'yellow' },
+        'threads.deleteThread': { text: 'Deleting thread...', color: 'yellow' },
 
         // Comment operations
         'comments.getComment': { text: 'Loading comment...', color: 'blue' },
