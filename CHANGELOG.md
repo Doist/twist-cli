@@ -1,3 +1,9 @@
+## [2.23.0](https://github.com/Doist/twist-cli/compare/v2.22.1...v2.23.0) (2026-04-03)
+
+### Features
+
+- add thread deletion support ([#133](https://github.com/Doist/twist-cli/issues/133)) ([eed878c](https://github.com/Doist/twist-cli/commit/eed878c1c04e244ebf614ea3fe7b31c844beb8d2))
+
 ## [2.22.1](https://github.com/Doist/twist-cli/compare/v2.22.0...v2.22.1) (2026-04-02)
 
 ### Bug Fixes
