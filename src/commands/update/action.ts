@@ -69,9 +69,27 @@ export function runInstall(pm: string, tag: string): Promise<{ exitCode: number;
 
 interface UpdateOptions {
     check?: boolean
+    channel?: boolean
 }
 
 export async function updateAction(options: UpdateOptions): Promise<void> {
+    if (options.check && options.channel) {
+        console.error('Error:', 'Specify either --check or --channel, not both.')
+        process.exitCode = 1
+        return
+    }
+
+    if (options.channel) {
+        const config = await getConfig()
+        const ch = config.updateChannel ?? 'stable'
+        if (ch === 'pre-release') {
+            console.log(`Update channel: ${chalk.magenta('pre-release')}`)
+        } else {
+            console.log(`Update channel: ${chalk.green('stable')}`)
+        }
+        return
+    }
+
     const currentVersion = pkg.version
     const config = await getConfig()
     const channel = config.updateChannel ?? 'stable'
