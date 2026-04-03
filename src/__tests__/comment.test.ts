@@ -21,7 +21,7 @@ vi.mock('../lib/markdown.js', () => ({
 
 vi.mock('chalk')
 
-import { registerCommentCommand } from '../commands/comment.js'
+import { registerCommentCommand } from '../commands/comment/index.js'
 import { readStdin } from '../lib/input.js'
 
 function createCommentFixture(id: number) {

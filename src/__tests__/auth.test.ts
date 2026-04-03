@@ -56,7 +56,7 @@ vi.mock('chalk')
 import { createInterface, type Interface } from 'node:readline'
 import { type User } from '@doist/twist-sdk'
 import open from 'open'
-import { registerAuthCommand } from '../commands/auth.js'
+import { registerAuthCommand } from '../commands/auth/index.js'
 import { getSessionUser } from '../lib/api.js'
 import { clearApiToken, getAuthMetadata, saveApiToken } from '../lib/auth.js'
 import { startCallbackServer } from '../lib/oauth-server.js'

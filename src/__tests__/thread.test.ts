@@ -25,7 +25,7 @@ vi.mock('../lib/input.js', () => ({
 
 vi.mock('chalk')
 
-import { registerThreadCommand } from '../commands/thread.js'
+import { registerThreadCommand } from '../commands/thread/index.js'
 import { readStdin } from '../lib/input.js'
 
 function createThreadFixture(id: number) {

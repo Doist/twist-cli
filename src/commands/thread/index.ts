@@ -1,10 +1,10 @@
 import { Command, Option } from 'commander'
-import { withUnvalidatedChoices } from '../lib/completion.js'
-import { createThread } from './thread/create.js'
-import { markThreadDone } from './thread/mutate.js'
-import { muteThread, unmuteThread } from './thread/mute.js'
-import { replyToThread } from './thread/reply.js'
-import { viewThread } from './thread/view.js'
+import { withUnvalidatedChoices } from '../../lib/completion.js'
+import { createThread } from './create.js'
+import { markThreadDone } from './mutate.js'
+import { muteThread, unmuteThread } from './mute.js'
+import { replyToThread } from './reply.js'
+import { viewThread } from './view.js'
 
 export function registerThreadCommand(program: Command): void {
     const thread = program.command('thread').description('Thread operations')

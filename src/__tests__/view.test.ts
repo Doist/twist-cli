@@ -1,7 +1,7 @@
 import { Command } from 'commander'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-vi.mock('../commands/thread.js', () => ({
+vi.mock('../commands/thread/index.js', () => ({
     registerThreadCommand: (program: Command) => {
         const thread = program.command('thread')
         thread.command('view [ref]').action(() => {
@@ -10,7 +10,7 @@ vi.mock('../commands/thread.js', () => ({
     },
 }))
 
-vi.mock('../commands/conversation.js', () => ({
+vi.mock('../commands/conversation/index.js', () => ({
     registerConversationCommand: (program: Command) => {
         const convo = program.command('conversation')
         convo.command('view [ref]').action(() => {
@@ -19,7 +19,7 @@ vi.mock('../commands/conversation.js', () => ({
     },
 }))
 
-vi.mock('../commands/msg.js', () => ({
+vi.mock('../commands/msg/index.js', () => ({
     registerMsgCommand: (program: Command) => {
         const msg = program.command('msg')
         msg.command('view [ref]').action(() => {

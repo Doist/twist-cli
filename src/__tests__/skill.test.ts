@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('chalk')
 
-import { registerSkillCommand } from '../commands/skill.js'
+import { registerSkillCommand } from '../commands/skill/index.js'
 import { SKILL_FILE_CONTENT } from '../lib/skills/content.js'
 import { createInstaller } from '../lib/skills/create-installer.js'
 import { getInstaller, listAgentNames, listAgents, skillInstallers } from '../lib/skills/index.js'

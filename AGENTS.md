@@ -36,7 +36,7 @@ This is a TypeScript CLI (`tw`) for Twist messaging, built with Commander.js.
 
 **Entry point**: `src/index.ts` registers all commands with Commander.
 
-**Commands** (`src/commands/`): Each file exports a `register*Command(program)` function. Commands support `--json`, `--ndjson`, and `--full` flags for machine-readable output. `completion.ts` adds shell completion install/uninstall and an internal completion server.
+**Commands** (`src/commands/`): Commands with multiple subcommands use a folder-based structure (`src/commands/<entity>/index.ts`) where the index file exports a `register*Command(program)` function and wires Commander subcommands to handler functions in sibling files. Single-command files remain as flat files (`src/commands/<entity>.ts`). Each subcommand handler file exports one async action function and imports from `../../lib/`. An optional `helpers.ts` holds shared constants/utilities used by multiple subcommands. Commands support `--json`, `--ndjson`, and `--full` flags for machine-readable output.
 
 **Lib** (`src/lib/`):
 
