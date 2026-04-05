@@ -19,8 +19,9 @@ export async function replyToConversation(
         replyContent = await openEditor()
     }
     if (!replyContent || replyContent.trim() === '') {
-        console.error('No content provided.')
-        process.exit(1)
+        console.error('Error: no content provided. Pass content as an argument or pipe via stdin.')
+        process.exitCode = 1
+        return
     }
 
     if (options.dryRun) {

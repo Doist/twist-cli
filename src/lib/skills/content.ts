@@ -222,6 +222,8 @@ tw changelog --count 10          # Show last 10 versions
 --no-spinner       # Disable loading animations
 --progress-jsonl   # Machine-readable progress events (JSONL to stderr)
 --accessible       # Add text labels to color-coded output (also: TW_ACCESSIBLE=1)
+--non-interactive  # Disable interactive prompts (auto-detected when stdin is not a TTY)
+--interactive      # Force interactive mode even when stdin is not a TTY
 \`\`\`
 
 ## Output Formats
@@ -251,7 +253,7 @@ tw thread create <channel-ref> "Title" < body.md
 echo "Quick reply" | tw conversation reply <ref>
 \`\`\`
 
-If no content argument is provided and no stdin is piped, the CLI opens \`$EDITOR\` for interactive input.
+If no content argument is provided and no stdin is piped, the CLI opens \`$EDITOR\` for interactive input. In non-TTY environments (e.g. when called by an agent or in a pipeline), the editor is automatically skipped and the command fails fast with an actionable error message. Use \`--non-interactive\` to force this behavior even in a TTY, or \`--interactive\` to override auto-detection.
 
 ## Common Workflows
 

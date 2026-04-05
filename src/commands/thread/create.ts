@@ -25,8 +25,9 @@ export async function createThread(
         threadContent = await openEditor()
     }
     if (!threadContent || threadContent.trim() === '') {
-        console.error('No content provided.')
-        process.exit(1)
+        console.error('Error: no content provided. Pass content as an argument or pipe via stdin.')
+        process.exitCode = 1
+        return
     }
 
     const recipients = options.notify ? parseUserIdRefs(options.notify) : undefined

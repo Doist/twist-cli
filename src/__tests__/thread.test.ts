@@ -285,29 +285,24 @@ describe('thread implicit view', () => {
         const program = createProgram()
         const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
         const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
-        const exitSpy = vi.spyOn(process, 'exit').mockImplementation(() => {
-            throw new Error('process.exit')
-        })
 
-        await expect(
-            program.parseAsync([
-                'node',
-                'tw',
-                'thread',
-                'reply',
-                '100',
-                'content',
-                '--close',
-                '--reopen',
-            ]),
-        ).rejects.toThrow('process.exit')
+        await program.parseAsync([
+            'node',
+            'tw',
+            'thread',
+            'reply',
+            '100',
+            'content',
+            '--close',
+            '--reopen',
+        ])
 
         expect(errorSpy).toHaveBeenCalledWith('Cannot use --close and --reopen together.')
-        expect(exitSpy).toHaveBeenCalledWith(1)
+        expect(process.exitCode).toBe(1)
 
         consoleSpy.mockRestore()
         errorSpy.mockRestore()
-        exitSpy.mockRestore()
+        process.exitCode = undefined
     })
 })
 
@@ -636,20 +631,17 @@ describe('thread create', () => {
         const program = createProgram()
         const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
         const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
-        const exitSpy = vi.spyOn(process, 'exit').mockImplementation(() => {
-            throw new Error('process.exit')
-        })
 
-        await expect(
-            program.parseAsync(['node', 'tw', 'thread', 'create', '100', 'My Title']),
-        ).rejects.toThrow('process.exit')
+        await program.parseAsync(['node', 'tw', 'thread', 'create', '100', 'My Title'])
 
-        expect(errorSpy).toHaveBeenCalledWith('No content provided.')
-        expect(exitSpy).toHaveBeenCalledWith(1)
+        expect(errorSpy).toHaveBeenCalledWith(
+            'Error: no content provided. Pass content as an argument or pipe via stdin.',
+        )
+        expect(process.exitCode).toBe(1)
 
         consoleSpy.mockRestore()
         errorSpy.mockRestore()
-        exitSpy.mockRestore()
+        process.exitCode = undefined
     })
 })
 

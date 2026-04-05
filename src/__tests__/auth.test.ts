@@ -151,6 +151,11 @@ describe('auth command', () => {
         })
 
         it('prompts interactively when no token argument given', async () => {
+            const originalIsTTY = process.stdin.isTTY
+            Object.defineProperty(process.stdin, 'isTTY', {
+                value: true,
+                configurable: true,
+            })
             const program = createProgram()
             const mockRl = {
                 question: vi.fn((_prompt: string, cb: (answer: string) => void) => {
@@ -171,6 +176,10 @@ describe('auth command', () => {
                 authMode: 'unknown',
             })
             writeSpy.mockRestore()
+            Object.defineProperty(process.stdin, 'isTTY', {
+                value: originalIsTTY,
+                configurable: true,
+            })
         })
 
         it('warns when secure storage falls back to the config file', async () => {
@@ -213,6 +222,11 @@ describe('auth command', () => {
         })
 
         it('shows error when interactive input is empty', async () => {
+            const originalIsTTY = process.stdin.isTTY
+            Object.defineProperty(process.stdin, 'isTTY', {
+                value: true,
+                configurable: true,
+            })
             const program = createProgram()
             const mockRl = {
                 question: vi.fn((_prompt: string, cb: (answer: string) => void) => {
@@ -231,6 +245,34 @@ describe('auth command', () => {
             expect(localErrorSpy).toHaveBeenCalledWith('Error:', 'No token provided')
             writeSpy.mockRestore()
             localErrorSpy.mockRestore()
+            Object.defineProperty(process.stdin, 'isTTY', {
+                value: originalIsTTY,
+                configurable: true,
+            })
+        })
+
+        it('errors in non-interactive mode when no token argument given', async () => {
+            const originalIsTTY = process.stdin.isTTY
+            Object.defineProperty(process.stdin, 'isTTY', {
+                value: undefined,
+                configurable: true,
+            })
+            const program = createProgram()
+            const localErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+            await program.parseAsync(['node', 'tw', 'auth', 'token'])
+
+            expect(mockSaveApiToken).not.toHaveBeenCalled()
+            expect(localErrorSpy).toHaveBeenCalledWith(
+                'Error: cannot prompt for token in non-interactive mode. Set the TWIST_API_TOKEN environment variable instead.',
+            )
+            expect(process.exitCode).toBe(1)
+            localErrorSpy.mockRestore()
+            process.exitCode = undefined
+            Object.defineProperty(process.stdin, 'isTTY', {
+                value: originalIsTTY,
+                configurable: true,
+            })
         })
     })
 
