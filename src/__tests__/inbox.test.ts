@@ -10,8 +10,12 @@ vi.mock('../lib/refs.js', () => ({
     resolveWorkspaceRef: vi.fn(),
 }))
 
-vi.mock('../lib/public-channels.js', () => ({
+vi.mock('../lib/global-args.js', async (importOriginal) => ({
+    ...(await importOriginal()),
     includePrivateChannels: vi.fn().mockReturnValue(true),
+}))
+
+vi.mock('../lib/public-channels.js', () => ({
     getPublicChannelIds: vi.fn(),
 }))
 

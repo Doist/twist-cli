@@ -1,5 +1,6 @@
 import fs from 'node:fs'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { resetGlobalArgs } from '../lib/global-args.js'
 import type { ProgressEvent } from '../lib/progress.js'
 import { getProgressTracker, ProgressTracker, resetProgressTracker } from '../lib/progress.js'
 
@@ -39,6 +40,7 @@ describe('ProgressTracker', () => {
         )
 
         vi.clearAllMocks()
+        resetGlobalArgs()
         resetProgressTracker()
     })
 
@@ -49,6 +51,7 @@ describe('ProgressTracker', () => {
             configurable: true,
         })
         vi.clearAllMocks()
+        resetGlobalArgs()
         resetProgressTracker()
     })
 
@@ -206,6 +209,7 @@ describe('ProgressTracker', () => {
 
         it('should not emit events when disabled', () => {
             resetProgressTracker()
+            resetGlobalArgs()
             process.argv = ['node', 'tw', 'threads'] // No --progress-jsonl flag
             const disabledTracker = new ProgressTracker()
 
@@ -265,12 +269,14 @@ describe('global progress tracker', () => {
 
     beforeEach(() => {
         originalArgv = [...process.argv]
+        resetGlobalArgs()
         resetProgressTracker()
         vi.clearAllMocks()
     })
 
     afterEach(() => {
         process.argv = originalArgv
+        resetGlobalArgs()
         resetProgressTracker()
     })
 
@@ -301,6 +307,7 @@ describe('global progress tracker', () => {
 
         // Reset and create new instance with flag
         resetProgressTracker()
+        resetGlobalArgs()
         process.argv = ['node', 'tw', 'threads', '--progress-jsonl']
         const tracker2 = getProgressTracker()
         expect(tracker2.isEnabled()).toBe(true)
@@ -322,12 +329,14 @@ describe('edge cases and integration', () => {
             configurable: true,
         })
 
+        resetGlobalArgs()
         resetProgressTracker()
         vi.clearAllMocks()
     })
 
     afterEach(() => {
         process.argv = originalArgv
+        resetGlobalArgs()
         resetProgressTracker()
     })
 

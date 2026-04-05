@@ -1,6 +1,7 @@
 import chalk from 'chalk'
 import { getCurrentWorkspaceId, getTwistClient } from '../../lib/api.js'
-import { colors, formatJson, formatNdjson, isAccessible } from '../../lib/output.js'
+import { isAccessible } from '../../lib/global-args.js'
+import { colors, formatJson, formatNdjson } from '../../lib/output.js'
 import { resolveWorkspaceRef } from '../../lib/refs.js'
 import type { UnreadOptions } from './helpers.js'
 
