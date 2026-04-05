@@ -1,5 +1,6 @@
 import { Command } from 'commander'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { CliError } from '../lib/errors.js'
 
 const apiMocks = vi.hoisted(() => ({
     getTwistClient: vi.fn(),
@@ -404,29 +405,17 @@ describe('conversation with', () => {
 
     it('prints a clean error and exits non-zero for ambiguous user refs', async () => {
         refsMocks.resolveUserRefs.mockRejectedValue(
-            new Error(
+            new CliError(
+                'AMBIGUOUS_USER',
                 'Multiple users match "Alex":\n  1  Alex <alex@example.com>\n\nUse numeric ID to specify.',
             ),
         )
 
         const program = createProgram()
-        const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
-        const exitSpy = vi.spyOn(process, 'exit').mockImplementation(((
-            code?: string | number | null,
-        ) => {
-            throw new Error(`EXIT_${code}`)
-        }) as never)
 
         await expect(
             program.parseAsync(['node', 'tw', 'conversation', 'with', 'Alex']),
-        ).rejects.toThrow('EXIT_1')
-
-        expect(errorSpy).toHaveBeenCalledWith(
-            'Multiple users match "Alex":\n  1  Alex <alex@example.com>\n\nUse numeric ID to specify.',
-        )
-
-        exitSpy.mockRestore()
-        errorSpy.mockRestore()
+        ).rejects.toHaveProperty('code', 'AMBIGUOUS_USER')
     })
 })
 
@@ -580,21 +569,10 @@ describe('conversation mute', () => {
 
     it('rejects non-integer --minutes value', async () => {
         const program = createProgram()
-        const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
-        const exitSpy = vi.spyOn(process, 'exit').mockImplementation(() => {
-            throw new Error('process.exit')
-        })
 
         await expect(
             program.parseAsync(['node', 'tw', 'conversation', 'mute', '42', '--minutes', 'foo']),
-        ).rejects.toThrow('process.exit')
-
-        expect(errorSpy).toHaveBeenCalledWith(
-            'Invalid --minutes value: foo (must be a positive integer)',
-        )
-
-        errorSpy.mockRestore()
-        exitSpy.mockRestore()
+        ).rejects.toHaveProperty('code', 'INVALID_MINUTES')
     })
 })
 

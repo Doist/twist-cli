@@ -1,4 +1,5 @@
 import { getTwistClient } from './api.js'
+import { CliError } from './errors.js'
 import { includePrivateChannels } from './global-args.js'
 
 const publicChannelCache = new Map<number, Set<number>>()
@@ -25,8 +26,8 @@ export async function assertChannelIsPublic(channelId: number, workspaceId: numb
     if (includePrivateChannels()) return
     const publicIds = await getPublicChannelIds(workspaceId)
     if (!publicIds.has(channelId)) {
-        throw new Error(
-            'This thread belongs to a private channel. Use --include-private-channels to access it.',
-        )
+        throw new CliError('NOT_FOUND', 'This thread belongs to a private channel.', [
+            'Use --include-private-channels to access it',
+        ])
     }
 }

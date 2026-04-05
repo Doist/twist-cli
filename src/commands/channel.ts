@@ -1,5 +1,6 @@
 import { Command } from 'commander'
 import { getCurrentWorkspaceId, getTwistClient } from '../lib/api.js'
+import { CliError } from '../lib/errors.js'
 import { includePrivateChannels } from '../lib/global-args.js'
 import type { ViewOptions } from '../lib/options.js'
 import { colors, formatJson, formatNdjson } from '../lib/output.js'
@@ -12,7 +13,10 @@ async function listChannels(
     options: ChannelsOptions,
 ): Promise<void> {
     if (workspaceRef && options.workspace) {
-        throw new Error('Cannot specify workspace both as argument and --workspace flag')
+        throw new CliError(
+            'CONFLICTING_OPTIONS',
+            'Cannot specify workspace both as argument and --workspace flag',
+        )
     }
 
     let workspaceId: number

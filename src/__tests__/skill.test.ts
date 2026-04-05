@@ -282,16 +282,10 @@ describe('skill command', () => {
 
     it('errors on unknown agent', async () => {
         const program = createProgram()
-        const exitSpy = vi.spyOn(process, 'exit').mockImplementation(() => {
-            throw new Error('process.exit')
-        })
 
         await expect(
             program.parseAsync(['node', 'tw', 'skill', 'install', 'unknown-agent', '--local']),
-        ).rejects.toThrow()
-
-        expect(consoleErrorSpy).toHaveBeenCalledWith(expect.stringContaining('Unknown agent'))
-        exitSpy.mockRestore()
+        ).rejects.toHaveProperty('code', 'UNKNOWN_AGENT')
     })
 
     it('updates a specific agent', async () => {
@@ -305,16 +299,10 @@ describe('skill command', () => {
 
     it('errors on update of unknown agent', async () => {
         const program = createProgram()
-        const exitSpy = vi.spyOn(process, 'exit').mockImplementation(() => {
-            throw new Error('process.exit')
-        })
 
         await expect(
             program.parseAsync(['node', 'tw', 'skill', 'update', 'unknown-agent', '--local']),
-        ).rejects.toThrow()
-
-        expect(consoleErrorSpy).toHaveBeenCalledWith(expect.stringContaining('Unknown agent'))
-        exitSpy.mockRestore()
+        ).rejects.toHaveProperty('code', 'UNKNOWN_AGENT')
     })
 
     it('updates all installed agents', async () => {

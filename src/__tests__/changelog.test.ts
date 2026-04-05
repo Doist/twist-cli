@@ -61,11 +61,9 @@ function createProgram() {
 
 describe('changelog command', () => {
     let consoleSpy: ReturnType<typeof vi.spyOn>
-    let consoleErrorSpy: ReturnType<typeof vi.spyOn>
-
     beforeEach(() => {
         consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
-        consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+        vi.spyOn(console, 'error').mockImplementation(() => {})
         process.exitCode = undefined
     })
 
@@ -122,13 +120,10 @@ describe('changelog command', () => {
         mockReadFile.mockRejectedValue(new Error('ENOENT'))
 
         const program = createProgram()
-        await program.parseAsync(['node', 'tw', 'changelog'])
-
-        expect(consoleErrorSpy).toHaveBeenCalledWith(
-            expect.anything(),
-            expect.stringContaining('Could not read changelog file'),
+        await expect(program.parseAsync(['node', 'tw', 'changelog'])).rejects.toHaveProperty(
+            'code',
+            'FILE_READ_ERROR',
         )
-        expect(process.exitCode).toBe(1)
     })
 
     it('skips dependency-only versions', async () => {
@@ -167,12 +162,8 @@ describe('changelog command', () => {
 
     it('handles invalid count', async () => {
         const program = createProgram()
-        await program.parseAsync(['node', 'tw', 'changelog', '-n', 'abc'])
-
-        expect(consoleErrorSpy).toHaveBeenCalledWith(
-            expect.anything(),
-            expect.stringContaining('Count must be a positive number'),
-        )
-        expect(process.exitCode).toBe(1)
+        await expect(
+            program.parseAsync(['node', 'tw', 'changelog', '-n', 'abc']),
+        ).rejects.toHaveProperty('code', 'INVALID_TYPE')
     })
 })

@@ -1,6 +1,7 @@
 import chalk from 'chalk'
 import { Command } from 'commander'
 import { getCurrentWorkspaceId, getSessionUser, getWorkspaceUsers } from '../lib/api.js'
+import { CliError } from '../lib/errors.js'
 import type { ViewOptions } from '../lib/options.js'
 import { colors, formatJson, formatNdjson } from '../lib/output.js'
 import { resolveWorkspaceRef } from '../lib/refs.js'
@@ -22,7 +23,10 @@ async function showCurrentUser(): Promise<void> {
 
 async function listUsers(workspaceRef: string | undefined, options: UsersOptions): Promise<void> {
     if (workspaceRef && options.workspace) {
-        throw new Error('Cannot specify workspace both as argument and --workspace flag')
+        throw new CliError(
+            'CONFLICTING_OPTIONS',
+            'Cannot specify workspace both as argument and --workspace flag',
+        )
     }
 
     let workspaceId: number

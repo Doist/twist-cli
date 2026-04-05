@@ -231,11 +231,9 @@ describe('update command', () => {
             mockFetchError(503)
 
             const program = createProgram()
-            await program.parseAsync(['node', 'tw', 'update'])
-
-            expect(consoleErrorSpy).toHaveBeenCalledWith(
-                'Failed to check for updates:',
-                'Registry returned 503',
+            await expect(program.parseAsync(['node', 'tw', 'update'])).rejects.toHaveProperty(
+                'code',
+                'API_ERROR',
             )
         })
 
@@ -243,11 +241,9 @@ describe('update command', () => {
             mockFetchNetworkError('ENOTFOUND')
 
             const program = createProgram()
-            await program.parseAsync(['node', 'tw', 'update'])
-
-            expect(consoleErrorSpy).toHaveBeenCalledWith(
-                'Failed to check for updates:',
-                expect.stringContaining('ENOTFOUND'),
+            await expect(program.parseAsync(['node', 'tw', 'update'])).rejects.toHaveProperty(
+                'code',
+                'API_ERROR',
             )
         })
     })
@@ -258,11 +254,9 @@ describe('update command', () => {
             mockSpawnPermissionError()
 
             const program = createProgram()
-            await program.parseAsync(['node', 'tw', 'update'])
-
-            expect(consoleErrorSpy).toHaveBeenCalledWith(
-                'Permission denied.',
-                expect.stringContaining('sudo'),
+            await expect(program.parseAsync(['node', 'tw', 'update'])).rejects.toHaveProperty(
+                'code',
+                'INTERNAL_ERROR',
             )
         })
 
@@ -271,11 +265,9 @@ describe('update command', () => {
             mockSpawnFailure(1)
 
             const program = createProgram()
-            await program.parseAsync(['node', 'tw', 'update'])
-
-            expect(consoleErrorSpy).toHaveBeenCalledWith(
-                'Update failed:',
-                expect.stringContaining('exited with code 1'),
+            await expect(program.parseAsync(['node', 'tw', 'update'])).rejects.toHaveProperty(
+                'code',
+                'INTERNAL_ERROR',
             )
         })
     })
@@ -381,30 +373,19 @@ describe('update command', () => {
 
         it('errors when both flags specified', async () => {
             const program = createProgram()
-            await program.parseAsync([
-                'node',
-                'tw',
-                'update',
-                'switch',
-                '--stable',
-                '--pre-release',
-            ])
+            await expect(
+                program.parseAsync(['node', 'tw', 'update', 'switch', '--stable', '--pre-release']),
+            ).rejects.toHaveProperty('code', 'CONFLICTING_OPTIONS')
 
-            expect(consoleErrorSpy).toHaveBeenCalledWith(
-                'Error:',
-                'Specify either --stable or --pre-release, not both.',
-            )
             expect(mockSetConfig).not.toHaveBeenCalled()
         })
 
         it('errors when no flags specified', async () => {
             const program = createProgram()
-            await program.parseAsync(['node', 'tw', 'update', 'switch'])
+            await expect(
+                program.parseAsync(['node', 'tw', 'update', 'switch']),
+            ).rejects.toHaveProperty('code', 'CONFLICTING_OPTIONS')
 
-            expect(consoleErrorSpy).toHaveBeenCalledWith(
-                'Error:',
-                'Specify --stable or --pre-release.',
-            )
             expect(mockSetConfig).not.toHaveBeenCalled()
         })
 
@@ -462,12 +443,10 @@ describe('update command', () => {
             mockGetConfig.mockResolvedValue({})
 
             const program = createProgram()
-            await program.parseAsync(['node', 'tw', 'update', '--channel', '--check'])
+            await expect(
+                program.parseAsync(['node', 'tw', 'update', '--channel', '--check']),
+            ).rejects.toHaveProperty('code', 'CONFLICTING_OPTIONS')
 
-            expect(consoleErrorSpy).toHaveBeenCalledWith(
-                'Error:',
-                'Specify either --check or --channel, not both.',
-            )
             expect(mockSpawn).not.toHaveBeenCalled()
         })
     })

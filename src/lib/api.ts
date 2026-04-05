@@ -1,6 +1,7 @@
 import { TwistApi, type User, type Workspace, type WorkspaceUser } from '@doist/twist-sdk'
 import { getApiToken } from './auth.js'
 import { getConfig, updateConfig } from './config.js'
+import { CliError } from './errors.js'
 import { ensureWriteAllowed, isMutatingMethod } from './permissions.js'
 import { getProgressTracker } from './progress.js'
 import { withSpinner } from './spinner.js'
@@ -246,7 +247,7 @@ export async function getCurrentWorkspaceId(flagValue?: number): Promise<number>
 
     const workspaces = await fetchWorkspaces()
     if (workspaces.length === 0) {
-        throw new Error('No workspaces found for this user')
+        throw new CliError('NOT_FOUND', 'No workspaces found for this user')
     }
 
     const defaultWorkspace = workspaces[0]
@@ -280,7 +281,7 @@ export function clearUserCache(): void {
  */
 export function assertBatchData<T>(response: { code: number; data: T }, label: string): T {
     if (response.code >= 400 || response.data == null) {
-        throw new Error(`Failed to fetch ${label}.`)
+        throw new CliError('BATCH_FAILED', `Failed to fetch ${label}.`)
     }
     return response.data
 }

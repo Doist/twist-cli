@@ -2,6 +2,9 @@
 
 import { type Command, program } from 'commander'
 import pkg from '../package.json' with { type: 'json' }
+import { CliError } from './lib/errors.js'
+import { isJsonMode } from './lib/global-args.js'
+import { formatError, formatErrorJson } from './lib/output.js'
 import { startEarlySpinner, stopEarlySpinner } from './lib/spinner.js'
 
 const loadWorkspaceCommand = async () =>
@@ -156,8 +159,19 @@ if (process.argv[2] === 'completion-server') {
     }
 }
 
-try {
-    await program.parseAsync()
-} finally {
-    stopEarlySpinner()
-}
+await program
+    .parseAsync()
+    .catch((err: Error) => {
+        stopEarlySpinner()
+        if (err instanceof CliError) {
+            console.error(isJsonMode() ? formatErrorJson(err) : formatError(err))
+        } else {
+            console.error(
+                isJsonMode() ? formatErrorJson('INTERNAL_ERROR', err.message) : err.message,
+            )
+        }
+        process.exitCode = 1
+    })
+    .finally(() => {
+        stopEarlySpinner()
+    })

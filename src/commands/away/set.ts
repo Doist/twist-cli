@@ -1,5 +1,6 @@
 import { AWAY_MODE_TYPES, type AwayModeType } from '@doist/twist-sdk'
 import { getTwistClient } from '../../lib/api.js'
+import { CliError } from '../../lib/errors.js'
 import type { MutationOptions, ViewOptions } from '../../lib/options.js'
 import { formatJson } from '../../lib/output.js'
 import { formatAwayType, handleAwayError, todayStr, tomorrowStr } from './helpers.js'
@@ -12,8 +13,10 @@ export async function setAway(
     options: SetAwayOptions,
 ): Promise<void> {
     if (!AWAY_MODE_TYPES.includes(type as AwayModeType)) {
-        console.error(`Invalid away type: ${type}. Use: ${AWAY_MODE_TYPES.join(', ')}`)
-        process.exit(1)
+        throw new CliError(
+            'INVALID_TYPE',
+            `Invalid away type: ${type}. Use: ${AWAY_MODE_TYPES.join(', ')}`,
+        )
     }
 
     const dateFrom = options.from ?? todayStr()

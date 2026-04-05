@@ -1,6 +1,7 @@
 import { mkdir, rm, stat, writeFile } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { dirname, join } from 'node:path'
+import { CliError } from '../errors.js'
 import { SKILL_FILE_CONTENT, SKILL_NAME } from './content.js'
 import type { InstallOptions, SkillInstaller, UninstallOptions, UpdateOptions } from './types.js'
 
@@ -37,7 +38,8 @@ export function createInstaller(config: InstallerConfig): SkillInstaller {
                 try {
                     await stat(agentDir)
                 } catch {
-                    throw new Error(
+                    throw new CliError(
+                        'NOT_INSTALLED',
                         `${config.name} does not appear to be installed (${agentDir} not found)`,
                     )
                 }
@@ -47,7 +49,8 @@ export function createInstaller(config: InstallerConfig): SkillInstaller {
             const exists = await this.isInstalled(options)
 
             if (exists && !options.force) {
-                throw new Error(
+                throw new CliError(
+                    'ALREADY_INSTALLED',
                     `Skill already installed at ${skillPath}. Use --force to overwrite.`,
                 )
             }
@@ -61,7 +64,7 @@ export function createInstaller(config: InstallerConfig): SkillInstaller {
             const exists = await this.isInstalled(options)
 
             if (!exists) {
-                throw new Error(`Skill not installed at ${skillPath}`)
+                throw new CliError('NOT_INSTALLED', `Skill not installed at ${skillPath}`)
             }
 
             await writeFile(skillPath, SKILL_FILE_CONTENT)
@@ -72,7 +75,7 @@ export function createInstaller(config: InstallerConfig): SkillInstaller {
             const exists = await this.isInstalled(options)
 
             if (!exists) {
-                throw new Error(`Skill not installed at ${skillPath}`)
+                throw new CliError('NOT_INSTALLED', `Skill not installed at ${skillPath}`)
             }
 
             const skillDir = dirname(skillPath)

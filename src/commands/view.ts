@@ -1,4 +1,5 @@
 import { Command } from 'commander'
+import { CliError } from '../lib/errors.js'
 import { classifyTwistUrl } from '../lib/refs.js'
 
 function looksLikeTwistAppUrl(token: string): boolean {
@@ -50,14 +51,14 @@ Examples:
         )
         .action(async (url: string) => {
             if (!looksLikeTwistAppUrl(url)) {
-                throw new Error(`Not a recognized Twist URL: ${url}`)
+                throw new CliError('INVALID_URL', `Not a recognized Twist URL: ${url}`)
             }
 
             const { url: resolvedUrl, passthroughArgs } = extractViewInvocation(url)
 
             const route = classifyTwistUrl(resolvedUrl)
             if (!route) {
-                throw new Error(`Not a recognized Twist URL: ${resolvedUrl}`)
+                throw new CliError('INVALID_URL', `Not a recognized Twist URL: ${resolvedUrl}`)
             }
 
             switch (route.entityType) {

@@ -1,4 +1,5 @@
 import { getTwistClient } from '../../lib/api.js'
+import { CliError } from '../../lib/errors.js'
 import { openEditor, readStdin } from '../../lib/input.js'
 import type { MutationOptions } from '../../lib/options.js'
 import { formatJson } from '../../lib/output.js'
@@ -25,9 +26,10 @@ export async function createThread(
         threadContent = await openEditor()
     }
     if (!threadContent || threadContent.trim() === '') {
-        console.error('Error: no content provided. Pass content as an argument or pipe via stdin.')
-        process.exitCode = 1
-        return
+        throw new CliError(
+            'MISSING_CONTENT',
+            'No content provided. Pass content as an argument or pipe via stdin.',
+        )
     }
 
     const recipients = options.notify ? parseUserIdRefs(options.notify) : undefined

@@ -3,6 +3,7 @@ import { Command, Option } from 'commander'
 import { getCurrentWorkspaceId } from '../lib/api.js'
 import { withCaseInsensitiveChoices } from '../lib/completion.js'
 import { formatRelativeDate } from '../lib/dates.js'
+import { CliError } from '../lib/errors.js'
 import { includePrivateChannels } from '../lib/global-args.js'
 import type { PaginatedViewOptions } from '../lib/options.js'
 import { colors, formatJson } from '../lib/output.js'
@@ -15,37 +16,22 @@ import {
 } from '../lib/refs.js'
 import { extendedSearch, type SearchType } from '../lib/search-api.js'
 
-async function resolveUserRefsOrExit(
-    refs: string | undefined,
-    workspaceId: number,
-): Promise<number[] | undefined> {
-    if (!refs) return undefined
-    try {
-        return await resolveUserRefs(refs, workspaceId)
-    } catch (e) {
-        console.error((e as Error).message)
-        process.exit(1)
-    }
-}
-
-function resolveNumericRefsOrExit(
+function resolveNumericRefs(
     refs: string | undefined,
     entityType: string,
     resolver: (ref: string) => number,
 ): number[] | undefined {
     if (!refs) return undefined
-    try {
-        return refs.split(',').map((raw) => {
-            const ref = raw.trim()
-            if (!ref) {
-                throw new Error(`Invalid ${entityType} reference list: found empty value`)
-            }
-            return resolver(ref)
-        })
-    } catch (e) {
-        console.error((e as Error).message)
-        process.exit(1)
-    }
+    return refs.split(',').map((raw) => {
+        const ref = raw.trim()
+        if (!ref) {
+            throw new CliError(
+                'INVALID_REF',
+                `Invalid ${entityType} reference list: found empty value`,
+            )
+        }
+        return resolver(ref)
+    })
 }
 
 type SearchOptions = PaginatedViewOptions & {
@@ -66,7 +52,10 @@ async function search(
     options: SearchOptions,
 ): Promise<void> {
     if (workspaceRef && options.workspace) {
-        throw new Error('Cannot specify workspace both as argument and --workspace flag')
+        throw new CliError(
+            'CONFLICTING_OPTIONS',
+            'Cannot specify workspace both as argument and --workspace flag',
+        )
     }
 
     let workspaceId: number
@@ -81,12 +70,14 @@ async function search(
 
     const limit = options.limit ? parseInt(options.limit, 10) : 50
 
-    const channelIds = resolveNumericRefsOrExit(options.channel, 'channel', resolveChannelId)
+    const channelIds = resolveNumericRefs(options.channel, 'channel', resolveChannelId)
 
-    const authorIds = await resolveUserRefsOrExit(options.author, workspaceId)
-    const toUserIds = await resolveUserRefsOrExit(options.to, workspaceId)
+    const authorIds = options.author
+        ? await resolveUserRefs(options.author, workspaceId)
+        : undefined
+    const toUserIds = options.to ? await resolveUserRefs(options.to, workspaceId) : undefined
 
-    const conversationIds = resolveNumericRefsOrExit(
+    const conversationIds = resolveNumericRefs(
         options.conversation,
         'conversation',
         resolveConversationId,

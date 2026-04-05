@@ -1,6 +1,7 @@
 import { createInterface } from 'node:readline'
 import chalk from 'chalk'
 import { saveApiToken } from '../../lib/auth.js'
+import { CliError } from '../../lib/errors.js'
 import { isNonInteractive } from '../../lib/global-args.js'
 import { logTokenStorageResult } from './helpers.js'
 
@@ -29,17 +30,14 @@ function promptHiddenInput(prompt: string): Promise<string> {
 export async function loginWithToken(token?: string): Promise<void> {
     if (!token) {
         if (isNonInteractive()) {
-            console.error(
-                'Error: cannot prompt for token in non-interactive mode. Set the TWIST_API_TOKEN environment variable instead.',
+            throw new CliError(
+                'NO_TOKEN',
+                'Cannot prompt for token in non-interactive mode. Set the TWIST_API_TOKEN environment variable instead.',
             )
-            process.exitCode = 1
-            return
         }
         token = await promptHiddenInput('API token: ')
         if (!token.trim()) {
-            console.error(chalk.red('Error:'), 'No token provided')
-            process.exitCode = 1
-            return
+            throw new CliError('NO_TOKEN', 'No token provided')
         }
     }
     const saveResult = await saveApiToken(token.trim(), { authMode: 'unknown' })

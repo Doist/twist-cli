@@ -1,5 +1,6 @@
 import type { Workspace } from '@doist/twist-sdk'
 import { fetchWorkspaces } from './api.js'
+import { CliError } from './errors.js'
 
 function normalizeRef(ref: string): string {
     return ref.trim()
@@ -13,7 +14,7 @@ export function extractId(ref: string): number {
     const normalized = normalizeRef(ref)
     const idStr = isIdRef(normalized) ? normalized.slice(3).trim() : normalized
     if (!/^\d+$/.test(idStr)) {
-        throw new Error(`Invalid ID: ${ref}`)
+        throw new CliError('INVALID_ID', `Invalid ID: ${ref}`)
     }
     return Number(idStr)
 }
@@ -114,7 +115,7 @@ export async function resolveWorkspaceRef(ref: string): Promise<Workspace> {
     if (parsed.type === 'id') {
         const workspace = workspaces.find((w) => w.id === parsed.id)
         if (!workspace) {
-            throw new Error(`Workspace with ID ${parsed.id} not found`)
+            throw new CliError('WORKSPACE_NOT_FOUND', `Workspace with ID ${parsed.id} not found`)
         }
         return workspace
     }
@@ -122,7 +123,10 @@ export async function resolveWorkspaceRef(ref: string): Promise<Workspace> {
     if (parsed.type === 'url' && parsed.parsed.workspaceId) {
         const workspace = workspaces.find((w) => w.id === parsed.parsed.workspaceId)
         if (!workspace) {
-            throw new Error(`Workspace with ID ${parsed.parsed.workspaceId} not found`)
+            throw new CliError(
+                'WORKSPACE_NOT_FOUND',
+                `Workspace with ID ${parsed.parsed.workspaceId} not found`,
+            )
         }
         return workspace
     }
@@ -139,11 +143,14 @@ export async function resolveWorkspaceRef(ref: string): Promise<Workspace> {
                 .slice(0, 5)
                 .map((w) => `"${w.name}" (id:${w.id})`)
                 .join(', ')
-            throw new Error(`Multiple workspaces match "${ref}": ${matches}`)
+            throw new CliError(
+                'AMBIGUOUS_WORKSPACE',
+                `Multiple workspaces match "${ref}": ${matches}`,
+            )
         }
     }
 
-    throw new Error(`Workspace "${ref}" not found`)
+    throw new CliError('WORKSPACE_NOT_FOUND', `Workspace "${ref}" not found`)
 }
 
 export function resolveThreadId(ref: string): number {
@@ -157,7 +164,10 @@ export function resolveThreadId(ref: string): number {
         return parsed.parsed.threadId
     }
 
-    throw new Error(`Invalid thread reference: ${ref}. Use 123, id:123, or a Twist URL.`)
+    throw new CliError(
+        'INVALID_REF',
+        `Invalid thread reference: ${ref}. Use 123, id:123, or a Twist URL.`,
+    )
 }
 
 export function resolveChannelId(ref: string): number {
@@ -171,7 +181,10 @@ export function resolveChannelId(ref: string): number {
         return parsed.parsed.channelId
     }
 
-    throw new Error(`Invalid channel reference: ${ref}. Use 123, id:123, or a Twist URL.`)
+    throw new CliError(
+        'INVALID_REF',
+        `Invalid channel reference: ${ref}. Use 123, id:123, or a Twist URL.`,
+    )
 }
 
 export function resolveCommentId(ref: string): number {
@@ -185,7 +198,10 @@ export function resolveCommentId(ref: string): number {
         return parsed.parsed.commentId
     }
 
-    throw new Error(`Invalid comment reference: ${ref}. Use 123, id:123, or a Twist URL.`)
+    throw new CliError(
+        'INVALID_REF',
+        `Invalid comment reference: ${ref}. Use 123, id:123, or a Twist URL.`,
+    )
 }
 
 export function resolveConversationId(ref: string): number {
@@ -199,7 +215,10 @@ export function resolveConversationId(ref: string): number {
         return parsed.parsed.conversationId
     }
 
-    throw new Error(`Invalid conversation reference: ${ref}. Use 123, id:123, or a Twist URL.`)
+    throw new CliError(
+        'INVALID_REF',
+        `Invalid conversation reference: ${ref}. Use 123, id:123, or a Twist URL.`,
+    )
 }
 
 export function resolveMessageId(ref: string): number {
@@ -213,7 +232,10 @@ export function resolveMessageId(ref: string): number {
         return parsed.parsed.messageId
     }
 
-    throw new Error(`Invalid message reference: ${ref}. Use 123, id:123, or a Twist URL.`)
+    throw new CliError(
+        'INVALID_REF',
+        `Invalid message reference: ${ref}. Use 123, id:123, or a Twist URL.`,
+    )
 }
 
 export type TwistUrlRoute = {
@@ -237,16 +259,15 @@ export function parseUserIdRefs(refs: string): number[] {
     return refs.split(',').map((userRef) => {
         const trimmed = userRef.trim()
         if (!trimmed) {
-            console.error('Invalid user reference list: found empty value')
-            process.exit(1)
-            return 0
+            throw new CliError('INVALID_REF', 'Invalid user reference list: found empty value')
         }
         try {
             return extractId(trimmed)
         } catch {
-            console.error(`Invalid user reference: ${trimmed}. Use 123 or id:123`)
-            process.exit(1)
-            return 0
+            throw new CliError(
+                'INVALID_REF',
+                `Invalid user reference: ${trimmed}. Use 123 or id:123`,
+            )
         }
     })
 }
@@ -271,12 +292,15 @@ export async function resolveUserRefs(refs: string, workspaceId: number): Promis
         )
 
         if (matches.length === 0) {
-            throw new Error(`No user found matching "${ref}"`)
+            throw new CliError('USER_NOT_FOUND', `No user found matching "${ref}"`)
         }
 
         if (matches.length > 1) {
             const list = matches.map((u) => `  ${u.id}  ${u.name} <${u.email ?? ''}>`).join('\n')
-            throw new Error(`Multiple users match "${ref}":\n${list}\n\nUse numeric ID to specify.`)
+            throw new CliError(
+                'AMBIGUOUS_USER',
+                `Multiple users match "${ref}":\n${list}\n\nUse numeric ID to specify.`,
+            )
         }
 
         ids.push(matches[0].id)

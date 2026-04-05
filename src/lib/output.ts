@@ -1,4 +1,5 @@
 import chalk from 'chalk'
+import type { CliError } from './errors.js'
 
 export const colors = {
     author: chalk.cyan,
@@ -171,8 +172,39 @@ export function formatPaginatedNdjson<T extends object>(
     return lines.join('\n')
 }
 
-export function formatError(message: string): string {
-    return colors.error(message)
+export function formatError(error: CliError): string
+export function formatError(message: string): string
+export function formatError(messageOrError: string | CliError): string {
+    if (typeof messageOrError === 'string') {
+        return colors.error(messageOrError)
+    }
+    const color = messageOrError.type === 'info' ? chalk.yellow : chalk.red
+    const lines =
+        messageOrError.type === 'info'
+            ? [messageOrError.message]
+            : [`Error: ${messageOrError.code}`, messageOrError.message]
+    if (messageOrError.hints && messageOrError.hints.length > 0) {
+        lines.push('')
+        for (const hint of messageOrError.hints) {
+            lines.push(`  - ${hint}`)
+        }
+    }
+    return color(lines.join('\n'))
+}
+
+export function formatErrorJson(error: CliError): string
+export function formatErrorJson(code: string, message: string, hints?: string[]): string
+export function formatErrorJson(
+    codeOrError: string | CliError,
+    message?: string,
+    hints?: string[],
+): string {
+    if (typeof codeOrError === 'string') {
+        return JSON.stringify({ error: { code: codeOrError, message, hints } })
+    }
+    return JSON.stringify({
+        error: { code: codeOrError.code, message: codeOrError.message, hints: codeOrError.hints },
+    })
 }
 
 export function printError(message: string): void {

@@ -2,6 +2,8 @@
  * OAuth flow coordination for Twist API authentication
  */
 
+import { CliError } from './errors.js'
+
 // OAuth configuration for Twist (using well-known endpoints with dynamic client registration)
 export const AUTHORIZATION_URL = 'https://twist.com/oauth/authorize'
 export const TOKEN_URL = 'https://twist.com/oauth/access_token'
@@ -75,7 +77,8 @@ export async function registerDynamicClient(): Promise<OAuthClient> {
 
         if (!response.ok) {
             const errorText = await response.text()
-            throw new Error(
+            throw new CliError(
+                'AUTH_FAILED',
                 `Client registration failed: ${response.status} ${response.statusText} - ${errorText}`,
             )
         }
@@ -83,7 +86,8 @@ export async function registerDynamicClient(): Promise<OAuthClient> {
         const result = await response.json()
 
         if (!result.client_id || !result.client_secret) {
-            throw new Error(
+            throw new CliError(
+                'AUTH_FAILED',
                 'Invalid client registration response: missing client_id or client_secret',
             )
         }
@@ -93,10 +97,11 @@ export async function registerDynamicClient(): Promise<OAuthClient> {
             client_secret: result.client_secret,
         }
     } catch (error) {
+        if (error instanceof CliError) throw error
         if (error instanceof Error) {
-            throw new Error(`Failed to register OAuth client: ${error.message}`)
+            throw new CliError('AUTH_FAILED', `Failed to register OAuth client: ${error.message}`)
         }
-        throw new Error('Failed to register OAuth client: Unknown error')
+        throw new CliError('AUTH_FAILED', 'Failed to register OAuth client: Unknown error')
     }
 }
 
@@ -155,7 +160,8 @@ export async function exchangeCodeForToken(
 
         if (!response.ok) {
             const errorText = await response.text()
-            throw new Error(
+            throw new CliError(
+                'AUTH_FAILED',
                 `Token exchange failed: ${response.status} ${response.statusText} - ${errorText}`,
             )
         }
@@ -163,20 +169,22 @@ export async function exchangeCodeForToken(
         const data = await response.json()
 
         if (data.error) {
-            throw new Error(
+            throw new CliError(
+                'AUTH_FAILED',
                 `OAuth error: ${data.error} - ${data.error_description || 'Unknown error'}`,
             )
         }
 
         if (!data.access_token) {
-            throw new Error('No access token received from OAuth server')
+            throw new CliError('AUTH_FAILED', 'No access token received from OAuth server')
         }
 
         return data.access_token
     } catch (error) {
+        if (error instanceof CliError) throw error
         if (error instanceof Error) {
-            throw new Error(`Failed to exchange code for token: ${error.message}`)
+            throw new CliError('AUTH_FAILED', `Failed to exchange code for token: ${error.message}`)
         }
-        throw new Error('Failed to exchange code for token: Unknown error')
+        throw new CliError('AUTH_FAILED', 'Failed to exchange code for token: Unknown error')
     }
 }

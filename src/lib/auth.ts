@@ -1,10 +1,23 @@
 import { unlink } from 'node:fs/promises'
 import { type AuthMode, type Config, getConfig, getConfigPath, setConfig } from './config.js'
+import { CliError } from './errors.js'
 import {
     createSecureStore,
     SECURE_STORE_DESCRIPTION,
     SecureStoreUnavailableError,
 } from './secure-store.js'
+
+export class NoTokenError extends CliError {
+    constructor() {
+        super(
+            'NO_TOKEN',
+            `No API token found. Set ${TOKEN_ENV_VAR} or run \`tw auth login\` or \`tw auth token <token>\`.`,
+            ['Set TWIST_API_TOKEN or run: tw auth login'],
+            'info',
+        )
+        this.name = 'NoTokenError'
+    }
+}
 
 export const TOKEN_ENV_VAR = 'TWIST_API_TOKEN'
 export type TokenStorageLocation = 'secure-store' | 'config-file'
@@ -71,9 +84,7 @@ export async function getApiToken(): Promise<string> {
             }
         }
 
-        throw new Error(
-            `No API token found. Set ${TOKEN_ENV_VAR} or run \`tw auth login\` or \`tw auth token <token>\`.`,
-        )
+        throw new NoTokenError()
     }
 
     try {
@@ -87,7 +98,8 @@ export async function getApiToken(): Promise<string> {
         }
     }
 
-    throw new Error(
+    throw new CliError(
+        'NO_TOKEN',
         `No API token found. Set ${TOKEN_ENV_VAR} or run \`tw auth login\` or \`tw auth token <token>\`.`,
     )
 }
@@ -112,7 +124,7 @@ export async function saveApiToken(
 ): Promise<TokenStorageResult> {
     // Validate token (non-empty, reasonable length)
     if (!token || token.trim().length < 10) {
-        throw new Error('Invalid token: Token must be at least 10 characters')
+        throw new CliError('INVALID_TOKEN', 'Invalid token: Token must be at least 10 characters')
     }
 
     const trimmedToken = token.trim()

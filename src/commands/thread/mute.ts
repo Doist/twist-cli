@@ -1,4 +1,5 @@
 import { getTwistClient } from '../../lib/api.js'
+import { CliError } from '../../lib/errors.js'
 import type { MutationOptions } from '../../lib/options.js'
 import { formatJson } from '../../lib/output.js'
 import { assertChannelIsPublic } from '../../lib/public-channels.js'
@@ -12,8 +13,10 @@ function parseMinutes(value: string | undefined): number {
     if (!value) return 60
     const parsed = Number(value)
     if (!Number.isInteger(parsed) || parsed <= 0) {
-        console.error(`Invalid --minutes value: ${value} (must be a positive integer)`)
-        process.exit(1)
+        throw new CliError(
+            'INVALID_MINUTES',
+            `Invalid --minutes value: ${value} (must be a positive integer)`,
+        )
     }
     return parsed
 }

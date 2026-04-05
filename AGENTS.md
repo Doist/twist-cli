@@ -59,7 +59,16 @@ This is a TypeScript CLI (`tw`) for Twist messaging, built with Commander.js.
 
 ## Error Handling
 
-- **Never use `process.exit(1)` in command handlers.** It terminates immediately without running `finally` blocks, which leaves the early loading spinner stuck in the terminal. Use `process.exitCode = 1` followed by `return` instead �� this lets the process exit cleanly after spinner cleanup.
+- **Always use `CliError` from `src/lib/errors.ts`** instead of bare `throw new Error(...)`, `console.error() + process.exit(1)`, or `console.error() + process.exitCode = 1`. This ensures structured error output in `--json` mode and consistent formatting in text mode. The global error handler in `src/index.ts` catches all errors, formats them appropriately, and sets the exit code.
+
+```typescript
+import { CliError } from '../../lib/errors.js'
+
+throw new CliError('ERROR_CODE', 'User-facing message', ['Optional hint'])
+```
+
+- When adding a new error code, add it to the `ErrorCode` type in `src/lib/errors.ts` under the appropriate category.
+- **Never use `process.exit(1)` in command handlers.** It terminates immediately without running `finally` blocks, which leaves the early loading spinner stuck in the terminal. Use `throw new CliError(...)` instead — this lets the process exit cleanly after spinner cleanup.
 
 ## Pre-commit Hooks
 
