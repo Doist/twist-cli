@@ -283,26 +283,19 @@ describe('thread implicit view', () => {
 
     it('--close and --reopen together produces an error', async () => {
         const program = createProgram()
-        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
-        const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
 
-        await program.parseAsync([
-            'node',
-            'tw',
-            'thread',
-            'reply',
-            '100',
-            'content',
-            '--close',
-            '--reopen',
-        ])
-
-        expect(errorSpy).toHaveBeenCalledWith('Cannot use --close and --reopen together.')
-        expect(process.exitCode).toBe(1)
-
-        consoleSpy.mockRestore()
-        errorSpy.mockRestore()
-        process.exitCode = undefined
+        await expect(
+            program.parseAsync([
+                'node',
+                'tw',
+                'thread',
+                'reply',
+                '100',
+                'content',
+                '--close',
+                '--reopen',
+            ]),
+        ).rejects.toHaveProperty('code', 'CONFLICTING_OPTIONS')
     })
 })
 
@@ -629,19 +622,10 @@ describe('thread create', () => {
 
     it('errors when no content is provided', async () => {
         const program = createProgram()
-        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
-        const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
 
-        await program.parseAsync(['node', 'tw', 'thread', 'create', '100', 'My Title'])
-
-        expect(errorSpy).toHaveBeenCalledWith(
-            'Error: no content provided. Pass content as an argument or pipe via stdin.',
-        )
-        expect(process.exitCode).toBe(1)
-
-        consoleSpy.mockRestore()
-        errorSpy.mockRestore()
-        process.exitCode = undefined
+        await expect(
+            program.parseAsync(['node', 'tw', 'thread', 'create', '100', 'My Title']),
+        ).rejects.toHaveProperty('code', 'MISSING_CONTENT')
     })
 })
 
@@ -710,21 +694,10 @@ describe('thread mute', () => {
 
     it('rejects non-integer --minutes value', async () => {
         const program = createProgram()
-        const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
-        const exitSpy = vi.spyOn(process, 'exit').mockImplementation(() => {
-            throw new Error('process.exit')
-        })
 
         await expect(
             program.parseAsync(['node', 'tw', 'thread', 'mute', '500', '--minutes', 'foo']),
-        ).rejects.toThrow('process.exit')
-
-        expect(errorSpy).toHaveBeenCalledWith(
-            'Invalid --minutes value: foo (must be a positive integer)',
-        )
-
-        errorSpy.mockRestore()
-        exitSpy.mockRestore()
+        ).rejects.toHaveProperty('code', 'INVALID_MINUTES')
     })
 })
 
@@ -822,31 +795,23 @@ describe('thread delete', () => {
         const client = createClient()
         apiMocks.getTwistClient.mockResolvedValue(client)
         const program = createProgram()
-        const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
 
-        await program.parseAsync(['node', 'tw', 'thread', 'delete', '500', '--json'])
+        await expect(
+            program.parseAsync(['node', 'tw', 'thread', 'delete', '500', '--json']),
+        ).rejects.toHaveProperty('code', 'MISSING_YES_FLAG')
 
-        expect(consoleSpy).toHaveBeenCalledWith(
-            'Error: --yes is required to execute deletion in --json mode.',
-        )
-        expect(process.exitCode).toBe(1)
         expect(client.threads.deleteThread).not.toHaveBeenCalled()
-        consoleSpy.mockRestore()
-        process.exitCode = undefined
     })
 
     it('errors when thread creator does not match session user', async () => {
         const client = createClient({ sessionUser: { id: 999, name: 'Other User' } })
         apiMocks.getTwistClient.mockResolvedValue(client)
         const program = createProgram()
-        const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
 
-        await program.parseAsync(['node', 'tw', 'thread', 'delete', '500', '--yes'])
+        await expect(
+            program.parseAsync(['node', 'tw', 'thread', 'delete', '500', '--yes']),
+        ).rejects.toHaveProperty('code', 'NOT_CREATOR')
 
-        expect(consoleSpy).toHaveBeenCalledWith('You can only delete threads that you created.')
-        expect(process.exitCode).toBe(1)
         expect(client.threads.deleteThread).not.toHaveBeenCalled()
-        consoleSpy.mockRestore()
-        process.exitCode = undefined
     })
 })

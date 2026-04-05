@@ -2,11 +2,15 @@ import { Command } from 'commander'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 // Mock the auth module
-vi.mock('../lib/auth.js', () => ({
-    saveApiToken: vi.fn(),
-    clearApiToken: vi.fn(),
-    getAuthMetadata: vi.fn(),
-}))
+vi.mock('../lib/auth.js', async (importOriginal) => {
+    const actual = await importOriginal<typeof import('../lib/auth.js')>()
+    return {
+        ...actual,
+        saveApiToken: vi.fn(),
+        clearApiToken: vi.fn(),
+        getAuthMetadata: vi.fn(),
+    }
+})
 
 // Mock the api module
 vi.mock('../lib/api.js', () => ({
@@ -237,14 +241,13 @@ describe('auth command', () => {
             }
             mockCreateInterface.mockReturnValue(mockRl as unknown as Interface)
             const writeSpy = vi.spyOn(process.stdout, 'write').mockImplementation(() => true)
-            const localErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
 
-            await program.parseAsync(['node', 'tw', 'auth', 'token'])
+            await expect(
+                program.parseAsync(['node', 'tw', 'auth', 'token']),
+            ).rejects.toHaveProperty('code', 'NO_TOKEN')
 
             expect(mockSaveApiToken).not.toHaveBeenCalled()
-            expect(localErrorSpy).toHaveBeenCalledWith('Error:', 'No token provided')
             writeSpy.mockRestore()
-            localErrorSpy.mockRestore()
             Object.defineProperty(process.stdin, 'isTTY', {
                 value: originalIsTTY,
                 configurable: true,
@@ -258,17 +261,12 @@ describe('auth command', () => {
                 configurable: true,
             })
             const program = createProgram()
-            const localErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
 
-            await program.parseAsync(['node', 'tw', 'auth', 'token'])
+            await expect(
+                program.parseAsync(['node', 'tw', 'auth', 'token']),
+            ).rejects.toHaveProperty('code', 'NO_TOKEN')
 
             expect(mockSaveApiToken).not.toHaveBeenCalled()
-            expect(localErrorSpy).toHaveBeenCalledWith(
-                'Error: cannot prompt for token in non-interactive mode. Set the TWIST_API_TOKEN environment variable instead.',
-            )
-            expect(process.exitCode).toBe(1)
-            localErrorSpy.mockRestore()
-            process.exitCode = undefined
             Object.defineProperty(process.stdin, 'isTTY', {
                 value: originalIsTTY,
                 configurable: true,
@@ -333,22 +331,17 @@ describe('auth command', () => {
             const program = createProgram()
             mockGetSessionUser.mockRejectedValue(new Error('No API token found'))
 
-            await program.parseAsync(['node', 'tw', 'auth', 'status', '--json'])
-
-            expect(consoleSpy).toHaveBeenCalledWith(
-                JSON.stringify({ error: 'Not authenticated' }, null, 2),
-            )
+            await expect(
+                program.parseAsync(['node', 'tw', 'auth', 'status', '--json']),
+            ).rejects.toThrow('No API token found')
         })
 
         it('shows not authenticated when no token', async () => {
             const program = createProgram()
             mockGetSessionUser.mockRejectedValue(new Error('No API token found'))
 
-            await program.parseAsync(['node', 'tw', 'auth', 'status'])
-
-            expect(consoleSpy).toHaveBeenCalledWith('Not authenticated')
-            expect(consoleSpy).toHaveBeenCalledWith(
-                'Run `tw auth login` for OAuth or `tw auth token <token>` for manual authentication',
+            await expect(program.parseAsync(['node', 'tw', 'auth', 'status'])).rejects.toThrow(
+                'No API token found',
             )
         })
     })

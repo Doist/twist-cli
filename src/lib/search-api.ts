@@ -1,5 +1,6 @@
 import type { SearchResult } from '@doist/twist-sdk'
 import { getApiToken } from './auth.js'
+import { CliError } from './errors.js'
 
 const BASE_URL = 'https://api.twist.com/api/v3'
 
@@ -98,7 +99,7 @@ export async function extendedSearch(
 
     if (!response.ok) {
         const errorText = await response.text()
-        throw new Error(`Search API error (${response.status}): ${errorText}`)
+        throw new CliError('API_ERROR', `Search API error (${response.status}): ${errorText}`)
     }
 
     const data = await response.json()

@@ -1,4 +1,5 @@
 import { getTwistClient } from '../../lib/api.js'
+import { CliError } from '../../lib/errors.js'
 import { openEditor, readStdin } from '../../lib/input.js'
 import { formatJson } from '../../lib/output.js'
 import { resolveConversationId } from '../../lib/refs.js'
@@ -19,9 +20,10 @@ export async function replyToConversation(
         replyContent = await openEditor()
     }
     if (!replyContent || replyContent.trim() === '') {
-        console.error('Error: no content provided. Pass content as an argument or pipe via stdin.')
-        process.exitCode = 1
-        return
+        throw new CliError(
+            'MISSING_CONTENT',
+            'No content provided. Pass content as an argument or pipe via stdin.',
+        )
     }
 
     if (options.dryRun) {

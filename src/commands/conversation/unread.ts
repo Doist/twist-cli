@@ -1,5 +1,6 @@
 import chalk from 'chalk'
 import { getCurrentWorkspaceId, getTwistClient } from '../../lib/api.js'
+import { CliError } from '../../lib/errors.js'
 import { isAccessible } from '../../lib/global-args.js'
 import { colors, formatJson, formatNdjson } from '../../lib/output.js'
 import { resolveWorkspaceRef } from '../../lib/refs.js'
@@ -10,7 +11,10 @@ export async function showUnread(
     options: UnreadOptions,
 ): Promise<void> {
     if (workspaceRef && options.workspace) {
-        throw new Error('Cannot specify workspace both as argument and --workspace flag')
+        throw new CliError(
+            'CONFLICTING_OPTIONS',
+            'Cannot specify workspace both as argument and --workspace flag',
+        )
     }
 
     let workspaceId: number

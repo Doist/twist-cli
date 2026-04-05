@@ -2,6 +2,7 @@ import chalk from 'chalk'
 import { Command } from 'commander'
 import { getCurrentWorkspaceId, getTwistClient } from '../lib/api.js'
 import { formatRelativeDate } from '../lib/dates.js'
+import { CliError } from '../lib/errors.js'
 import { includePrivateChannels, isAccessible } from '../lib/global-args.js'
 import type { PaginatedViewOptions } from '../lib/options.js'
 import { colors, formatJson, formatNdjson } from '../lib/output.js'
@@ -16,7 +17,10 @@ type InboxOptions = PaginatedViewOptions & {
 
 async function showInbox(workspaceRef: string | undefined, options: InboxOptions): Promise<void> {
     if (workspaceRef && options.workspace) {
-        throw new Error('Cannot specify workspace both as argument and --workspace flag')
+        throw new CliError(
+            'CONFLICTING_OPTIONS',
+            'Cannot specify workspace both as argument and --workspace flag',
+        )
     }
 
     let workspaceId: number

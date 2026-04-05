@@ -1,4 +1,5 @@
 import type { SupportedShell } from '@pnpm/tabtab'
+import { CliError } from '../../lib/errors.js'
 import { resolveCompleterCommand } from './helpers.js'
 
 export async function installCompletion(shell?: string): Promise<void> {
@@ -6,11 +7,10 @@ export async function installCompletion(shell?: string): Promise<void> {
     const completer = resolveCompleterCommand()
 
     if (shell && !tabtab.isShellSupported(shell)) {
-        console.error(
+        throw new CliError(
+            'INVALID_TYPE',
             `Unsupported shell: ${shell}. Supported: ${tabtab.SUPPORTED_SHELLS.join(', ')}`,
         )
-        process.exitCode = 1
-        return
     }
 
     await tabtab.install({

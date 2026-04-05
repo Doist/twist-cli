@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url'
 import chalk from 'chalk'
 import type { Command } from 'commander'
 import packageJson from '../../package.json' with { type: 'json' }
+import { CliError } from '../lib/errors.js'
 
 const CHANGELOG_PATH = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'CHANGELOG.md')
 const CHANGELOG_URL = `https://github.com/Doist/twist-cli/blob/v${packageJson.version}/CHANGELOG.md`
@@ -100,18 +101,14 @@ interface ChangelogOptions {
 export async function changelogAction(options: ChangelogOptions): Promise<void> {
     const count = parseInt(options.count, 10)
     if (Number.isNaN(count) || count < 1) {
-        console.error(chalk.red('Error:'), 'Count must be a positive number')
-        process.exitCode = 1
-        return
+        throw new CliError('INVALID_TYPE', 'Count must be a positive number')
     }
 
     let content: string
     try {
         content = await readFile(CHANGELOG_PATH, 'utf-8')
     } catch {
-        console.error(chalk.red('Error:'), 'Could not read changelog file')
-        process.exitCode = 1
-        return
+        throw new CliError('FILE_READ_ERROR', 'Could not read changelog file')
     }
 
     const { text, hasMore } = parseChangelog(content, count)

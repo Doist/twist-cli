@@ -1,40 +1,39 @@
+import { TwistRequestError } from '@doist/twist-sdk'
 import chalk from 'chalk'
 import { getSessionUser } from '../../lib/api.js'
-import { getAuthMetadata } from '../../lib/auth.js'
+import { NoTokenError, getAuthMetadata } from '../../lib/auth.js'
+import { CliError } from '../../lib/errors.js'
+import { formatJson } from '../../lib/output.js'
 
 export async function showStatus(options: { json?: boolean }): Promise<void> {
+    let user
     try {
-        // Try to get session user to verify the token works
-        const user = await getSessionUser()
-        if (options.json) {
-            console.log(
-                JSON.stringify({ id: user.id, email: user.email, name: user.name }, null, 2),
-            )
-            return
+        user = await getSessionUser()
+    } catch (error) {
+        if (error instanceof NoTokenError) throw error
+        if (error instanceof TwistRequestError && error.httpStatusCode === 401) {
+            throw new CliError('NO_TOKEN', 'Not authenticated (token expired or invalid)', [
+                'Run `tw auth login` to re-authenticate',
+            ])
         }
-        const metadata = await getAuthMetadata()
-        const modeLabel =
-            metadata.authMode === 'read-only'
-                ? `read-only (scope: ${metadata.authScope ?? 'unknown'})`
-                : metadata.authMode === 'read-write'
-                  ? 'read-write'
-                  : 'unknown (manual token or env var; assuming write access)'
-
-        console.log(chalk.green('✓'), 'Authenticated')
-        console.log(`  Email: ${user.email}`)
-        console.log(`  Name:  ${user.name}`)
-        console.log(`  Mode:  ${modeLabel}`)
-    } catch {
-        if (options.json) {
-            console.log(JSON.stringify({ error: 'Not authenticated' }, null, 2))
-            process.exitCode = 1
-            return
-        }
-        console.log(chalk.yellow('Not authenticated'))
-        console.log(
-            chalk.dim(
-                'Run `tw auth login` for OAuth or `tw auth token <token>` for manual authentication',
-            ),
-        )
+        throw error
     }
+
+    if (options.json) {
+        console.log(formatJson({ id: user.id, email: user.email, name: user.name }))
+        return
+    }
+
+    const metadata = await getAuthMetadata()
+    const modeLabel =
+        metadata.authMode === 'read-only'
+            ? `read-only (scope: ${metadata.authScope ?? 'unknown'})`
+            : metadata.authMode === 'read-write'
+              ? 'read-write'
+              : 'unknown (manual token or env var; assuming write access)'
+
+    console.log(chalk.green('✓'), 'Authenticated')
+    console.log(`  Email: ${user.email}`)
+    console.log(`  Name:  ${user.name}`)
+    console.log(`  Mode:  ${modeLabel}`)
 }

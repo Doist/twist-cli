@@ -1,19 +1,19 @@
 import chalk from 'chalk'
 import { getConfig, setConfig, type UpdateChannel } from '../../lib/config.js'
+import { CliError } from '../../lib/errors.js'
 
 export async function switchChannel(options: {
     stable?: boolean
     preRelease?: boolean
 }): Promise<void> {
     if (options.stable && options.preRelease) {
-        console.error(chalk.red('Error:'), 'Specify either --stable or --pre-release, not both.')
-        process.exitCode = 1
-        return
+        throw new CliError(
+            'CONFLICTING_OPTIONS',
+            'Specify either --stable or --pre-release, not both.',
+        )
     }
     if (!options.stable && !options.preRelease) {
-        console.error(chalk.red('Error:'), 'Specify --stable or --pre-release.')
-        process.exitCode = 1
-        return
+        throw new CliError('CONFLICTING_OPTIONS', 'Specify --stable or --pre-release.')
     }
 
     const channel: UpdateChannel = options.preRelease ? 'pre-release' : 'stable'

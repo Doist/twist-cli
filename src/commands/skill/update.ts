@@ -1,4 +1,5 @@
 import chalk from 'chalk'
+import { CliError } from '../../lib/errors.js'
 import { getInstaller } from '../../lib/skills/index.js'
 import type { UpdateOptions } from '../../lib/skills/types.js'
 import { updateAllInstalledSkills } from '../../lib/skills/update-installed.js'
@@ -23,7 +24,7 @@ export async function updateSkill(agentName: string, options: UpdateOptions): Pr
         }
 
         if (result.errors.length > 0) {
-            process.exit(1)
+            process.exitCode = 1
         }
         return
     }
@@ -31,18 +32,13 @@ export async function updateSkill(agentName: string, options: UpdateOptions): Pr
     const installer = getInstaller(agentName)
 
     if (!installer) {
-        console.error(`Unknown agent: ${agentName}`)
-        console.error('Run `tw skill list` to see available agents.')
-        process.exit(1)
+        throw new CliError('UNKNOWN_AGENT', `Unknown agent: ${agentName}`, [
+            'Run `tw skill list` to see available agents',
+        ])
     }
 
-    try {
-        await installer.update(options)
-        const location = options.local ? 'locally' : 'globally'
-        console.log(chalk.green('✓'), `Updated ${agentName} ${location}`)
-        console.log(chalk.dim(`  ${installer.getInstallPath(options)}`))
-    } catch (err) {
-        console.error((err as Error).message)
-        process.exit(1)
-    }
+    await installer.update(options)
+    const location = options.local ? 'locally' : 'globally'
+    console.log(chalk.green('✓'), `Updated ${agentName} ${location}`)
+    console.log(chalk.dim(`  ${installer.getInstallPath(options)}`))
 }

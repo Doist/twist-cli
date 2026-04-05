@@ -129,10 +129,6 @@ describe('away', () => {
         })
 
         it('shows friendly error on insufficient scope (403)', async () => {
-            const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
-            const exitSpy = vi.spyOn(process, 'exit').mockImplementation(() => {
-                throw new Error('process.exit')
-            })
             apiMocks.updateUser.mockRejectedValue(
                 new TwistRequestError('Request failed with status 403', 403, {
                     error_code: 109,
@@ -143,31 +139,15 @@ describe('away', () => {
 
             await expect(
                 program.parseAsync(['node', 'tw', 'away', 'set', 'vacation', '2026-03-20']),
-            ).rejects.toThrow()
-
-            expect(errorSpy).toHaveBeenCalledWith(
-                expect.anything(),
-                'The away status feature requires additional permissions.',
-            )
-            expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('tw auth login'))
-            errorSpy.mockRestore()
-            exitSpy.mockRestore()
+            ).rejects.toHaveProperty('code', 'INSUFFICIENT_SCOPE')
         })
 
         it('rejects invalid away type', async () => {
-            const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
-            const exitSpy = vi.spyOn(process, 'exit').mockImplementation(() => {
-                throw new Error('process.exit')
-            })
             const program = createProgram()
 
             await expect(
                 program.parseAsync(['node', 'tw', 'away', 'set', 'invalid', '2026-03-20']),
-            ).rejects.toThrow()
-
-            expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('Invalid away type'))
-            errorSpy.mockRestore()
-            exitSpy.mockRestore()
+            ).rejects.toHaveProperty('code', 'INVALID_TYPE')
         })
     })
 

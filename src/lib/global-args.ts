@@ -85,6 +85,10 @@ export function resetGlobalArgs(): void {
 // Query functions — drop-in replacements for the old process.argv checks
 // ---------------------------------------------------------------------------
 
+export function isJsonMode(): boolean {
+    return getGlobalArgs().json
+}
+
 export function isAccessible(): boolean {
     return process.env.TW_ACCESSIBLE === '1' || getGlobalArgs().accessible
 }

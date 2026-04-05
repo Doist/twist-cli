@@ -1,5 +1,5 @@
 import { TwistRequestError } from '@doist/twist-sdk'
-import chalk from 'chalk'
+import { CliError } from '../../lib/errors.js'
 
 export function formatLocalDate(d: Date): string {
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
@@ -35,14 +35,11 @@ export function isInsufficientScope(error: unknown): boolean {
 
 export function handleAwayError(error: unknown): never {
     if (isInsufficientScope(error)) {
-        console.error(
-            chalk.red('Permission denied.'),
+        throw new CliError(
+            'INSUFFICIENT_SCOPE',
             'The away status feature requires additional permissions.',
+            ['Run `tw auth login` to re-authenticate with the required scopes'],
         )
-        console.error(
-            `Run ${chalk.cyan('tw auth login')} to re-authenticate with the required scopes.`,
-        )
-        process.exit(1)
     }
     throw error
 }

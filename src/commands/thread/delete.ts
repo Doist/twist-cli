@@ -1,4 +1,5 @@
 import { assertBatchData, getTwistClient } from '../../lib/api.js'
+import { CliError } from '../../lib/errors.js'
 import type { MutationOptions } from '../../lib/options.js'
 import { formatJson } from '../../lib/output.js'
 import { assertChannelIsPublic } from '../../lib/public-channels.js'
@@ -21,9 +22,7 @@ export async function deleteThread(ref: string, options: DeleteOptions): Promise
     await assertChannelIsPublic(thread.channelId, thread.workspaceId)
 
     if (thread.creator !== user.id) {
-        console.error('You can only delete threads that you created.')
-        process.exitCode = 1
-        return
+        throw new CliError('NOT_CREATOR', 'You can only delete threads that you created.')
     }
 
     if (options.dryRun) {
@@ -33,9 +32,10 @@ export async function deleteThread(ref: string, options: DeleteOptions): Promise
 
     if (!options.yes) {
         if (options.json) {
-            console.error('Error: --yes is required to execute deletion in --json mode.')
-            process.exitCode = 1
-            return
+            throw new CliError(
+                'MISSING_YES_FLAG',
+                '--yes is required to execute deletion in --json mode.',
+            )
         }
         console.log(`Would delete: ${thread.title}`)
         console.log('Use --yes to confirm.')

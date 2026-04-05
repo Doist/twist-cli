@@ -1,5 +1,6 @@
 import { Command } from 'commander'
 import { getTwistClient } from '../lib/api.js'
+import { CliError } from '../lib/errors.js'
 import type { MutationOptions } from '../lib/options.js'
 import { resolveCommentId, resolveMessageId, resolveThreadId } from '../lib/refs.js'
 
@@ -120,10 +121,10 @@ Examples:
         )
         .action((targetType: string, targetRef: string, emoji: string, options: ReactOptions) => {
             if (!['thread', 'comment', 'message'].includes(targetType)) {
-                console.error(
+                throw new CliError(
+                    'INVALID_TYPE',
                     `Invalid target type: ${targetType}. Use: thread, comment, or message`,
                 )
-                process.exit(1)
             }
             return addReaction(targetType as TargetType, targetRef, emoji, options)
         })
@@ -141,10 +142,10 @@ Examples:
         )
         .action((targetType: string, targetRef: string, emoji: string, options: ReactOptions) => {
             if (!['thread', 'comment', 'message'].includes(targetType)) {
-                console.error(
+                throw new CliError(
+                    'INVALID_TYPE',
                     `Invalid target type: ${targetType}. Use: thread, comment, or message`,
                 )
-                process.exit(1)
             }
             return removeReaction(targetType as TargetType, targetRef, emoji, options)
         })

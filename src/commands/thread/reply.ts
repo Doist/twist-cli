@@ -1,4 +1,5 @@
 import { getTwistClient } from '../../lib/api.js'
+import { CliError } from '../../lib/errors.js'
 import { openEditor, readStdin } from '../../lib/input.js'
 import type { MutationOptions } from '../../lib/options.js'
 import { formatJson } from '../../lib/output.js'
@@ -19,9 +20,7 @@ export async function replyToThread(
     const threadId = resolveThreadId(ref)
 
     if (options.close && options.reopen) {
-        console.error('Cannot use --close and --reopen together.')
-        process.exitCode = 1
-        return
+        throw new CliError('CONFLICTING_OPTIONS', 'Cannot use --close and --reopen together.')
     }
 
     let replyContent = await readStdin()
@@ -32,9 +31,10 @@ export async function replyToThread(
         replyContent = await openEditor()
     }
     if (!replyContent || replyContent.trim() === '') {
-        console.error('Error: no content provided. Pass content as an argument or pipe via stdin.')
-        process.exitCode = 1
-        return
+        throw new CliError(
+            'MISSING_CONTENT',
+            'No content provided. Pass content as an argument or pipe via stdin.',
+        )
     }
 
     const notifyValue = options.notify ?? 'EVERYONE_IN_THREAD'

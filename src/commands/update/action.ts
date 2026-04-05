@@ -2,6 +2,7 @@ import { spawn } from 'node:child_process'
 import chalk from 'chalk'
 import pkg from '../../../package.json' with { type: 'json' }
 import { getConfig } from '../../lib/config.js'
+import { CliError } from '../../lib/errors.js'
 import { withSpinner } from '../../lib/spinner.js'
 
 const PACKAGE_NAME = '@doist/twist-cli'
@@ -36,7 +37,7 @@ export async function fetchLatestVersion(tag: string): Promise<string> {
     const url = `https://registry.npmjs.org/${PACKAGE_NAME}/${tag}`
     const response = await fetch(url)
     if (!response.ok) {
-        throw new Error(`Registry returned ${response.status}`)
+        throw new CliError('API_ERROR', `Registry returned ${response.status}`)
     }
     const data = (await response.json()) as { version: string }
     return data.version
@@ -74,9 +75,7 @@ interface UpdateOptions {
 
 export async function updateAction(options: UpdateOptions): Promise<void> {
     if (options.check && options.channel) {
-        console.error('Error:', 'Specify either --check or --channel, not both.')
-        process.exitCode = 1
-        return
+        throw new CliError('CONFLICTING_OPTIONS', 'Specify either --check or --channel, not both.')
     }
 
     if (options.channel) {
@@ -102,10 +101,9 @@ export async function updateAction(options: UpdateOptions): Promise<void> {
             fetchLatestVersion(tag),
         )
     } catch (error) {
+        if (error instanceof CliError) throw error
         const message = error instanceof Error ? error.message : 'Unknown error'
-        console.error(chalk.red('Failed to check for updates:'), message)
-        process.exitCode = 1
-        return
+        throw new CliError('API_ERROR', `Failed to check for updates: ${message}`)
     }
 
     const updateAvailable = isNewer(currentVersion, latestVersion)
@@ -156,25 +154,20 @@ export async function updateAction(options: UpdateOptions): Promise<void> {
         )
     } catch (error) {
         if (error instanceof Error && 'code' in error && error.code === 'EACCES') {
-            console.error(
-                chalk.red('Permission denied.'),
+            throw new CliError('INTERNAL_ERROR', 'Permission denied.', [
                 `Try running with sudo: sudo ${pm} ${pm === 'pnpm' ? 'add' : 'install'} -g ${PACKAGE_NAME}@${tag}`,
-            )
-        } else {
-            const message = error instanceof Error ? error.message : 'Unknown error'
-            console.error(chalk.red('Update failed:'), message)
+            ])
         }
-        process.exitCode = 1
-        return
+        const message = error instanceof Error ? error.message : 'Unknown error'
+        throw new CliError('INTERNAL_ERROR', `Update failed: ${message}`)
     }
 
     if (result.exitCode !== 0) {
-        console.error(chalk.red('Update failed:'), `${pm} exited with code ${result.exitCode}`)
-        if (result.stderr) {
-            console.error(chalk.dim(result.stderr.trim()))
-        }
-        process.exitCode = 1
-        return
+        const detail = result.stderr ? `\n${result.stderr.trim()}` : ''
+        throw new CliError(
+            'INTERNAL_ERROR',
+            `Update failed: ${pm} exited with code ${result.exitCode}${detail}`,
+        )
     }
 
     console.log(chalk.green('✓'), `Updated to v${latestVersion}`)
