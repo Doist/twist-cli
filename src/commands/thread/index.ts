@@ -77,9 +77,9 @@ Examples:
             'after',
             `
 Examples:
-  tw thread create general "Weekly update" "Here's what happened..."
-  echo "Body from stdin" | tw thread create general "Title"
-  tw thread create general "Title" "Body" --notify EVERYONE --json`,
+  tw thread create 12345 "Weekly update" "Here's what happened..."
+  echo "Body from stdin" | tw thread create id:12345 "Title"
+  tw thread create 12345 "Title" "Body" --notify 67890,11111 --json`,
         )
         .action(createThread)
 
