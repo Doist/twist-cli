@@ -1,3 +1,9 @@
+## [2.23.2](https://github.com/Doist/twist-cli/compare/v2.23.1...v2.23.2) (2026-04-05)
+
+### Bug Fixes
+
+- centralize error handling with CliError and global handler ([#144](https://github.com/Doist/twist-cli/issues/144)) ([b1ef8d3](https://github.com/Doist/twist-cli/commit/b1ef8d39df9eae218bc0bff579f992352fb28551))
+
 ## [2.23.1](https://github.com/Doist/twist-cli/compare/v2.23.0...v2.23.1) (2026-04-05)
 
 ### Bug Fixes
