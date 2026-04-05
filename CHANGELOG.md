@@ -1,3 +1,9 @@
+## [2.23.1](https://github.com/Doist/twist-cli/compare/v2.23.0...v2.23.1) (2026-04-05)
+
+### Bug Fixes
+
+- add non-interactive mode to prevent editor/prompt hangs ([#142](https://github.com/Doist/twist-cli/issues/142)) ([182dcc8](https://github.com/Doist/twist-cli/commit/182dcc882571f0e39143a6835baf46f4813c8a94))
+
 ## [2.23.0](https://github.com/Doist/twist-cli/compare/v2.22.1...v2.23.0) (2026-04-03)
 
 ### Features
