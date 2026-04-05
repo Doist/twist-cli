@@ -5,11 +5,11 @@ vi.mock('../../lib/api.js', () => ({
 }))
 
 import { getTwistClient } from '../../lib/api.js'
+import { includePrivateChannels, resetGlobalArgs } from '../../lib/global-args.js'
 import {
     assertChannelIsPublic,
     clearPublicChannelCache,
     getPublicChannelIds,
-    includePrivateChannels,
 } from '../../lib/public-channels.js'
 
 const mockGetTwistClient = vi.mocked(getTwistClient)
@@ -25,10 +25,11 @@ function makeMockChannels(
 }
 
 describe('includePrivateChannels', () => {
-    const originalArgv = process.argv
+    const originalArgv = [...process.argv]
     const originalEnv = process.env.TWIST_INCLUDE_PRIVATE_CHANNELS
 
     beforeEach(() => {
+        resetGlobalArgs()
         process.argv = ['node', 'tw']
         delete process.env.TWIST_INCLUDE_PRIVATE_CHANNELS
     })
@@ -40,6 +41,7 @@ describe('includePrivateChannels', () => {
         } else {
             delete process.env.TWIST_INCLUDE_PRIVATE_CHANNELS
         }
+        resetGlobalArgs()
     })
 
     it('returns false by default (private channels hidden)', () => {
@@ -48,6 +50,7 @@ describe('includePrivateChannels', () => {
 
     it('returns true when --include-private-channels is in argv', () => {
         process.argv = ['node', 'tw', 'channels', '--include-private-channels']
+        resetGlobalArgs()
         expect(includePrivateChannels()).toBe(true)
     })
 
@@ -117,11 +120,12 @@ describe('getPublicChannelIds', () => {
 })
 
 describe('assertChannelIsPublic', () => {
-    const originalArgv = process.argv
+    const originalArgv = [...process.argv]
     const originalEnv = process.env.TWIST_INCLUDE_PRIVATE_CHANNELS
 
     beforeEach(() => {
         clearPublicChannelCache()
+        resetGlobalArgs()
         process.argv = ['node', 'tw']
         delete process.env.TWIST_INCLUDE_PRIVATE_CHANNELS
     })
@@ -133,6 +137,7 @@ describe('assertChannelIsPublic', () => {
         } else {
             delete process.env.TWIST_INCLUDE_PRIVATE_CHANNELS
         }
+        resetGlobalArgs()
     })
 
     it('throws for private channels by default', async () => {
@@ -154,6 +159,7 @@ describe('assertChannelIsPublic', () => {
 
     it('allows private channels when --include-private-channels is set', async () => {
         process.argv = ['node', 'tw', '--include-private-channels']
+        resetGlobalArgs()
         await expect(assertChannelIsPublic(999, 100)).resolves.toBeUndefined()
     })
 

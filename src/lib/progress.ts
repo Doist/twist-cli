@@ -1,4 +1,5 @@
 import fs from 'node:fs'
+import { getProgressJsonlPath, isProgressJsonlEnabled } from './global-args.js'
 
 export type ProgressEvent = {
     type: 'start' | 'api_call' | 'api_response' | 'complete' | 'error'
@@ -22,32 +23,13 @@ export class ProgressTracker {
     }
 
     private checkAndInitialize() {
-        const args = process.argv
-
-        // Find all --progress-jsonl flags and use the last one
-        const progressIndices = args
-            .map((arg, index) => ({ arg, index }))
-            .filter(({ arg }) => arg.startsWith('--progress-jsonl'))
-
-        if (progressIndices.length === 0) {
+        if (!isProgressJsonlEnabled()) {
             return
         }
 
         this.enabled = true
 
-        // Use the last occurrence
-        const { arg, index: progressIndex } = progressIndices[progressIndices.length - 1]
-
-        // Handle both --progress-jsonl and --progress-jsonl=path formats
-        let outputPath: string | undefined
-
-        if (arg.includes('=')) {
-            // Format: --progress-jsonl=/path/to/file
-            outputPath = arg.split('=', 2)[1]
-        } else if (progressIndex + 1 < args.length && !args[progressIndex + 1].startsWith('-')) {
-            // Format: --progress-jsonl /path/to/file
-            outputPath = args[progressIndex + 1]
-        }
+        const outputPath = getProgressJsonlPath()
 
         if (outputPath) {
             try {

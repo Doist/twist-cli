@@ -1,12 +1,18 @@
-import { afterEach, describe, expect, it } from 'vitest'
-import { isAccessible } from '../../lib/output.js'
+import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { isAccessible, resetGlobalArgs } from '../../lib/global-args.js'
 
 describe('isAccessible', () => {
+    const originalArgv = [...process.argv]
+
+    beforeEach(() => {
+        resetGlobalArgs()
+        process.argv = ['node', 'tw']
+    })
+
     afterEach(() => {
         delete process.env.TW_ACCESSIBLE
-        // Remove --accessible from argv if added
-        const idx = process.argv.indexOf('--accessible')
-        if (idx !== -1) process.argv.splice(idx, 1)
+        process.argv = originalArgv
+        resetGlobalArgs()
     })
 
     it('returns false by default', () => {
@@ -26,7 +32,8 @@ describe('isAccessible', () => {
     })
 
     it('returns true when --accessible is in argv', () => {
-        process.argv.push('--accessible')
+        process.argv = ['node', 'tw', '--accessible']
+        resetGlobalArgs()
         expect(isAccessible()).toBe(true)
     })
 })

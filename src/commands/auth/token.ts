@@ -1,7 +1,7 @@
 import { createInterface } from 'node:readline'
 import chalk from 'chalk'
 import { saveApiToken } from '../../lib/auth.js'
-import { isNonInteractive } from '../../lib/input.js'
+import { isNonInteractive } from '../../lib/global-args.js'
 import { logTokenStorageResult } from './helpers.js'
 
 function promptHiddenInput(prompt: string): Promise<string> {

@@ -2,9 +2,10 @@ import chalk from 'chalk'
 import { Command } from 'commander'
 import { getCurrentWorkspaceId, getTwistClient } from '../lib/api.js'
 import { formatRelativeDate } from '../lib/dates.js'
+import { includePrivateChannels, isAccessible } from '../lib/global-args.js'
 import type { PaginatedViewOptions } from '../lib/options.js'
-import { colors, formatJson, formatNdjson, isAccessible } from '../lib/output.js'
-import { getPublicChannelIds, includePrivateChannels } from '../lib/public-channels.js'
+import { colors, formatJson, formatNdjson } from '../lib/output.js'
+import { getPublicChannelIds } from '../lib/public-channels.js'
 import { resolveWorkspaceRef } from '../lib/refs.js'
 
 type InboxOptions = PaginatedViewOptions & {

@@ -1,12 +1,5 @@
 import { getTwistClient } from './api.js'
-
-export function includePrivateChannels(): boolean {
-    const envVal = process.env.TWIST_INCLUDE_PRIVATE_CHANNELS
-    if (envVal === '1' || envVal === 'true') {
-        return true
-    }
-    return process.argv.includes('--include-private-channels')
-}
+import { includePrivateChannels } from './global-args.js'
 
 const publicChannelCache = new Map<number, Set<number>>()
 

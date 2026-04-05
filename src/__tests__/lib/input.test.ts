@@ -1,12 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { isNonInteractive, openEditor } from '../../lib/input.js'
+import { isNonInteractive, resetGlobalArgs } from '../../lib/global-args.js'
+import { openEditor } from '../../lib/input.js'
 
 describe('isNonInteractive', () => {
-    const originalArgv = process.argv
+    const originalArgv = [...process.argv]
     let originalIsTTY: boolean | undefined
 
     beforeEach(() => {
         originalIsTTY = process.stdin.isTTY
+        resetGlobalArgs()
         process.argv = ['node', 'tw', 'thread', 'create', '100', 'Title']
     })
 
@@ -16,6 +18,7 @@ describe('isNonInteractive', () => {
             value: originalIsTTY,
             configurable: true,
         })
+        resetGlobalArgs()
     })
 
     it('returns true when stdin is not a TTY', () => {
@@ -40,6 +43,7 @@ describe('isNonInteractive', () => {
             configurable: true,
         })
         process.argv = [...process.argv, '--non-interactive']
+        resetGlobalArgs()
         expect(isNonInteractive()).toBe(true)
     })
 
@@ -49,11 +53,13 @@ describe('isNonInteractive', () => {
             configurable: true,
         })
         process.argv = [...process.argv, '--interactive']
+        resetGlobalArgs()
         expect(isNonInteractive()).toBe(false)
     })
 
     it('--interactive overrides --non-interactive', () => {
         process.argv = [...process.argv, '--non-interactive', '--interactive']
+        resetGlobalArgs()
         expect(isNonInteractive()).toBe(false)
     })
 })
@@ -63,10 +69,13 @@ vi.mock('node:child_process', () => ({
 }))
 
 describe('openEditor', () => {
+    const originalArgv = [...process.argv]
     let originalIsTTY: boolean | undefined
 
     beforeEach(() => {
         originalIsTTY = process.stdin.isTTY
+        resetGlobalArgs()
+        process.argv = ['node', 'tw']
     })
 
     afterEach(() => {
@@ -74,6 +83,8 @@ describe('openEditor', () => {
             value: originalIsTTY,
             configurable: true,
         })
+        process.argv = originalArgv
+        resetGlobalArgs()
     })
 
     it('returns null immediately in non-interactive mode', async () => {

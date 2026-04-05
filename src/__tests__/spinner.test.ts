@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import yoctoSpinnerFactory from 'yocto-spinner'
+import { resetGlobalArgs } from '../lib/global-args.js'
 import {
     LoadingSpinner,
     resetEarlySpinner,
@@ -28,6 +29,7 @@ describe('withSpinner', () => {
     beforeEach(() => {
         vi.clearAllMocks()
         resetEarlySpinner()
+        resetGlobalArgs()
         // Reset environment variables
         delete process.env.TW_SPINNER
         delete process.env.CI
@@ -43,6 +45,7 @@ describe('withSpinner', () => {
     afterEach(() => {
         vi.clearAllMocks()
         resetEarlySpinner()
+        resetGlobalArgs()
     })
 
     it('should handle successful operations', async () => {
@@ -144,6 +147,7 @@ describe('LoadingSpinner', () => {
     beforeEach(() => {
         vi.clearAllMocks()
         resetEarlySpinner()
+        resetGlobalArgs()
         // Reset environment variables
         delete process.env.TW_SPINNER
         delete process.env.CI
@@ -159,6 +163,7 @@ describe('LoadingSpinner', () => {
     afterEach(() => {
         vi.clearAllMocks()
         resetEarlySpinner()
+        resetGlobalArgs()
     })
 
     it('should start and stop spinner', () => {
@@ -209,6 +214,7 @@ describe('early spinner', () => {
     beforeEach(() => {
         vi.clearAllMocks()
         resetEarlySpinner()
+        resetGlobalArgs()
         savedStdoutWrite = process.stdout.write
         delete process.env.TW_SPINNER
         delete process.env.CI
@@ -222,6 +228,7 @@ describe('early spinner', () => {
     afterEach(() => {
         process.stdout.write = savedStdoutWrite
         resetEarlySpinner()
+        resetGlobalArgs()
         vi.clearAllMocks()
     })
 

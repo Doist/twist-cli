@@ -1,8 +1,8 @@
 import { Command } from 'commander'
 import { getCurrentWorkspaceId, getTwistClient } from '../lib/api.js'
+import { includePrivateChannels } from '../lib/global-args.js'
 import type { ViewOptions } from '../lib/options.js'
 import { colors, formatJson, formatNdjson } from '../lib/output.js'
-import { includePrivateChannels } from '../lib/public-channels.js'
 import { resolveWorkspaceRef } from '../lib/refs.js'
 
 type ChannelsOptions = ViewOptions & { workspace?: string }

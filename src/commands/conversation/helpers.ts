@@ -2,9 +2,10 @@ import type { Conversation } from '@doist/twist-sdk'
 import chalk from 'chalk'
 import { getTwistClient } from '../../lib/api.js'
 import { formatRelativeDate } from '../../lib/dates.js'
+import { isAccessible } from '../../lib/global-args.js'
 import { renderMarkdown } from '../../lib/markdown.js'
 import type { MutationOptions, PaginatedViewOptions, ViewOptions } from '../../lib/options.js'
-import { colors, formatJson, formatNdjson, isAccessible } from '../../lib/output.js'
+import { colors, formatJson, formatNdjson } from '../../lib/output.js'
 
 export type UnreadOptions = ViewOptions & { workspace?: string }
 

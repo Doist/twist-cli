@@ -3,9 +3,10 @@ import { Command, Option } from 'commander'
 import { getCurrentWorkspaceId } from '../lib/api.js'
 import { withCaseInsensitiveChoices } from '../lib/completion.js'
 import { formatRelativeDate } from '../lib/dates.js'
+import { includePrivateChannels } from '../lib/global-args.js'
 import type { PaginatedViewOptions } from '../lib/options.js'
 import { colors, formatJson } from '../lib/output.js'
-import { getPublicChannelIds, includePrivateChannels } from '../lib/public-channels.js'
+import { getPublicChannelIds } from '../lib/public-channels.js'
 import {
     resolveChannelId,
     resolveConversationId,

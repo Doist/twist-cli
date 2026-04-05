@@ -2,13 +2,7 @@ import { spawn } from 'node:child_process'
 import { readFile, unlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-
-export function isNonInteractive(): boolean {
-    const args = process.argv
-    if (args.includes('--interactive')) return false
-    if (args.includes('--non-interactive')) return true
-    return !process.stdin.isTTY
-}
+import { isNonInteractive } from './global-args.js'
 
 const STDIN_TIMEOUT_MS = 100
 

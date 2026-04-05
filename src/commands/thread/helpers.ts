@@ -1,7 +1,8 @@
 import chalk from 'chalk'
 import { formatRelativeDate } from '../../lib/dates.js'
+import { isAccessible } from '../../lib/global-args.js'
 import { renderMarkdown } from '../../lib/markdown.js'
-import { colors, isAccessible } from '../../lib/output.js'
+import { colors } from '../../lib/output.js'
 
 export function printSeparator(label: string): void {
     const totalWidth = 60
