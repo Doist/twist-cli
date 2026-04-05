@@ -35,6 +35,8 @@ export function isMutatingMethod(methodPath: string): boolean {
 export async function ensureWriteAllowed(): Promise<void> {
     const metadata = await getAuthMetadata()
     if (metadata.authMode === 'read-only') {
-        throw new CliError('READ_ONLY', READ_ONLY_ERROR_MESSAGE)
+        throw new CliError('READ_ONLY', READ_ONLY_ERROR_MESSAGE, [
+            'Re-run: tw auth login (without --read-only)',
+        ])
     }
 }

@@ -37,7 +37,10 @@ export async function loginWithToken(token?: string): Promise<void> {
         }
         token = await promptHiddenInput('API token: ')
         if (!token.trim()) {
-            throw new CliError('NO_TOKEN', 'No token provided')
+            throw new CliError('NO_TOKEN', 'No token provided', [
+                'Provide a token: tw auth token <token>',
+                'Or use OAuth: tw auth login',
+            ])
         }
     }
     const saveResult = await saveApiToken(token.trim(), { authMode: 'unknown' })

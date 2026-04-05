@@ -247,7 +247,9 @@ export async function getCurrentWorkspaceId(flagValue?: number): Promise<number>
 
     const workspaces = await fetchWorkspaces()
     if (workspaces.length === 0) {
-        throw new CliError('NOT_FOUND', 'No workspaces found for this user')
+        throw new CliError('NOT_FOUND', 'No workspaces found for this user', [
+            'Ensure your account has been added to a workspace',
+        ])
     }
 
     const defaultWorkspace = workspaces[0]

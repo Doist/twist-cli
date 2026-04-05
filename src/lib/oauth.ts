@@ -98,10 +98,19 @@ export async function registerDynamicClient(): Promise<OAuthClient> {
         }
     } catch (error) {
         if (error instanceof CliError) throw error
+        const oauthHints = ['Try again: tw auth login', 'Or use: tw auth token <token>']
         if (error instanceof Error) {
-            throw new CliError('AUTH_FAILED', `Failed to register OAuth client: ${error.message}`)
+            throw new CliError(
+                'AUTH_FAILED',
+                `Failed to register OAuth client: ${error.message}`,
+                oauthHints,
+            )
         }
-        throw new CliError('AUTH_FAILED', 'Failed to register OAuth client: Unknown error')
+        throw new CliError(
+            'AUTH_FAILED',
+            'Failed to register OAuth client: Unknown error',
+            oauthHints,
+        )
     }
 }
 
@@ -182,9 +191,18 @@ export async function exchangeCodeForToken(
         return data.access_token
     } catch (error) {
         if (error instanceof CliError) throw error
+        const tokenHints = ['Try again: tw auth login', 'Or use: tw auth token <token>']
         if (error instanceof Error) {
-            throw new CliError('AUTH_FAILED', `Failed to exchange code for token: ${error.message}`)
+            throw new CliError(
+                'AUTH_FAILED',
+                `Failed to exchange code for token: ${error.message}`,
+                tokenHints,
+            )
         }
-        throw new CliError('AUTH_FAILED', 'Failed to exchange code for token: Unknown error')
+        throw new CliError(
+            'AUTH_FAILED',
+            'Failed to exchange code for token: Unknown error',
+            tokenHints,
+        )
     }
 }

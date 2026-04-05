@@ -121,7 +121,10 @@ export async function saveApiToken(
 ): Promise<TokenStorageResult> {
     // Validate token (non-empty, reasonable length)
     if (!token || token.trim().length < 10) {
-        throw new CliError('INVALID_TOKEN', 'Invalid token: Token must be at least 10 characters')
+        throw new CliError('INVALID_TOKEN', 'Invalid token: Token must be at least 10 characters', [
+            'Run: tw auth login',
+            'Or provide a valid API token: tw auth token <token>',
+        ])
     }
 
     const trimmedToken = token.trim()

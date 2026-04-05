@@ -64,7 +64,9 @@ export function createInstaller(config: InstallerConfig): SkillInstaller {
             const exists = await this.isInstalled(options)
 
             if (!exists) {
-                throw new CliError('NOT_INSTALLED', `Skill not installed at ${skillPath}`)
+                throw new CliError('NOT_INSTALLED', `Skill not installed at ${skillPath}`, [
+                    `Run: tw skill install ${config.name}`,
+                ])
             }
 
             await writeFile(skillPath, SKILL_FILE_CONTENT)
@@ -75,7 +77,9 @@ export function createInstaller(config: InstallerConfig): SkillInstaller {
             const exists = await this.isInstalled(options)
 
             if (!exists) {
-                throw new CliError('NOT_INSTALLED', `Skill not installed at ${skillPath}`)
+                throw new CliError('NOT_INSTALLED', `Skill not installed at ${skillPath}`, [
+                    `Run: tw skill install ${config.name}`,
+                ])
             }
 
             const skillDir = dirname(skillPath)
