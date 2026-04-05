@@ -74,7 +74,7 @@ export async function loginWithOAuth(options: { readOnly?: boolean }): Promise<v
         const detail = error instanceof Error ? `: ${error.message}` : ''
         throw new CliError('AUTH_FAILED', `OAuth authentication failed${detail}`, [
             'Try again: tw auth login',
-            'Or use manual authentication: tw auth token <token>',
+            'Or set TWIST_API_TOKEN environment variable',
         ])
     }
 }

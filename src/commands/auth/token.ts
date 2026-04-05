@@ -38,7 +38,8 @@ export async function loginWithToken(token?: string): Promise<void> {
         token = await promptHiddenInput('API token: ')
         if (!token.trim()) {
             throw new CliError('NO_TOKEN', 'No token provided', [
-                'Provide a token: tw auth token <token>',
+                'Run: tw auth token (interactive prompt)',
+                'Or set TWIST_API_TOKEN environment variable',
                 'Or use OAuth: tw auth login',
             ])
         }

@@ -4,6 +4,8 @@
 
 import { CliError } from './errors.js'
 
+const AUTH_HINTS = ['Try again: tw auth login', 'Or set TWIST_API_TOKEN environment variable']
+
 // OAuth configuration for Twist (using well-known endpoints with dynamic client registration)
 export const AUTHORIZATION_URL = 'https://twist.com/oauth/authorize'
 export const TOKEN_URL = 'https://twist.com/oauth/access_token'
@@ -80,6 +82,7 @@ export async function registerDynamicClient(): Promise<OAuthClient> {
             throw new CliError(
                 'AUTH_FAILED',
                 `Client registration failed: ${response.status} ${response.statusText} - ${errorText}`,
+                AUTH_HINTS,
             )
         }
 
@@ -89,6 +92,7 @@ export async function registerDynamicClient(): Promise<OAuthClient> {
             throw new CliError(
                 'AUTH_FAILED',
                 'Invalid client registration response: missing client_id or client_secret',
+                AUTH_HINTS,
             )
         }
 
@@ -98,18 +102,17 @@ export async function registerDynamicClient(): Promise<OAuthClient> {
         }
     } catch (error) {
         if (error instanceof CliError) throw error
-        const oauthHints = ['Try again: tw auth login', 'Or use: tw auth token <token>']
         if (error instanceof Error) {
             throw new CliError(
                 'AUTH_FAILED',
                 `Failed to register OAuth client: ${error.message}`,
-                oauthHints,
+                AUTH_HINTS,
             )
         }
         throw new CliError(
             'AUTH_FAILED',
             'Failed to register OAuth client: Unknown error',
-            oauthHints,
+            AUTH_HINTS,
         )
     }
 }
@@ -172,6 +175,7 @@ export async function exchangeCodeForToken(
             throw new CliError(
                 'AUTH_FAILED',
                 `Token exchange failed: ${response.status} ${response.statusText} - ${errorText}`,
+                AUTH_HINTS,
             )
         }
 
@@ -181,28 +185,32 @@ export async function exchangeCodeForToken(
             throw new CliError(
                 'AUTH_FAILED',
                 `OAuth error: ${data.error} - ${data.error_description || 'Unknown error'}`,
+                AUTH_HINTS,
             )
         }
 
         if (!data.access_token) {
-            throw new CliError('AUTH_FAILED', 'No access token received from OAuth server')
+            throw new CliError(
+                'AUTH_FAILED',
+                'No access token received from OAuth server',
+                AUTH_HINTS,
+            )
         }
 
         return data.access_token
     } catch (error) {
         if (error instanceof CliError) throw error
-        const tokenHints = ['Try again: tw auth login', 'Or use: tw auth token <token>']
         if (error instanceof Error) {
             throw new CliError(
                 'AUTH_FAILED',
                 `Failed to exchange code for token: ${error.message}`,
-                tokenHints,
+                AUTH_HINTS,
             )
         }
         throw new CliError(
             'AUTH_FAILED',
             'Failed to exchange code for token: Unknown error',
-            tokenHints,
+            AUTH_HINTS,
         )
     }
 }

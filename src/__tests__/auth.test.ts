@@ -456,9 +456,9 @@ describe('auth command', () => {
             // Mock callback server error
             mockStartCallbackServer.mockRejectedValue(new Error('Port 8766 is already in use'))
 
-            await expect(
-                program.parseAsync(['node', 'tw', 'auth', 'login']),
-            ).rejects.toHaveProperty('code', 'AUTH_FAILED')
+            const result = program.parseAsync(['node', 'tw', 'auth', 'login'])
+            await expect(result).rejects.toHaveProperty('code', 'AUTH_FAILED')
+            await expect(result).rejects.toHaveProperty('hints')
         })
 
         it('handles token exchange errors', async () => {
@@ -485,9 +485,9 @@ describe('auth command', () => {
             // Mock token exchange error
             mockExchangeCodeForToken.mockRejectedValue(new Error('Invalid authorization code'))
 
-            await expect(
-                program.parseAsync(['node', 'tw', 'auth', 'login']),
-            ).rejects.toHaveProperty('code', 'AUTH_FAILED')
+            const result = program.parseAsync(['node', 'tw', 'auth', 'login'])
+            await expect(result).rejects.toHaveProperty('code', 'AUTH_FAILED')
+            await expect(result).rejects.toHaveProperty('hints')
             expect(mockCleanup).toHaveBeenCalled()
         })
 
@@ -542,9 +542,9 @@ describe('auth command', () => {
             // Mock server that throws an error
             mockStartCallbackServer.mockRejectedValue(new Error('Server failed to start'))
 
-            await expect(
-                program.parseAsync(['node', 'tw', 'auth', 'login']),
-            ).rejects.toHaveProperty('code', 'AUTH_FAILED')
+            const result = program.parseAsync(['node', 'tw', 'auth', 'login'])
+            await expect(result).rejects.toHaveProperty('code', 'AUTH_FAILED')
+            await expect(result).rejects.toHaveProperty('hints')
         })
     })
 

@@ -123,7 +123,7 @@ export async function saveApiToken(
     if (!token || token.trim().length < 10) {
         throw new CliError('INVALID_TOKEN', 'Invalid token: Token must be at least 10 characters', [
             'Run: tw auth login',
-            'Or provide a valid API token: tw auth token <token>',
+            'Or set TWIST_API_TOKEN environment variable',
         ])
     }
 
