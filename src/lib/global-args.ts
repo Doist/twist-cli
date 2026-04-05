@@ -38,13 +38,13 @@ export function parseGlobalArgs(argv?: string[]): GlobalArgs {
     // "Last one wins" when specified multiple times.
     const progressIndices = args
         .map((arg, index) => ({ arg, index }))
-        .filter(({ arg }) => arg.startsWith('--progress-jsonl'))
+        .filter(({ arg }) => arg === '--progress-jsonl' || arg.startsWith('--progress-jsonl='))
 
     let progressJsonlPath: string | undefined
     if (progressIndices.length > 0) {
         const { arg, index } = progressIndices[progressIndices.length - 1]
         if (arg.includes('=')) {
-            progressJsonlPath = arg.split('=', 2)[1]
+            progressJsonlPath = arg.slice(arg.indexOf('=') + 1)
         } else if (index + 1 < args.length && !args[index + 1].startsWith('-')) {
             progressJsonlPath = args[index + 1]
         }
