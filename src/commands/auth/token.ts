@@ -30,7 +30,7 @@ export async function loginWithToken(token?: string): Promise<void> {
     if (!token) {
         if (isNonInteractive()) {
             console.error(
-                'Error: cannot prompt for token in non-interactive mode. Pass the token as an argument: tw auth token <token>',
+                'Error: cannot prompt for token in non-interactive mode. Set the TWIST_API_TOKEN environment variable instead.',
             )
             process.exitCode = 1
             return

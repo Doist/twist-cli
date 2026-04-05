@@ -264,7 +264,7 @@ describe('auth command', () => {
 
             expect(mockSaveApiToken).not.toHaveBeenCalled()
             expect(localErrorSpy).toHaveBeenCalledWith(
-                'Error: cannot prompt for token in non-interactive mode. Pass the token as an argument: tw auth token <token>',
+                'Error: cannot prompt for token in non-interactive mode. Set the TWIST_API_TOKEN environment variable instead.',
             )
             expect(process.exitCode).toBe(1)
             localErrorSpy.mockRestore()
