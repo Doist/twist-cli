@@ -15,6 +15,13 @@ export function registerMsgCommand(program: Command): void {
         .option('--json', 'Output as JSON')
         .option('--ndjson', 'Output as newline-delimited JSON')
         .option('--full', 'Include all fields in JSON output')
+        .addHelpText(
+            'after',
+            `
+Examples:
+  tw msg 12345
+  tw msg view 12345 --json`,
+        )
         .action((ref, options) => {
             if (!ref) {
                 msg.help()
@@ -28,11 +35,26 @@ export function registerMsgCommand(program: Command): void {
         .option('--dry-run', 'Show what would be updated without updating')
         .option('--json', 'Output updated message as JSON')
         .option('--full', 'Include all fields in JSON output')
+        .addHelpText(
+            'after',
+            `
+Examples:
+  tw msg update 12345 "Updated text"
+  echo "New content" | tw msg update 12345
+  tw msg update 12345 "Fixed typo" --json`,
+        )
         .action(updateMessage)
 
     msg.command('delete <message-ref>')
         .description('Delete a conversation message')
         .option('--dry-run', 'Show what would happen without executing')
         .option('--json', 'Output result as JSON')
+        .addHelpText(
+            'after',
+            `
+Examples:
+  tw msg delete 12345
+  tw msg delete 12345 --dry-run`,
+        )
         .action(deleteMessage)
 }

@@ -110,6 +110,14 @@ export function registerReactCommand(program: Command): void {
         .command('react <target-type> <target-ref> <emoji>')
         .description('Add an emoji reaction (target-type: thread, comment, message)')
         .option('--dry-run', 'Show what would happen without executing')
+        .addHelpText(
+            'after',
+            `
+Examples:
+  tw react thread 12345 +1
+  tw react comment 67890 heart
+  tw react message 11111 tada --dry-run`,
+        )
         .action((targetType: string, targetRef: string, emoji: string, options: ReactOptions) => {
             if (!['thread', 'comment', 'message'].includes(targetType)) {
                 console.error(
@@ -124,6 +132,13 @@ export function registerReactCommand(program: Command): void {
         .command('unreact <target-type> <target-ref> <emoji>')
         .description('Remove an emoji reaction (target-type: thread, comment, message)')
         .option('--dry-run', 'Show what would happen without executing')
+        .addHelpText(
+            'after',
+            `
+Examples:
+  tw unreact thread 12345 +1
+  tw unreact comment 67890 heart`,
+        )
         .action((targetType: string, targetRef: string, emoji: string, options: ReactOptions) => {
             if (!['thread', 'comment', 'message'].includes(targetType)) {
                 console.error(

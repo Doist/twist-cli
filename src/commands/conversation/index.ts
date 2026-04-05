@@ -20,6 +20,13 @@ export function registerConversationCommand(program: Command): void {
         .option('--json', 'Output as JSON')
         .option('--ndjson', 'Output as newline-delimited JSON')
         .option('--full', 'Include all fields in JSON output')
+        .addHelpText(
+            'after',
+            `
+Examples:
+  tw conversation unread
+  tw conversation unread --json`,
+        )
         .action(showUnread)
 
     conversation
@@ -32,6 +39,14 @@ export function registerConversationCommand(program: Command): void {
         .option('--json', 'Output as JSON')
         .option('--ndjson', 'Output as newline-delimited JSON')
         .option('--full', 'Include all fields in JSON output')
+        .addHelpText(
+            'after',
+            `
+Examples:
+  tw conversation 12345
+  tw conversation view 12345 --limit 20
+  tw conversation view 12345 --since 2025-01-01 --json`,
+        )
         .action((ref, options) => {
             if (!ref) {
                 conversation.help()
@@ -49,6 +64,14 @@ export function registerConversationCommand(program: Command): void {
         .option('--json', 'Output as JSON')
         .option('--ndjson', 'Output as newline-delimited JSON')
         .option('--full', 'Include all fields in JSON output')
+        .addHelpText(
+            'after',
+            `
+Examples:
+  tw conversation with "Jane Smith"
+  tw conversation with id:5678 --json
+  tw conversation with "Jane" --include-groups --snippet`,
+        )
         .action(findConversationWithUser)
 
     conversation
@@ -57,6 +80,14 @@ export function registerConversationCommand(program: Command): void {
         .option('--dry-run', 'Show what would be sent without sending')
         .option('--json', 'Output sent message as JSON')
         .option('--full', 'Include all fields in JSON output')
+        .addHelpText(
+            'after',
+            `
+Examples:
+  tw conversation reply 12345 "Hello!"
+  echo "Message body" | tw conversation reply 12345
+  tw conversation reply 12345 "Update" --json`,
+        )
         .action(replyToConversation)
 
     conversation
@@ -64,6 +95,13 @@ export function registerConversationCommand(program: Command): void {
         .description('Archive a conversation')
         .option('--dry-run', 'Show what would happen without executing')
         .option('--json', 'Output result as JSON')
+        .addHelpText(
+            'after',
+            `
+Examples:
+  tw conversation done 12345
+  tw conversation done 12345 --dry-run`,
+        )
         .action(markConversationDone)
 
     conversation
@@ -73,6 +111,13 @@ export function registerConversationCommand(program: Command): void {
         .option('--dry-run', 'Show what would happen without executing')
         .option('--json', 'Output result as JSON')
         .option('--full', 'Include all fields in JSON output')
+        .addHelpText(
+            'after',
+            `
+Examples:
+  tw conversation mute 12345
+  tw conversation mute 12345 --minutes 480`,
+        )
         .action(muteConversation)
 
     conversation
@@ -81,5 +126,11 @@ export function registerConversationCommand(program: Command): void {
         .option('--dry-run', 'Show what would happen without executing')
         .option('--json', 'Output result as JSON')
         .option('--full', 'Include all fields in JSON output')
+        .addHelpText(
+            'after',
+            `
+Examples:
+  tw conversation unmute 12345`,
+        )
         .action(unmuteConversation)
 }

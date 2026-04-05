@@ -10,6 +10,13 @@ export function registerAwayCommand(program: Command): void {
         .description('Manage away status')
         .option('--json', 'Output as JSON')
         .option('--full', 'Include all fields in JSON output')
+        .addHelpText(
+            'after',
+            `
+Examples:
+  tw away
+  tw away --json`,
+        )
         .action((options: ViewOptions) => showAwayStatus(options))
 
     away.command('set <type> [until]')
@@ -19,6 +26,14 @@ export function registerAwayCommand(program: Command): void {
         .option('--dry-run', 'Show what would happen without executing')
         .option('--json', 'Output as JSON')
         .option('--full', 'Include all fields in JSON output')
+        .addHelpText(
+            'after',
+            `
+Examples:
+  tw away set vacation 2025-12-31
+  tw away set sickleave --from 2025-06-01
+  tw away set other 2025-07-01 --dry-run`,
+        )
         .action(
             (
                 type: string,
@@ -32,5 +47,12 @@ export function registerAwayCommand(program: Command): void {
         .option('--dry-run', 'Show what would happen without executing')
         .option('--json', 'Output as JSON')
         .option('--full', 'Include all fields in JSON output')
+        .addHelpText(
+            'after',
+            `
+Examples:
+  tw away clear
+  tw away clear --dry-run`,
+        )
         .action((options: MutationOptions & ViewOptions) => clearAway(options))
 }

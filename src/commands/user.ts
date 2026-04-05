@@ -70,7 +70,16 @@ async function listUsers(workspaceRef: string | undefined, options: UsersOptions
 }
 
 export function registerUserCommand(program: Command): void {
-    program.command('user').description('Show current user info').action(showCurrentUser)
+    program
+        .command('user')
+        .description('Show current user info')
+        .addHelpText(
+            'after',
+            `
+Examples:
+  tw user`,
+        )
+        .action(showCurrentUser)
 
     program
         .command('users [workspace-ref]')
@@ -80,5 +89,12 @@ export function registerUserCommand(program: Command): void {
         .option('--json', 'Output as JSON')
         .option('--ndjson', 'Output as newline-delimited JSON')
         .option('--full', 'Include all fields in JSON output')
+        .addHelpText(
+            'after',
+            `
+Examples:
+  tw users
+  tw users --search "Jane" --json`,
+        )
         .action(listUsers)
 }

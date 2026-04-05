@@ -50,6 +50,13 @@ export function registerWorkspaceCommand(program: Command): void {
         .option('--json', 'Output as JSON')
         .option('--ndjson', 'Output as newline-delimited JSON')
         .option('--full', 'Include all fields in JSON output')
+        .addHelpText(
+            'after',
+            `
+Examples:
+  tw workspaces
+  tw workspaces --json`,
+        )
         .action(listWorkspaces)
 
     const workspace = program.command('workspace').description('Manage workspace')
@@ -57,5 +64,12 @@ export function registerWorkspaceCommand(program: Command): void {
     workspace
         .command('use <workspace-ref>')
         .description('Set the current workspace')
+        .addHelpText(
+            'after',
+            `
+Examples:
+  tw workspace use "My Workspace"
+  tw workspace use id:1585`,
+        )
         .action(useWorkspace)
 }

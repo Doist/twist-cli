@@ -64,5 +64,13 @@ export function registerChannelCommand(program: Command): void {
         .option('--json', 'Output as JSON')
         .option('--ndjson', 'Output as newline-delimited JSON')
         .option('--full', 'Include all fields in JSON output')
+        .addHelpText(
+            'after',
+            `
+Examples:
+  tw channels
+  tw channels --json
+  tw channels "My Workspace" --json`,
+        )
         .action(listChannels)
 }
