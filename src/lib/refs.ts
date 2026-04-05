@@ -115,7 +115,9 @@ export async function resolveWorkspaceRef(ref: string): Promise<Workspace> {
     if (parsed.type === 'id') {
         const workspace = workspaces.find((w) => w.id === parsed.id)
         if (!workspace) {
-            throw new CliError('WORKSPACE_NOT_FOUND', `Workspace with ID ${parsed.id} not found`)
+            throw new CliError('WORKSPACE_NOT_FOUND', `Workspace with ID ${parsed.id} not found`, [
+                'Run: tw workspaces to list available workspaces',
+            ])
         }
         return workspace
     }
@@ -126,6 +128,7 @@ export async function resolveWorkspaceRef(ref: string): Promise<Workspace> {
             throw new CliError(
                 'WORKSPACE_NOT_FOUND',
                 `Workspace with ID ${parsed.parsed.workspaceId} not found`,
+                ['Run: tw workspaces to list available workspaces'],
             )
         }
         return workspace
@@ -150,7 +153,9 @@ export async function resolveWorkspaceRef(ref: string): Promise<Workspace> {
         }
     }
 
-    throw new CliError('WORKSPACE_NOT_FOUND', `Workspace "${ref}" not found`)
+    throw new CliError('WORKSPACE_NOT_FOUND', `Workspace "${ref}" not found`, [
+        'Run: tw workspaces to list available workspaces',
+    ])
 }
 
 export function resolveThreadId(ref: string): number {
@@ -292,7 +297,9 @@ export async function resolveUserRefs(refs: string, workspaceId: number): Promis
         )
 
         if (matches.length === 0) {
-            throw new CliError('USER_NOT_FOUND', `No user found matching "${ref}"`)
+            throw new CliError('USER_NOT_FOUND', `No user found matching "${ref}"`, [
+                'Run: tw users to list workspace members',
+            ])
         }
 
         if (matches.length > 1) {

@@ -456,10 +456,9 @@ describe('auth command', () => {
             // Mock callback server error
             mockStartCallbackServer.mockRejectedValue(new Error('Port 8766 is already in use'))
 
-            await program.parseAsync(['node', 'tw', 'auth', 'login'])
-
-            expect(consoleSpy).toHaveBeenCalledWith('✗', 'OAuth authentication failed')
-            expect(consoleSpy).toHaveBeenCalledWith('Port 8766 is already in use')
+            const result = program.parseAsync(['node', 'tw', 'auth', 'login'])
+            await expect(result).rejects.toHaveProperty('code', 'AUTH_FAILED')
+            await expect(result).rejects.toHaveProperty('hints')
         })
 
         it('handles token exchange errors', async () => {
@@ -486,11 +485,10 @@ describe('auth command', () => {
             // Mock token exchange error
             mockExchangeCodeForToken.mockRejectedValue(new Error('Invalid authorization code'))
 
-            await program.parseAsync(['node', 'tw', 'auth', 'login'])
-
+            const result = program.parseAsync(['node', 'tw', 'auth', 'login'])
+            await expect(result).rejects.toHaveProperty('code', 'AUTH_FAILED')
+            await expect(result).rejects.toHaveProperty('hints')
             expect(mockCleanup).toHaveBeenCalled()
-            expect(consoleSpy).toHaveBeenCalledWith('✗', 'OAuth authentication failed')
-            expect(consoleSpy).toHaveBeenCalledWith('Invalid authorization code')
         })
 
         it('handles browser opening errors gracefully', async () => {
@@ -544,11 +542,9 @@ describe('auth command', () => {
             // Mock server that throws an error
             mockStartCallbackServer.mockRejectedValue(new Error('Server failed to start'))
 
-            await program.parseAsync(['node', 'tw', 'auth', 'login'])
-
-            // Should handle the error gracefully
-            expect(consoleSpy).toHaveBeenCalledWith('✗', 'OAuth authentication failed')
-            expect(consoleSpy).toHaveBeenCalledWith('Server failed to start')
+            const result = program.parseAsync(['node', 'tw', 'auth', 'login'])
+            await expect(result).rejects.toHaveProperty('code', 'AUTH_FAILED')
+            await expect(result).rejects.toHaveProperty('hints')
         })
     })
 

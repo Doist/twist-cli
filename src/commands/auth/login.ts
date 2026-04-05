@@ -1,5 +1,6 @@
 import chalk from 'chalk'
 import { saveApiToken } from '../../lib/auth.js'
+import { CliError } from '../../lib/errors.js'
 import { startCallbackServer } from '../../lib/oauth-server.js'
 import {
     buildAuthorizationUrl,
@@ -69,8 +70,11 @@ export async function loginWithOAuth(options: { readOnly?: boolean }): Promise<v
             }
         }
     } catch (error) {
-        console.log(chalk.red('✗'), 'OAuth authentication failed')
-        console.log(chalk.dim(error instanceof Error ? error.message : 'Unknown error'))
-        console.log(chalk.dim('You can try manual authentication with `tw auth token <token>`'))
+        if (error instanceof CliError) throw error
+        const detail = error instanceof Error ? `: ${error.message}` : ''
+        throw new CliError('AUTH_FAILED', `OAuth authentication failed${detail}`, [
+            'Try again: tw auth login',
+            'Or set TWIST_API_TOKEN environment variable',
+        ])
     }
 }

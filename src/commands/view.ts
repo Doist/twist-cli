@@ -50,15 +50,23 @@ Examples:
   tw view https://twist.com/a/1585/msg/400/m/500 --json`,
         )
         .action(async (url: string) => {
+            const urlHints = [
+                'Expected: https://twist.com/a/{workspaceId}/...',
+                'Run: tw view --help for examples',
+            ]
             if (!looksLikeTwistAppUrl(url)) {
-                throw new CliError('INVALID_URL', `Not a recognized Twist URL: ${url}`)
+                throw new CliError('INVALID_URL', `Not a recognized Twist URL: ${url}`, urlHints)
             }
 
             const { url: resolvedUrl, passthroughArgs } = extractViewInvocation(url)
 
             const route = classifyTwistUrl(resolvedUrl)
             if (!route) {
-                throw new CliError('INVALID_URL', `Not a recognized Twist URL: ${resolvedUrl}`)
+                throw new CliError(
+                    'INVALID_URL',
+                    `Not a recognized Twist URL: ${resolvedUrl}`,
+                    urlHints,
+                )
             }
 
             switch (route.entityType) {
