@@ -70,6 +70,11 @@ program
         'Include private channels in output (env: TWIST_INCLUDE_PRIVATE_CHANNELS)',
     )
     .option('--accessible', 'Add text labels to color-coded output (also: TW_ACCESSIBLE=1)')
+    .option(
+        '--non-interactive',
+        'Disable interactive prompts (auto-detected when stdin is not a TTY)',
+    )
+    .option('--interactive', 'Force interactive mode even when stdin is not a TTY')
     .addHelpText(
         'after',
         `

@@ -3,6 +3,13 @@ import { readFile, unlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
+export function isNonInteractive(): boolean {
+    const args = process.argv
+    if (args.includes('--interactive')) return false
+    if (args.includes('--non-interactive')) return true
+    return !process.stdin.isTTY
+}
+
 export async function readStdin(): Promise<string | null> {
     if (process.stdin.isTTY) {
         return null
@@ -24,6 +31,10 @@ export async function readStdin(): Promise<string | null> {
 }
 
 export async function openEditor(): Promise<string | null> {
+    if (isNonInteractive()) {
+        return null
+    }
+
     const editor = process.env.EDITOR || process.env.VISUAL || 'vi'
     const tmpFile = join(tmpdir(), `twist-cli-${Date.now()}.md`)
 

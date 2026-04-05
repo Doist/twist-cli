@@ -20,7 +20,13 @@ function shouldDisableSpinner(): boolean {
 
     // Check process arguments for flags that should disable spinner
     const args = process.argv
-    const spinnerDisablingFlags = ['--json', '--ndjson', '--no-spinner', '--progress-jsonl']
+    const spinnerDisablingFlags = [
+        '--json',
+        '--ndjson',
+        '--no-spinner',
+        '--progress-jsonl',
+        '--non-interactive',
+    ]
 
     // Check for both exact matches and prefix matches (to handle --flag=value variants)
     return spinnerDisablingFlags.some(

@@ -199,20 +199,17 @@ describe('comment update', () => {
         const program = createProgram()
         const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
         const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
-        const exitSpy = vi.spyOn(process, 'exit').mockImplementation(() => {
-            throw new Error('process.exit')
-        })
 
-        await expect(
-            program.parseAsync(['node', 'tw', 'comment', 'update', '300']),
-        ).rejects.toThrow('process.exit')
+        await program.parseAsync(['node', 'tw', 'comment', 'update', '300'])
 
-        expect(errorSpy).toHaveBeenCalledWith('No content provided.')
-        expect(exitSpy).toHaveBeenCalledWith(1)
+        expect(errorSpy).toHaveBeenCalledWith(
+            'Error: no content provided. Pass content as an argument or pipe via stdin.',
+        )
+        expect(process.exitCode).toBe(1)
 
         consoleSpy.mockRestore()
         errorSpy.mockRestore()
-        exitSpy.mockRestore()
+        process.exitCode = undefined
     })
 })
 

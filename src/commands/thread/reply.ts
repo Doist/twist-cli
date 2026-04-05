@@ -20,7 +20,8 @@ export async function replyToThread(
 
     if (options.close && options.reopen) {
         console.error('Cannot use --close and --reopen together.')
-        process.exit(1)
+        process.exitCode = 1
+        return
     }
 
     let replyContent = await readStdin()
@@ -31,8 +32,9 @@ export async function replyToThread(
         replyContent = await openEditor()
     }
     if (!replyContent || replyContent.trim() === '') {
-        console.error('No content provided.')
-        process.exit(1)
+        console.error('Error: no content provided. Pass content as an argument or pipe via stdin.')
+        process.exitCode = 1
+        return
     }
 
     const notifyValue = options.notify ?? 'EVERYONE_IN_THREAD'
