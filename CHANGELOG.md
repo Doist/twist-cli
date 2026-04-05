@@ -1,3 +1,9 @@
+## [2.23.3](https://github.com/Doist/twist-cli/compare/v2.23.2...v2.23.3) (2026-04-05)
+
+### Bug Fixes
+
+- route auth errors to stderr and add actionable hints ([#145](https://github.com/Doist/twist-cli/issues/145)) ([3ab872c](https://github.com/Doist/twist-cli/commit/3ab872c82d45342cd4518aa7c96b8581a5dc361c))
+
 ## [2.23.2](https://github.com/Doist/twist-cli/compare/v2.23.1...v2.23.2) (2026-04-05)
 
 ### Bug Fixes
