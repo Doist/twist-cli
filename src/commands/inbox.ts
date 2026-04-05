@@ -159,5 +159,14 @@ export function registerInboxCommand(program: Command): void {
         .option('--json', 'Output as JSON')
         .option('--ndjson', 'Output as newline-delimited JSON')
         .option('--full', 'Include all fields in JSON output')
+        .addHelpText(
+            'after',
+            `
+Examples:
+  tw inbox
+  tw inbox --unread
+  tw inbox --channel engineering --since 2025-01-01
+  tw inbox --limit 10 --json`,
+        )
         .action(showInbox)
 }

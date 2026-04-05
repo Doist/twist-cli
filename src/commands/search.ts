@@ -221,5 +221,13 @@ export function registerSearchCommand(program: Command): void {
         .option('--json', 'Output as JSON')
         .option('--ndjson', 'Output as newline-delimited JSON')
         .option('--full', 'Include all fields in JSON output')
+        .addHelpText(
+            'after',
+            `
+Examples:
+  tw search "deployment issue"
+  tw search "bug report" --type threads --channel engineering
+  tw search "API" --author id:5678 --since 2025-01-01 --json`,
+        )
         .action(search)
 }

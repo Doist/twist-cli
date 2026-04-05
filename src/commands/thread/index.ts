@@ -23,6 +23,14 @@ export function registerThreadCommand(program: Command): void {
         .option('--json', 'Output as JSON')
         .option('--ndjson', 'Output as newline-delimited JSON')
         .option('--full', 'Include all fields in JSON output')
+        .addHelpText(
+            'after',
+            `
+Examples:
+  tw thread 12345
+  tw thread view 12345 --unread
+  tw thread view 12345 --limit 10 --json`,
+        )
         .action((ref, options) => {
             if (!ref) {
                 thread.help()
@@ -48,6 +56,14 @@ export function registerThreadCommand(program: Command): void {
         .option('--dry-run', 'Show what would be posted without posting')
         .option('--json', 'Output posted comment as JSON')
         .option('--full', 'Include all fields in JSON output')
+        .addHelpText(
+            'after',
+            `
+Examples:
+  tw thread reply 12345 "Sounds good!"
+  echo "Long reply" | tw thread reply 12345
+  tw thread reply 12345 "Done" --close --json`,
+        )
         .action(replyToThread)
 
     thread
@@ -57,6 +73,14 @@ export function registerThreadCommand(program: Command): void {
         .option('--dry-run', 'Show what would be posted without posting')
         .option('--json', 'Output created thread as JSON')
         .option('--full', 'Include all fields in JSON output')
+        .addHelpText(
+            'after',
+            `
+Examples:
+  tw thread create general "Weekly update" "Here's what happened..."
+  echo "Body from stdin" | tw thread create general "Title"
+  tw thread create general "Title" "Body" --notify EVERYONE --json`,
+        )
         .action(createThread)
 
     thread
@@ -64,6 +88,14 @@ export function registerThreadCommand(program: Command): void {
         .description('Archive a thread (mark as done)')
         .option('--dry-run', 'Show what would happen without executing')
         .option('--json', 'Output result as JSON')
+        .addHelpText(
+            'after',
+            `
+Examples:
+  tw thread done 12345
+  tw thread done 12345 --dry-run
+  tw thread done 12345 --json`,
+        )
         .action(markThreadDone)
 
     thread
@@ -72,6 +104,14 @@ export function registerThreadCommand(program: Command): void {
         .option('--yes', 'Confirm deletion')
         .option('--dry-run', 'Show what would happen without executing')
         .option('--json', 'Output result as JSON')
+        .addHelpText(
+            'after',
+            `
+Examples:
+  tw thread delete 12345 --yes
+  tw thread delete 12345 --dry-run
+  tw thread delete 12345 --yes --json`,
+        )
         .action(deleteThread)
 
     thread
@@ -81,6 +121,13 @@ export function registerThreadCommand(program: Command): void {
         .option('--dry-run', 'Show what would happen without executing')
         .option('--json', 'Output result as JSON')
         .option('--full', 'Include all fields in JSON output')
+        .addHelpText(
+            'after',
+            `
+Examples:
+  tw thread mute 12345
+  tw thread mute 12345 --minutes 480`,
+        )
         .action(muteThread)
 
     thread
@@ -89,5 +136,11 @@ export function registerThreadCommand(program: Command): void {
         .option('--dry-run', 'Show what would happen without executing')
         .option('--json', 'Output result as JSON')
         .option('--full', 'Include all fields in JSON output')
+        .addHelpText(
+            'after',
+            `
+Examples:
+  tw thread unmute 12345`,
+        )
         .action(unmuteThread)
 }

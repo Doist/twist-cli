@@ -14,6 +14,13 @@ export function registerCommentCommand(program: Command): void {
         .option('--raw', 'Show raw markdown instead of rendered')
         .option('--json', 'Output as JSON')
         .option('--full', 'Include all fields in JSON output')
+        .addHelpText(
+            'after',
+            `
+Examples:
+  tw comment 12345
+  tw comment view 12345 --json`,
+        )
         .action((ref, options) => {
             if (!ref) {
                 comment.help()
@@ -28,6 +35,14 @@ export function registerCommentCommand(program: Command): void {
         .option('--dry-run', 'Show what would be updated without updating')
         .option('--json', 'Output updated comment as JSON')
         .option('--full', 'Include all fields in JSON output')
+        .addHelpText(
+            'after',
+            `
+Examples:
+  tw comment update 12345 "Updated text"
+  echo "New content" | tw comment update 12345
+  tw comment update 12345 "Fixed" --json`,
+        )
         .action(updateComment)
 
     comment
@@ -35,5 +50,12 @@ export function registerCommentCommand(program: Command): void {
         .description('Delete a thread comment')
         .option('--dry-run', 'Show what would happen without executing')
         .option('--json', 'Output result as JSON')
+        .addHelpText(
+            'after',
+            `
+Examples:
+  tw comment delete 12345
+  tw comment delete 12345 --dry-run`,
+        )
         .action(deleteComment)
 }
