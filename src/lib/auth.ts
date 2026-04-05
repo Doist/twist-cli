@@ -98,10 +98,7 @@ export async function getApiToken(): Promise<string> {
         }
     }
 
-    throw new CliError(
-        'NO_TOKEN',
-        `No API token found. Set ${TOKEN_ENV_VAR} or run \`tw auth login\` or \`tw auth token <token>\`.`,
-    )
+    throw new NoTokenError()
 }
 
 export async function getAuthMetadata(): Promise<AuthMetadata> {

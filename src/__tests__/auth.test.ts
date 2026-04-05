@@ -2,11 +2,15 @@ import { Command } from 'commander'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 // Mock the auth module
-vi.mock('../lib/auth.js', () => ({
-    saveApiToken: vi.fn(),
-    clearApiToken: vi.fn(),
-    getAuthMetadata: vi.fn(),
-}))
+vi.mock('../lib/auth.js', async (importOriginal) => {
+    const actual = await importOriginal<typeof import('../lib/auth.js')>()
+    return {
+        ...actual,
+        saveApiToken: vi.fn(),
+        clearApiToken: vi.fn(),
+        getAuthMetadata: vi.fn(),
+    }
+})
 
 // Mock the api module
 vi.mock('../lib/api.js', () => ({

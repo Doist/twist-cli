@@ -167,7 +167,9 @@ await program
             console.error(isJsonMode() ? formatErrorJson(err) : formatError(err))
         } else {
             console.error(
-                isJsonMode() ? formatErrorJson('INTERNAL_ERROR', err.message) : err.message,
+                isJsonMode()
+                    ? formatErrorJson('INTERNAL_ERROR', err.message)
+                    : err.stack || err.message,
             )
         }
         process.exitCode = 1

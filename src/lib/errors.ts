@@ -32,6 +32,7 @@ export type ErrorCode =
     | 'FILE_READ_ERROR'
     | 'NOT_CREATOR'
     | 'NOT_INSTALLED'
+    | 'UNKNOWN_AGENT'
     // API & internal
     | 'API_ERROR'
     | 'INTERNAL_ERROR'
