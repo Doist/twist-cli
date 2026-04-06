@@ -43,9 +43,11 @@ export function printComment(
     console.log('')
 }
 
+export type NamedEntity = { id: number; name: string }
+
 export interface NotifiedInfo {
-    users: { id: number; name: string }[]
-    groups: { id: number; name: string }[]
+    users: NamedEntity[]
+    groups: NamedEntity[]
 }
 
 export function buildNotifiedInfo(
@@ -62,7 +64,7 @@ export function buildNotifiedInfo(
     }
 }
 
-export function formatNotifyLabel(items: { id: number; name: string }[]): string {
+export function formatNotifyLabel(items: NamedEntity[]): string {
     return items.map((i) => `${i.name} (${i.id})`).join(', ')
 }
 
