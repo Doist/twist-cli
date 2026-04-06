@@ -22,11 +22,6 @@ async function listGroups(nameFilter: string | undefined, options: GroupsOptions
         groups = groups.filter((g) => g.name.toLowerCase().includes(query))
     }
 
-    if (groups.length === 0) {
-        console.log('No groups found.')
-        return
-    }
-
     if (options.json) {
         console.log(formatJson(groups, 'group', options.full))
         return
@@ -34,6 +29,11 @@ async function listGroups(nameFilter: string | undefined, options: GroupsOptions
 
     if (options.ndjson) {
         console.log(formatNdjson(groups, 'group', options.full))
+        return
+    }
+
+    if (groups.length === 0) {
+        console.log('No groups found.')
         return
     }
 

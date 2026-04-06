@@ -48,11 +48,6 @@ async function listUsers(workspaceRef: string | undefined, options: UsersOptions
         )
     }
 
-    if (users.length === 0) {
-        console.log('No users found.')
-        return
-    }
-
     if (options.json) {
         console.log(formatJson(users, 'user', options.full))
         return
@@ -60,6 +55,11 @@ async function listUsers(workspaceRef: string | undefined, options: UsersOptions
 
     if (options.ndjson) {
         console.log(formatNdjson(users, 'user', options.full))
+        return
+    }
+
+    if (users.length === 0) {
+        console.log('No users found.')
         return
     }
 
