@@ -223,3 +223,7 @@ export function printJson<T extends object>(data: T | T[], type?: EntityType, fu
 export function printNdjson<T extends object>(items: T[], type?: EntityType, full = false): void {
     console.log(formatNdjson(items, type, full))
 }
+
+export function pluralize(count: number, singular: string): string {
+    return count === 1 ? singular : `${singular}s`
+}

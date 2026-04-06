@@ -2,7 +2,7 @@ import { Command } from 'commander'
 import { getCurrentWorkspaceId, getWorkspaceGroups } from '../lib/api.js'
 import { CliError } from '../lib/errors.js'
 import type { ViewOptions } from '../lib/options.js'
-import { colors, formatJson, formatNdjson } from '../lib/output.js'
+import { colors, formatJson, formatNdjson, pluralize } from '../lib/output.js'
 import { resolveWorkspaceRef } from '../lib/refs.js'
 
 type GroupsOptions = ViewOptions & { workspace?: string; search?: string }
@@ -50,7 +50,9 @@ async function listGroups(workspaceRef: string | undefined, options: GroupsOptio
     for (const g of groups) {
         const id = colors.timestamp(`id:${g.id}`)
         const name = colors.channel(g.name)
-        const members = colors.timestamp(`(${g.userIds.length} members)`)
+        const members = colors.timestamp(
+            `(${g.userIds.length} ${pluralize(g.userIds.length, 'member')})`,
+        )
         console.log(`${id}  ${name}  ${members}`)
     }
 }

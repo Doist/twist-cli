@@ -4,10 +4,10 @@ import { assertBatchData, getTwistClient } from '../../lib/api.js'
 import { formatRelativeDate } from '../../lib/dates.js'
 import { renderMarkdown } from '../../lib/markdown.js'
 import type { PaginatedViewOptions } from '../../lib/options.js'
-import { colors, formatJson } from '../../lib/output.js'
+import { colors, formatJson, pluralize } from '../../lib/output.js'
 import { assertChannelIsPublic } from '../../lib/public-channels.js'
 import { extractId, parseRef, resolveThreadId } from '../../lib/refs.js'
-import { pluralize, printComment, printSeparator } from './helpers.js'
+import { printComment, printSeparator } from './helpers.js'
 
 type ViewOptions = PaginatedViewOptions & {
     comment?: string

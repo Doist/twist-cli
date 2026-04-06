@@ -21,10 +21,6 @@ export function printSeparator(label: string): void {
     console.log('')
 }
 
-export function pluralize(count: number, singular: string): string {
-    return count === 1 ? singular : `${singular}s`
-}
-
 export interface CommentLike {
     id: number
     creator: number
