@@ -1,9 +1,10 @@
 import chalk from 'chalk'
-import type { Group, WorkspaceUser } from '../../lib/api.js'
+import { getWorkspaceGroups, getWorkspaceUsers } from '../../lib/api.js'
 import { formatRelativeDate } from '../../lib/dates.js'
 import { isAccessible } from '../../lib/global-args.js'
 import { renderMarkdown } from '../../lib/markdown.js'
 import { colors } from '../../lib/output.js'
+import { partitionNotifyIds } from '../../lib/refs.js'
 
 export function printSeparator(label: string): void {
     const totalWidth = 60
@@ -50,18 +51,29 @@ export interface NotifiedInfo {
     groups: NamedEntity[]
 }
 
-export function buildNotifiedInfo(
-    userIds: number[] | undefined,
-    groupIds: number[] | undefined,
-    workspaceUsers: WorkspaceUser[],
-    workspaceGroups: Group[],
-): NotifiedInfo {
-    const userMap = new Map(workspaceUsers.map((u) => [u.id, u.name]))
+export interface ResolvedNotify {
+    recipients: number[] | undefined
+    groups: number[] | undefined
+    notified: NotifiedInfo
+}
+
+export async function resolveNotifyIds(
+    ids: number[],
+    workspaceId: number,
+): Promise<ResolvedNotify> {
+    const workspaceGroups = await getWorkspaceGroups(workspaceId)
+    const groupIdSet = new Set(workspaceGroups.map((g) => g.id))
+    const partitioned = partitionNotifyIds(ids, groupIdSet)
+    const recipients = partitioned.userIds.length > 0 ? partitioned.userIds : undefined
+    const groups = partitioned.groupIds.length > 0 ? partitioned.groupIds : undefined
+    const workspaceUserList = await getWorkspaceUsers(workspaceId)
+    const userMap = new Map(workspaceUserList.map((u) => [u.id, u.name]))
     const groupMap = new Map(workspaceGroups.map((g) => [g.id, g.name]))
-    return {
-        users: (userIds ?? []).map((id) => ({ id, name: userMap.get(id) ?? `user:${id}` })),
-        groups: (groupIds ?? []).map((id) => ({ id, name: groupMap.get(id) ?? `group:${id}` })),
+    const notified: NotifiedInfo = {
+        users: (recipients ?? []).map((id) => ({ id, name: userMap.get(id) ?? `user:${id}` })),
+        groups: (groups ?? []).map((id) => ({ id, name: groupMap.get(id) ?? `group:${id}` })),
     }
+    return { recipients, groups, notified }
 }
 
 export function formatNotifyLabel(items: NamedEntity[]): string {

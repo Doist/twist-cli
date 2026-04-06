@@ -1,11 +1,11 @@
-import { getTwistClient, getWorkspaceGroups, getWorkspaceUsers } from '../../lib/api.js'
+import { getTwistClient } from '../../lib/api.js'
 import { CliError } from '../../lib/errors.js'
 import { openEditor, readStdin } from '../../lib/input.js'
 import type { MutationOptions } from '../../lib/options.js'
 import { formatJson } from '../../lib/output.js'
 import { assertChannelIsPublic } from '../../lib/public-channels.js'
-import { parseUserIdRefs, partitionNotifyIds, resolveThreadId } from '../../lib/refs.js'
-import { type NotifiedInfo, buildNotifiedInfo, printNotifyLines } from './helpers.js'
+import { parseUserIdRefs, resolveThreadId } from '../../lib/refs.js'
+import { type ResolvedNotify, printNotifyLines, resolveNotifyIds } from './helpers.js'
 
 type ReplyOptions = MutationOptions & {
     notify?: string
@@ -46,19 +46,13 @@ export async function replyToThread(
     await assertChannelIsPublic(thread.channelId, thread.workspaceId)
 
     let recipients: string | number[] | undefined
-    let groups: number[] | undefined
-    let notified: NotifiedInfo | undefined
+    let resolved: ResolvedNotify | undefined
     if (isSpecialRecipient) {
         recipients = notifyValue
     } else {
         const allIds = parseUserIdRefs(notifyValue)
-        const workspaceGroups = await getWorkspaceGroups(thread.workspaceId)
-        const groupIdSet = new Set(workspaceGroups.map((g) => g.id))
-        const partitioned = partitionNotifyIds(allIds, groupIdSet)
-        recipients = partitioned.userIds.length > 0 ? partitioned.userIds : undefined
-        groups = partitioned.groupIds.length > 0 ? partitioned.groupIds : undefined
-        const workspaceUserList = await getWorkspaceUsers(thread.workspaceId)
-        notified = buildNotifiedInfo(recipients, groups, workspaceUserList, workspaceGroups)
+        resolved = await resolveNotifyIds(allIds, thread.workspaceId)
+        recipients = resolved.recipients
     }
 
     const action = options.close ? 'close' : options.reopen ? 'reopen' : undefined
@@ -69,15 +63,15 @@ export async function replyToThread(
         console.log(`Dry run: would post comment to thread ${threadId}${actionSuffix}`)
         if (isSpecialRecipient) {
             console.log(`Notify: ${notifyValue}`)
-        } else if (notified) {
-            printNotifyLines(notified)
+        } else if (resolved) {
+            printNotifyLines(resolved.notified)
         }
         console.log('')
         console.log(replyContent)
         return
     }
 
-    const groupsPayload = groups ? { groups } : {}
+    const groupsPayload = resolved?.groups ? { groups: resolved.groups } : {}
 
     const comment =
         action === 'close'
@@ -102,7 +96,7 @@ export async function replyToThread(
                 } as Parameters<typeof client.comments.createComment>[0])
 
     if (options.json) {
-        const output = notified ? { ...comment, notified } : comment
+        const output = resolved ? { ...comment, notified: resolved.notified } : comment
         console.log(formatJson(output, 'comment', options.full))
         return
     }

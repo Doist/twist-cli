@@ -1,11 +1,11 @@
-import { getTwistClient, getWorkspaceGroups, getWorkspaceUsers } from '../../lib/api.js'
+import { getTwistClient } from '../../lib/api.js'
 import { CliError } from '../../lib/errors.js'
 import { openEditor, readStdin } from '../../lib/input.js'
 import type { MutationOptions } from '../../lib/options.js'
 import { formatJson } from '../../lib/output.js'
 import { assertChannelIsPublic } from '../../lib/public-channels.js'
-import { parseUserIdRefs, partitionNotifyIds, resolveChannelId } from '../../lib/refs.js'
-import { type NotifiedInfo, buildNotifiedInfo, printNotifyLines } from './helpers.js'
+import { parseUserIdRefs, resolveChannelId } from '../../lib/refs.js'
+import { type ResolvedNotify, printNotifyLines, resolveNotifyIds } from './helpers.js'
 
 type CreateOptions = MutationOptions & {
     notify?: string
@@ -39,24 +39,16 @@ export async function createThread(
     const channel = await client.channels.getChannel(channelId)
     await assertChannelIsPublic(channelId, channel.workspaceId)
 
-    let recipients: number[] | undefined
-    let groups: number[] | undefined
-    let notified: NotifiedInfo | undefined
+    let resolved: ResolvedNotify | undefined
     if (allIds) {
-        const workspaceGroups = await getWorkspaceGroups(channel.workspaceId)
-        const groupIdSet = new Set(workspaceGroups.map((g) => g.id))
-        const partitioned = partitionNotifyIds(allIds, groupIdSet)
-        recipients = partitioned.userIds.length > 0 ? partitioned.userIds : undefined
-        groups = partitioned.groupIds.length > 0 ? partitioned.groupIds : undefined
-        const workspaceUserList = await getWorkspaceUsers(channel.workspaceId)
-        notified = buildNotifiedInfo(recipients, groups, workspaceUserList, workspaceGroups)
+        resolved = await resolveNotifyIds(allIds, channel.workspaceId)
     }
 
     if (options.dryRun) {
         console.log('Dry run: would create thread in channel', channelId)
         console.log(`Title: ${title}`)
-        if (notified) {
-            printNotifyLines(notified)
+        if (resolved) {
+            printNotifyLines(resolved.notified)
         }
         console.log('')
         console.log(threadContent)
@@ -67,12 +59,12 @@ export async function createThread(
         channelId,
         title,
         content: threadContent,
-        recipients,
-        groups,
+        recipients: resolved?.recipients,
+        groups: resolved?.groups,
     })
 
     if (options.json) {
-        const output = notified ? { ...thread, notified } : thread
+        const output = resolved ? { ...thread, notified: resolved.notified } : thread
         console.log(formatJson(output, 'thread', options.full))
         return
     }
