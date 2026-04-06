@@ -38,6 +38,17 @@ export interface AuthMetadata {
     source: 'env' | 'config'
 }
 
+export interface AuthProbeMetadata {
+    authMode: AuthMode
+    authScope?: string
+    source: 'env' | 'config-file' | 'secure-store'
+}
+
+export interface AuthProbeResult {
+    token: string
+    metadata: AuthProbeMetadata
+}
+
 export async function getApiToken(): Promise<string> {
     // Priority 1: Environment variable
     const envToken = process.env[TOKEN_ENV_VAR]
@@ -96,6 +107,55 @@ export async function getApiToken(): Promise<string> {
         if (!(error instanceof SecureStoreUnavailableError)) {
             throw error
         }
+    }
+
+    throw new NoTokenError()
+}
+
+export async function probeApiToken(): Promise<AuthProbeResult> {
+    const envToken = process.env[TOKEN_ENV_VAR]
+    if (envToken) {
+        return {
+            token: envToken,
+            metadata: { authMode: 'unknown', source: 'env' },
+        }
+    }
+
+    const config = await getConfig()
+    const configToken = getConfigToken(config)
+    if (configToken) {
+        return {
+            token: configToken,
+            metadata: {
+                authMode: config.authMode ?? 'unknown',
+                authScope: config.authScope,
+                source: 'config-file',
+            },
+        }
+    }
+
+    if (config.pendingSecureStoreClear) {
+        throw new NoTokenError()
+    }
+
+    const secureStore = createSecureStore()
+    try {
+        const storedToken = await secureStore.getSecret()
+        if (storedToken?.trim()) {
+            return {
+                token: storedToken.trim(),
+                metadata: {
+                    authMode: config.authMode ?? 'unknown',
+                    authScope: config.authScope,
+                    source: 'secure-store',
+                },
+            }
+        }
+    } catch (error) {
+        if (!(error instanceof SecureStoreUnavailableError)) {
+            throw error
+        }
+        throw error
     }
 
     throw new NoTokenError()
