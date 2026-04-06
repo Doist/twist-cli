@@ -11,12 +11,14 @@ vi.mock('../lib/public-channels.js', () => ({
 
 const groupsMock = vi.hoisted(() => ({
     getWorkspaceGroups: vi.fn().mockResolvedValue([]),
+    getWorkspaceUsers: vi.fn().mockResolvedValue([]),
 }))
 
 vi.mock('../lib/api.js', async (importOriginal) => ({
     ...(await importOriginal<typeof import('../lib/api.js')>()),
     getTwistClient: apiMocks.getTwistClient,
     getWorkspaceGroups: groupsMock.getWorkspaceGroups,
+    getWorkspaceUsers: groupsMock.getWorkspaceUsers,
 }))
 
 vi.mock('../lib/markdown.js', () => ({
@@ -614,6 +616,10 @@ describe('thread create', () => {
         const client = createClient()
         apiMocks.getTwistClient.mockResolvedValue(client)
         groupsMock.getWorkspaceGroups.mockResolvedValue([])
+        groupsMock.getWorkspaceUsers.mockResolvedValue([
+            { id: 123, name: 'Alice' },
+            { id: 456, name: 'Bob' },
+        ])
 
         const program = createProgram()
         const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
@@ -647,6 +653,7 @@ describe('thread create', () => {
         groupsMock.getWorkspaceGroups.mockResolvedValue([
             { id: 456, name: 'Frontend', workspaceId: 10, userIds: [1, 2], version: 1 },
         ])
+        groupsMock.getWorkspaceUsers.mockResolvedValue([{ id: 123, name: 'Alice' }])
 
         const program = createProgram()
         const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})

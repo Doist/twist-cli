@@ -1,4 +1,5 @@
 import chalk from 'chalk'
+import type { Group, WorkspaceUser } from '../../lib/api.js'
 import { formatRelativeDate } from '../../lib/dates.js'
 import { isAccessible } from '../../lib/global-args.js'
 import { renderMarkdown } from '../../lib/markdown.js'
@@ -40,4 +41,36 @@ export function printComment(
     console.log(`${author}  ${time}  ${colors.timestamp(`id:${comment.id}`)}`)
     console.log(raw ? comment.content : renderMarkdown(comment.content))
     console.log('')
+}
+
+export interface NotifiedInfo {
+    users: { id: number; name: string }[]
+    groups: { id: number; name: string }[]
+}
+
+export function buildNotifiedInfo(
+    userIds: number[] | undefined,
+    groupIds: number[] | undefined,
+    workspaceUsers: WorkspaceUser[],
+    workspaceGroups: Group[],
+): NotifiedInfo {
+    const userMap = new Map(workspaceUsers.map((u) => [u.id, u.name]))
+    const groupMap = new Map(workspaceGroups.map((g) => [g.id, g.name]))
+    return {
+        users: (userIds ?? []).map((id) => ({ id, name: userMap.get(id) ?? `user:${id}` })),
+        groups: (groupIds ?? []).map((id) => ({ id, name: groupMap.get(id) ?? `group:${id}` })),
+    }
+}
+
+export function formatNotifyLabel(items: { id: number; name: string }[]): string {
+    return items.map((i) => `${i.name} (${i.id})`).join(', ')
+}
+
+export function printNotifyLines(notified: NotifiedInfo): void {
+    if (notified.users.length > 0) {
+        console.log(`Notify users: ${formatNotifyLabel(notified.users)}`)
+    }
+    if (notified.groups.length > 0) {
+        console.log(`Notify groups: ${formatNotifyLabel(notified.groups)}`)
+    }
 }

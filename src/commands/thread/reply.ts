@@ -1,10 +1,11 @@
-import { getTwistClient, getWorkspaceGroups } from '../../lib/api.js'
+import { getTwistClient, getWorkspaceGroups, getWorkspaceUsers } from '../../lib/api.js'
 import { CliError } from '../../lib/errors.js'
 import { openEditor, readStdin } from '../../lib/input.js'
 import type { MutationOptions } from '../../lib/options.js'
 import { formatJson } from '../../lib/output.js'
 import { assertChannelIsPublic } from '../../lib/public-channels.js'
 import { parseUserIdRefs, partitionNotifyIds, resolveThreadId } from '../../lib/refs.js'
+import { type NotifiedInfo, buildNotifiedInfo, printNotifyLines } from './helpers.js'
 
 type ReplyOptions = MutationOptions & {
     notify?: string
@@ -46,6 +47,7 @@ export async function replyToThread(
 
     let recipients: string | number[] | undefined
     let groups: number[] | undefined
+    let notified: NotifiedInfo | undefined
     if (isSpecialRecipient) {
         recipients = notifyValue
     } else {
@@ -55,6 +57,8 @@ export async function replyToThread(
         const partitioned = partitionNotifyIds(allIds, groupIdSet)
         recipients = partitioned.userIds.length > 0 ? partitioned.userIds : undefined
         groups = partitioned.groupIds.length > 0 ? partitioned.groupIds : undefined
+        const workspaceUserList = await getWorkspaceUsers(thread.workspaceId)
+        notified = buildNotifiedInfo(recipients, groups, workspaceUserList, workspaceGroups)
     }
 
     const action = options.close ? 'close' : options.reopen ? 'reopen' : undefined
@@ -65,13 +69,8 @@ export async function replyToThread(
         console.log(`Dry run: would post comment to thread ${threadId}${actionSuffix}`)
         if (isSpecialRecipient) {
             console.log(`Notify: ${notifyValue}`)
-        } else {
-            if (recipients) {
-                console.log(`Notify users: ${(recipients as number[]).join(', ')}`)
-            }
-            if (groups) {
-                console.log(`Notify groups: ${groups.join(', ')}`)
-            }
+        } else if (notified) {
+            printNotifyLines(notified)
         }
         console.log('')
         console.log(replyContent)
@@ -103,7 +102,8 @@ export async function replyToThread(
                 } as Parameters<typeof client.comments.createComment>[0])
 
     if (options.json) {
-        console.log(formatJson(comment, 'comment', options.full))
+        const output = notified ? { ...comment, notified } : comment
+        console.log(formatJson(output, 'comment', options.full))
         return
     }
 
