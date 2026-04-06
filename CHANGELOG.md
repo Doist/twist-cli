@@ -1,3 +1,9 @@
+## [2.24.0](https://github.com/Doist/twist-cli/compare/v2.23.3...v2.24.0) (2026-04-06)
+
+### Features
+
+- add group support to --notify and new tw groups command ([#129](https://github.com/Doist/twist-cli/issues/129)) ([cba3f3f](https://github.com/Doist/twist-cli/commit/cba3f3f86451ef570b051ae3c9210530863f6bbf))
+
 ## [2.23.3](https://github.com/Doist/twist-cli/compare/v2.23.2...v2.23.3) (2026-04-05)
 
 ### Bug Fixes
