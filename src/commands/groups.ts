@@ -1,15 +1,25 @@
 import { Command } from 'commander'
 import { getCurrentWorkspaceId, getWorkspaceGroups } from '../lib/api.js'
+import { CliError } from '../lib/errors.js'
 import type { ViewOptions } from '../lib/options.js'
 import { colors, formatJson, formatNdjson } from '../lib/output.js'
 import { resolveWorkspaceRef } from '../lib/refs.js'
 
-type GroupsOptions = ViewOptions & { workspace?: string }
+type GroupsOptions = ViewOptions & { workspace?: string; search?: string }
 
-async function listGroups(nameFilter: string | undefined, options: GroupsOptions): Promise<void> {
+async function listGroups(workspaceRef: string | undefined, options: GroupsOptions): Promise<void> {
+    if (workspaceRef && options.workspace) {
+        throw new CliError(
+            'CONFLICTING_OPTIONS',
+            'Cannot specify workspace both as argument and --workspace flag',
+        )
+    }
+
     let workspaceId: number
-    if (options.workspace) {
-        const workspace = await resolveWorkspaceRef(options.workspace)
+    const ref = workspaceRef || options.workspace
+
+    if (ref) {
+        const workspace = await resolveWorkspaceRef(ref)
         workspaceId = workspace.id
     } else {
         workspaceId = await getCurrentWorkspaceId()
@@ -17,8 +27,8 @@ async function listGroups(nameFilter: string | undefined, options: GroupsOptions
 
     let groups = await getWorkspaceGroups(workspaceId)
 
-    if (nameFilter) {
-        const query = nameFilter.toLowerCase()
+    if (options.search) {
+        const query = options.search.toLowerCase()
         groups = groups.filter((g) => g.name.toLowerCase().includes(query))
     }
 
@@ -47,9 +57,10 @@ async function listGroups(nameFilter: string | undefined, options: GroupsOptions
 
 export function registerGroupsCommand(program: Command): void {
     program
-        .command('groups [name-filter]')
+        .command('groups [workspace-ref]')
         .description('List groups in a workspace')
         .option('--workspace <ref>', 'Workspace ID or name')
+        .option('--search <text>', 'Filter by name')
         .option('--json', 'Output as JSON')
         .option('--ndjson', 'Output as newline-delimited JSON')
         .option('--full', 'Include all fields in JSON output')

@@ -70,7 +70,7 @@ describe('groups', () => {
         const program = createProgram()
         const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
 
-        await program.parseAsync(['node', 'tw', 'groups', 'front'])
+        await program.parseAsync(['node', 'tw', 'groups', '--search', 'front'])
 
         expect(consoleSpy).toHaveBeenCalledTimes(1)
         expect(consoleSpy.mock.calls[0][0]).toContain('Frontend')

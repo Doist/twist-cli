@@ -170,7 +170,7 @@ tw users                         # List workspace users
 tw users --search <text>         # Filter by name/email
 tw channels                      # List workspace channels
 tw groups                        # List workspace groups
-tw groups "frontend"             # Filter groups by name (case-insensitive)
+tw groups --search "frontend"    # Filter groups by name (case-insensitive)
 tw groups --json                 # JSON output
 tw groups --json --full          # Include all fields in JSON output
 ```
