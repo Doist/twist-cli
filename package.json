@@ -60,7 +60,7 @@
         "yocto-spinner": "1.1.0"
     },
     "devDependencies": {
-        "oxfmt": "0.42.0",
+        "oxfmt": "0.43.0",
         "oxlint": "1.57.0",
         "@semantic-release/changelog": "6.0.3",
         "@semantic-release/exec": "7.1.0",
