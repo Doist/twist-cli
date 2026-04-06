@@ -4,10 +4,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('chalk')
 
-vi.mock('@doist/twist-sdk', () => ({
-    TwistApi: vi.fn(),
-}))
-
 vi.mock('node:fs/promises', () => ({
     readFile: vi.fn(),
 }))
@@ -38,13 +34,17 @@ vi.mock('../lib/config.js', async (importOriginal) => {
     }
 })
 
-import { TwistApi } from '@doist/twist-sdk'
+vi.mock('../lib/api.js', () => ({
+    createWrappedTwistClient: vi.fn(),
+}))
+
 import { registerDoctorCommand } from '../commands/doctor.js'
+import { createWrappedTwistClient } from '../lib/api.js'
 import { NoTokenError, probeApiToken } from '../lib/auth.js'
 import { getConfig } from '../lib/config.js'
 
 const mockReadFile = vi.mocked(readFile)
-const mockTwistApi = vi.mocked(TwistApi)
+const mockCreateWrappedTwistClient = vi.mocked(createWrappedTwistClient)
 const mockProbeApiToken = vi.mocked(probeApiToken)
 const mockGetConfig = vi.mocked(getConfig)
 
@@ -81,16 +81,14 @@ describe('doctor command', () => {
             token: 'test_token_123456789',
             metadata: { authMode: 'read-write', source: 'secure-store' },
         })
-        mockTwistApi.mockImplementation(function () {
-            return {
-                users: {
-                    getSessionUser: vi.fn().mockResolvedValue({
-                        id: 1,
-                        email: 'person@example.com',
-                        name: 'Example Person',
-                    }),
-                },
-            } as never
+        mockCreateWrappedTwistClient.mockReturnValue({
+            users: {
+                getSessionUser: vi.fn().mockResolvedValue({
+                    id: 1,
+                    email: 'person@example.com',
+                    name: 'Example Person',
+                }),
+            },
         } as never)
 
         originalProcessVersion = Object.getOwnPropertyDescriptor(process, 'version')
@@ -197,6 +195,19 @@ describe('doctor command', () => {
         expect(process.exitCode).toBeUndefined()
     })
 
+    it('normalizes invalid update channel values to stable', async () => {
+        mockGetConfig.mockResolvedValue({ updateChannel: 'beta' as never })
+        mockFetch('1.0.0')
+
+        const program = createProgram()
+        await program.parseAsync(['node', 'tw', 'doctor'])
+
+        expect(consoleSpy).toHaveBeenCalledWith(
+            expect.stringContaining('PASS CLI is up to date on stable (v1.0.0)'),
+        )
+        expect(consoleSpy).not.toHaveBeenCalledWith(expect.stringContaining('on beta'))
+    })
+
     it('supports json output and offline mode', async () => {
         mockProbeApiToken.mockRejectedValue(new NoTokenError())
 
@@ -239,7 +250,7 @@ describe('doctor command', () => {
         const program = createProgram()
         await program.parseAsync(['node', 'tw', 'doctor', '--offline'])
 
-        expect(mockTwistApi).not.toHaveBeenCalled()
+        expect(mockCreateWrappedTwistClient).not.toHaveBeenCalled()
     })
 
     it('fails when node or config are invalid', async () => {

@@ -1,8 +1,8 @@
 import { readFile } from 'node:fs/promises'
-import { TwistApi } from '@doist/twist-sdk'
 import chalk from 'chalk'
 import type { Command } from 'commander'
 import pkg from '../../package.json' with { type: 'json' }
+import { createWrappedTwistClient } from '../lib/api.js'
 import { NoTokenError, TOKEN_ENV_VAR, probeApiToken } from '../lib/auth.js'
 import { getConfigPath, validateConfigForDoctor } from '../lib/config.js'
 import { formatJson } from '../lib/output.js'
@@ -284,7 +284,7 @@ async function checkAuthentication(offline: boolean): Promise<DoctorCheck> {
     }
 
     try {
-        const api = new TwistApi(token)
+        const api = createWrappedTwistClient(token)
         const user = await api.users.getSessionUser()
         details.email = user.email
         details.name = user.name
@@ -361,12 +361,14 @@ async function checkForUpdates(offline: boolean): Promise<DoctorCheck> {
 }
 
 async function runDoctorChecks(options: DoctorOptions): Promise<DoctorCheck[]> {
-    return [
+    const checks = await Promise.all([
         checkNodeVersion(),
-        await checkConfigFile(),
-        await checkAuthentication(Boolean(options.offline)),
-        await checkForUpdates(Boolean(options.offline)),
-    ].filter((check): check is DoctorCheck => check !== null)
+        checkConfigFile(),
+        checkAuthentication(Boolean(options.offline)),
+        checkForUpdates(Boolean(options.offline)),
+    ])
+
+    return checks.filter((check): check is DoctorCheck => check !== null)
 }
 
 export async function doctorAction(options: DoctorOptions): Promise<void> {

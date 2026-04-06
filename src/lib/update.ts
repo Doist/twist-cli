@@ -1,6 +1,7 @@
 import { getConfig, type UpdateChannel } from './config.js'
 
 export const PACKAGE_NAME = '@doist/twist-cli'
+const VALID_UPDATE_CHANNELS: ReadonlySet<UpdateChannel> = new Set(['stable', 'pre-release'])
 
 interface RegistryResponse {
     version: string
@@ -15,6 +16,12 @@ interface ParsedVersion {
 
 export function getInstallTag(channel: UpdateChannel): string {
     return channel === 'pre-release' ? 'next' : 'latest'
+}
+
+export function normalizeUpdateChannel(channel: unknown): UpdateChannel {
+    return typeof channel === 'string' && VALID_UPDATE_CHANNELS.has(channel as UpdateChannel)
+        ? (channel as UpdateChannel)
+        : 'stable'
 }
 
 export function parseVersion(version: string): ParsedVersion {
@@ -57,5 +64,5 @@ export async function fetchLatestVersion(channel: UpdateChannel): Promise<string
 
 export async function getConfiguredUpdateChannel(): Promise<UpdateChannel> {
     const config = await getConfig()
-    return config.updateChannel ?? 'stable'
+    return normalizeUpdateChannel(config.updateChannel)
 }
