@@ -16,3 +16,8 @@ export type MutationOptions = {
     json?: boolean
     full?: boolean
 }
+
+export type BatchMutationOptions = MutationOptions & {
+    fromFile?: string
+    yes?: boolean
+}

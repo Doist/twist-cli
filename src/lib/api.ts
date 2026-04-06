@@ -79,6 +79,9 @@ const API_SPINNER_MESSAGES: Record<string, { text: string; color?: 'blue' | 'gre
         // Inbox operations
         'inbox.getInbox': { text: 'Loading inbox...', color: 'blue' },
         'inbox.archiveThread': { text: 'Archiving thread...', color: 'yellow' },
+        'inbox.unarchiveThread': { text: 'Reopening thread...', color: 'yellow' },
+        'threads.markRead': { text: 'Marking thread read...', color: 'yellow' },
+        'threads.markUnread': { text: 'Marking thread unread...', color: 'yellow' },
 
         // Batch operations
         batch: { text: 'Processing batch operations...', color: 'blue' },
