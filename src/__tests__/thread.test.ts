@@ -5,13 +5,20 @@ const apiMocks = vi.hoisted(() => ({
     getTwistClient: vi.fn(),
 }))
 
+vi.mock('../lib/public-channels.js', () => ({
+    assertChannelIsPublic: vi.fn(),
+}))
+
+const groupsMock = vi.hoisted(() => ({
+    getWorkspaceGroups: vi.fn().mockResolvedValue([]),
+    getWorkspaceUsers: vi.fn().mockResolvedValue([]),
+}))
+
 vi.mock('../lib/api.js', async (importOriginal) => ({
     ...(await importOriginal<typeof import('../lib/api.js')>()),
     getTwistClient: apiMocks.getTwistClient,
-}))
-
-vi.mock('../lib/public-channels.js', () => ({
-    assertChannelIsPublic: vi.fn(),
+    getWorkspaceGroups: groupsMock.getWorkspaceGroups,
+    getWorkspaceUsers: groupsMock.getWorkspaceUsers,
 }))
 
 vi.mock('../lib/markdown.js', () => ({
@@ -186,6 +193,10 @@ describe('thread implicit view', () => {
     })
 
     it('accepts id: prefixes in --notify for thread reply', async () => {
+        const client = createClient()
+        apiMocks.getTwistClient.mockResolvedValue(client)
+        groupsMock.getWorkspaceGroups.mockResolvedValue([])
+
         const program = createProgram()
         const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
 
@@ -206,6 +217,10 @@ describe('thread implicit view', () => {
     })
 
     it('--close dry-run indicates thread will be closed', async () => {
+        const client = createClient()
+        apiMocks.getTwistClient.mockResolvedValue(client)
+        groupsMock.getWorkspaceGroups.mockResolvedValue([])
+
         const program = createProgram()
         const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
 
@@ -227,6 +242,10 @@ describe('thread implicit view', () => {
     })
 
     it('--reopen dry-run indicates thread will be reopened', async () => {
+        const client = createClient()
+        apiMocks.getTwistClient.mockResolvedValue(client)
+        groupsMock.getWorkspaceGroups.mockResolvedValue([])
+
         const program = createProgram()
         const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
 
@@ -523,6 +542,9 @@ describe('thread create', () => {
     })
 
     it('shows dry run output', async () => {
+        const client = createClient()
+        apiMocks.getTwistClient.mockResolvedValue(client)
+
         const program = createProgram()
         const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
 
@@ -590,9 +612,14 @@ describe('thread create', () => {
         consoleSpy.mockRestore()
     })
 
-    it('passes notify recipients', async () => {
+    it('passes notify recipients (users only)', async () => {
         const client = createClient()
         apiMocks.getTwistClient.mockResolvedValue(client)
+        groupsMock.getWorkspaceGroups.mockResolvedValue([])
+        groupsMock.getWorkspaceUsers.mockResolvedValue([
+            { id: 123, name: 'Alice' },
+            { id: 456, name: 'Bob' },
+        ])
 
         const program = createProgram()
         const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
@@ -614,6 +641,41 @@ describe('thread create', () => {
                 channelId: 100,
                 content: 'Thread body',
                 recipients: [123, 456],
+            }),
+        )
+
+        consoleSpy.mockRestore()
+    })
+
+    it('partitions notify IDs into users and groups', async () => {
+        const client = createClient()
+        apiMocks.getTwistClient.mockResolvedValue(client)
+        groupsMock.getWorkspaceGroups.mockResolvedValue([
+            { id: 456, name: 'Frontend', workspaceId: 10, userIds: [1, 2], version: 1 },
+        ])
+        groupsMock.getWorkspaceUsers.mockResolvedValue([{ id: 123, name: 'Alice' }])
+
+        const program = createProgram()
+        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+        await program.parseAsync([
+            'node',
+            'tw',
+            'thread',
+            'create',
+            '100',
+            'Title',
+            'Thread body',
+            '--notify',
+            '123,456',
+        ])
+
+        expect(client.threads.createThread).toHaveBeenCalledWith(
+            expect.objectContaining({
+                channelId: 100,
+                content: 'Thread body',
+                recipients: [123],
+                groups: [456],
             }),
         )
 

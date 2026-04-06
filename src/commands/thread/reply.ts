@@ -5,6 +5,7 @@ import type { MutationOptions } from '../../lib/options.js'
 import { formatJson } from '../../lib/output.js'
 import { assertChannelIsPublic } from '../../lib/public-channels.js'
 import { parseUserIdRefs, resolveThreadId } from '../../lib/refs.js'
+import { type ResolvedNotify, printNotifyLines, resolveNotifyIds } from './helpers.js'
 
 type ReplyOptions = MutationOptions & {
     notify?: string
@@ -38,11 +39,20 @@ export async function replyToThread(
     }
 
     const notifyValue = options.notify ?? 'EVERYONE_IN_THREAD'
-    let recipients: string | number[]
-    if (notifyValue === 'EVERYONE' || notifyValue === 'EVERYONE_IN_THREAD') {
+    const isSpecialRecipient = notifyValue === 'EVERYONE' || notifyValue === 'EVERYONE_IN_THREAD'
+
+    const client = await getTwistClient()
+    const thread = await client.threads.getThread(threadId)
+    await assertChannelIsPublic(thread.channelId, thread.workspaceId)
+
+    let recipients: string | number[] | undefined
+    let resolved: ResolvedNotify | undefined
+    if (isSpecialRecipient) {
         recipients = notifyValue
     } else {
-        recipients = parseUserIdRefs(notifyValue)
+        const allIds = parseUserIdRefs(notifyValue)
+        resolved = await resolveNotifyIds(allIds, thread.workspaceId)
+        recipients = resolved.recipients
     }
 
     const action = options.close ? 'close' : options.reopen ? 'reopen' : undefined
@@ -51,15 +61,17 @@ export async function replyToThread(
     if (options.dryRun) {
         const actionSuffix = actionLabel ? ` and ${actionLabel} it` : ''
         console.log(`Dry run: would post comment to thread ${threadId}${actionSuffix}`)
-        console.log(`Notify: ${Array.isArray(recipients) ? recipients.join(', ') : recipients}`)
+        if (isSpecialRecipient) {
+            console.log(`Notify: ${notifyValue}`)
+        } else if (resolved) {
+            printNotifyLines(resolved.notified)
+        }
         console.log('')
         console.log(replyContent)
         return
     }
 
-    const client = await getTwistClient()
-    const thread = await client.threads.getThread(threadId)
-    await assertChannelIsPublic(thread.channelId, thread.workspaceId)
+    const groupsPayload = resolved?.groups ? { groups: resolved.groups } : {}
 
     const comment =
         action === 'close'
@@ -67,21 +79,25 @@ export async function replyToThread(
                   id: threadId,
                   content: replyContent,
                   recipients,
+                  ...groupsPayload,
               } as Parameters<typeof client.threads.closeThread>[0])
             : action === 'reopen'
               ? await client.threads.reopenThread({
                     id: threadId,
                     content: replyContent,
                     recipients,
+                    ...groupsPayload,
                 } as Parameters<typeof client.threads.reopenThread>[0])
               : await client.comments.createComment({
                     threadId,
                     content: replyContent,
                     recipients,
+                    ...groupsPayload,
                 } as Parameters<typeof client.comments.createComment>[0])
 
     if (options.json) {
-        console.log(formatJson(comment, 'comment', options.full))
+        const output = resolved ? { ...comment, notified: resolved.notified } : comment
+        console.log(formatJson(output, 'comment', options.full))
         return
     }
 

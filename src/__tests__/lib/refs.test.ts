@@ -6,6 +6,7 @@ import {
     looksLikeRawId,
     parseRef,
     parseTwistUrl,
+    partitionNotifyIds,
     resolveChannelId,
     resolveCommentId,
     resolveConversationId,
@@ -195,6 +196,35 @@ describe('resolveMessageId', () => {
 
     it('resolves message URLs', () => {
         expect(resolveMessageId('https://twist.com/a/12345/msg/333/m/444')).toBe(444)
+    })
+})
+
+describe('partitionNotifyIds', () => {
+    it('separates user IDs from group IDs', () => {
+        const groupIds = new Set([100, 200])
+        const result = partitionNotifyIds([1, 100, 2, 200, 3], groupIds)
+        expect(result.userIds).toEqual([1, 2, 3])
+        expect(result.groupIds).toEqual([100, 200])
+    })
+
+    it('returns all as users when no groups match', () => {
+        const groupIds = new Set([999])
+        const result = partitionNotifyIds([1, 2, 3], groupIds)
+        expect(result.userIds).toEqual([1, 2, 3])
+        expect(result.groupIds).toEqual([])
+    })
+
+    it('returns all as groups when all match', () => {
+        const groupIds = new Set([1, 2, 3])
+        const result = partitionNotifyIds([1, 2, 3], groupIds)
+        expect(result.userIds).toEqual([])
+        expect(result.groupIds).toEqual([1, 2, 3])
+    })
+
+    it('handles empty input', () => {
+        const result = partitionNotifyIds([], new Set([1]))
+        expect(result.userIds).toEqual([])
+        expect(result.groupIds).toEqual([])
     })
 })
 

@@ -11,11 +11,6 @@ type ListOptions = ViewOptions
 async function listWorkspaces(options: ListOptions): Promise<void> {
     const workspaces = await fetchWorkspaces()
 
-    if (workspaces.length === 0) {
-        console.log('No workspaces found.')
-        return
-    }
-
     if (options.json) {
         console.log(formatJson(workspaces, 'workspace', options.full))
         return
@@ -23,6 +18,11 @@ async function listWorkspaces(options: ListOptions): Promise<void> {
 
     if (options.ndjson) {
         console.log(formatNdjson(workspaces, 'workspace', options.full))
+        return
+    }
+
+    if (workspaces.length === 0) {
+        console.log('No workspaces found.')
         return
     }
 

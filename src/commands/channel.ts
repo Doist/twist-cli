@@ -36,11 +36,6 @@ async function listChannels(
         channels = channels.filter((ch) => ch.public)
     }
 
-    if (channels.length === 0) {
-        console.log('No channels found.')
-        return
-    }
-
     if (options.json) {
         console.log(formatJson(channels, 'channel', options.full))
         return
@@ -48,6 +43,11 @@ async function listChannels(
 
     if (options.ndjson) {
         console.log(formatNdjson(channels, 'channel', options.full))
+        return
+    }
+
+    if (channels.length === 0) {
+        console.log('No channels found.')
         return
     }
 

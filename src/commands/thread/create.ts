@@ -5,6 +5,7 @@ import type { MutationOptions } from '../../lib/options.js'
 import { formatJson } from '../../lib/output.js'
 import { assertChannelIsPublic } from '../../lib/public-channels.js'
 import { parseUserIdRefs, resolveChannelId } from '../../lib/refs.js'
+import { type ResolvedNotify, printNotifyLines, resolveNotifyIds } from './helpers.js'
 
 type CreateOptions = MutationOptions & {
     notify?: string
@@ -32,31 +33,39 @@ export async function createThread(
         )
     }
 
-    const recipients = options.notify ? parseUserIdRefs(options.notify) : undefined
+    const allIds = options.notify ? parseUserIdRefs(options.notify) : undefined
+
+    const client = await getTwistClient()
+    const channel = await client.channels.getChannel(channelId)
+    await assertChannelIsPublic(channelId, channel.workspaceId)
+
+    let resolved: ResolvedNotify | undefined
+    if (allIds) {
+        resolved = await resolveNotifyIds(allIds, channel.workspaceId)
+    }
 
     if (options.dryRun) {
         console.log('Dry run: would create thread in channel', channelId)
         console.log(`Title: ${title}`)
-        if (recipients) {
-            console.log(`Notify: ${recipients.join(', ')}`)
+        if (resolved) {
+            printNotifyLines(resolved.notified)
         }
         console.log('')
         console.log(threadContent)
         return
     }
 
-    const client = await getTwistClient()
-    const channel = await client.channels.getChannel(channelId)
-    await assertChannelIsPublic(channelId, channel.workspaceId)
     const thread = await client.threads.createThread({
         channelId,
         title,
         content: threadContent,
-        recipients,
+        recipients: resolved?.recipients,
+        groups: resolved?.groups,
     })
 
     if (options.json) {
-        console.log(formatJson(thread, 'thread', options.full))
+        const output = resolved ? { ...thread, notified: resolved.notified } : thread
+        console.log(formatJson(output, 'thread', options.full))
         return
     }
 

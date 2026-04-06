@@ -260,6 +260,22 @@ export function classifyTwistUrl(url: string): TwistUrlRoute | null {
     return null
 }
 
+export function partitionNotifyIds(
+    ids: number[],
+    groupIds: Set<number>,
+): { userIds: number[]; groupIds: number[] } {
+    const users: number[] = []
+    const groups: number[] = []
+    for (const id of ids) {
+        if (groupIds.has(id)) {
+            groups.push(id)
+        } else {
+            users.push(id)
+        }
+    }
+    return { userIds: users, groupIds: groups }
+}
+
 export function parseUserIdRefs(refs: string): number[] {
     return refs.split(',').map((userRef) => {
         const trimmed = userRef.trim()
