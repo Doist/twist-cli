@@ -19,6 +19,7 @@ tw auth logout                   # Remove saved token and auth metadata
 tw workspaces                    # List available workspaces
 tw workspace use <ref>           # Set current workspace
 tw completion install            # Install shell completions
+tw doctor                        # Diagnose CLI setup and environment issues
 tw update                        # Update CLI to latest version
 tw changelog                     # Show recent changelog entries
 ```
@@ -209,6 +210,14 @@ tw completion install bash       # Install for specific shell
 tw completion install zsh
 tw completion install fish
 tw completion uninstall          # Remove completions
+```
+
+### Diagnostics
+
+```bash
+tw doctor                        # Run local + network diagnostics
+tw doctor --offline              # Skip Twist and npm network checks
+tw doctor --json                 # JSON output with per-check results
 ```
 
 ### Update

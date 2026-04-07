@@ -214,11 +214,15 @@ function analyzeAndEmitApiResponse(
 
 let apiClient: TwistApi | null = null
 
+export function createWrappedTwistClient(token: string): TwistApi {
+    const rawApi = new TwistApi(token)
+    return createSpinnerWrappedApi(rawApi)
+}
+
 export async function getTwistClient(): Promise<TwistApi> {
     if (!apiClient) {
         const token = await getApiToken()
-        const rawApi = new TwistApi(token)
-        apiClient = createSpinnerWrappedApi(rawApi)
+        apiClient = createWrappedTwistClient(token)
     }
     return apiClient
 }

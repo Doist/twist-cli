@@ -213,6 +213,48 @@ describe('auth token storage', () => {
         errorSpy.mockRestore()
     })
 
+    it('probes a legacy config token without migrating it', async () => {
+        mocks.getConfig.mockResolvedValue({
+            token: 'legacy_token_123456',
+            authMode: 'read-write',
+            currentWorkspace: 42,
+        })
+
+        const { probeApiToken } = await import('../../lib/auth.js')
+
+        await expect(probeApiToken()).resolves.toEqual({
+            token: 'legacy_token_123456',
+            metadata: {
+                authMode: 'read-write',
+                source: 'config-file',
+            },
+        })
+        expect(mocks.secureTokenStore.setSecret).not.toHaveBeenCalled()
+        expect(mocks.setConfig).not.toHaveBeenCalled()
+    })
+
+    it('probes a secure-store token without mutating config', async () => {
+        mocks.secureTokenStore.getSecret.mockResolvedValue('secure_token_123456')
+        mocks.getConfig.mockResolvedValue({
+            authMode: 'read-only',
+            authScope: 'user:read',
+            currentWorkspace: 42,
+        })
+
+        const { probeApiToken } = await import('../../lib/auth.js')
+
+        await expect(probeApiToken()).resolves.toEqual({
+            token: 'secure_token_123456',
+            metadata: {
+                authMode: 'read-only',
+                authScope: 'user:read',
+                source: 'secure-store',
+            },
+        })
+        expect(mocks.secureTokenStore.getSecret).toHaveBeenCalled()
+        expect(mocks.setConfig).not.toHaveBeenCalled()
+    })
+
     it('treats pending secure-store clear as logged out and does not reuse stale secure tokens', async () => {
         mocks.secureTokenStore.deleteSecret.mockResolvedValue(true)
         mocks.secureTokenStore.getSecret.mockResolvedValue('stale_secure_token_123456')

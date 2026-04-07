@@ -186,6 +186,17 @@ describe('update command', () => {
 
             expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('Channel:'))
         })
+
+        it('falls back to stable when the configured channel is invalid', async () => {
+            mockGetConfig.mockResolvedValue({ updateChannel: 'beta' as never })
+            mockFetch(pkg.version)
+
+            const program = createProgram()
+            await program.parseAsync(['node', 'tw', 'update', '--check'])
+
+            expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('Channel: stable'))
+            expect(mockSpawn).not.toHaveBeenCalled()
+        })
     })
 
     describe('update available', () => {
