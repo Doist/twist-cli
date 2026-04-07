@@ -178,7 +178,7 @@ tw groups --json                 # JSON output
 tw groups --json --full          # Include all fields in JSON output
 ```
 
-If a channel is not found in `tw channels`, widen to `tw channels --scope public`, then `tw channels --scope public --state all`.
+If a channel is not found in `tw channels`, widen with broader listings such as `tw channels --scope public`, then `tw channels --scope public --state all`. Check `tw channels --help` for other available filters.
 
 ## Away Status
 
