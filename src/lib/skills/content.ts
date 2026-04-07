@@ -167,12 +167,17 @@ tw search "query" --cursor <cur> # Pagination cursor
 tw user                          # Show current user info
 tw users                         # List workspace users
 tw users --search <text>         # Filter by name/email
-tw channels                      # List workspace channels
+tw channels                      # List active joined workspace channels
+tw channels --state all          # Include archived joined channels too
+tw channels --scope discoverable # Active public channels you can see but have not joined
+tw channels --scope public --state all --json # All visible public channels, with joined status
 tw groups                        # List workspace groups
 tw groups --search "frontend"    # Filter groups by name (case-insensitive)
 tw groups --json                 # JSON output
 tw groups --json --full          # Include all fields in JSON output
 \`\`\`
+
+If a channel is not found in \`tw channels\`, widen with broader listings such as \`tw channels --scope public\`, then \`tw channels --scope public --state all\`. Check \`tw channels --help\` for other available filters.
 
 ## Away Status
 

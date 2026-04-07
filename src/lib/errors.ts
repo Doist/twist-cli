@@ -15,6 +15,8 @@ export type ErrorCode =
     | 'INVALID_ID'
     | 'INVALID_MINUTES'
     | 'INVALID_REF'
+    | 'INVALID_SCOPE'
+    | 'INVALID_STATE'
     | 'INVALID_TYPE'
     | 'INVALID_URL'
     | 'MISSING_CONTENT'

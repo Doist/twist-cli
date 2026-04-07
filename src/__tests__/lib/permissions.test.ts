@@ -60,6 +60,7 @@ describe('permissions', () => {
     it('identifies safe (read-only) methods', () => {
         expect(isMutatingMethod('users.getSessionUser')).toBe(false)
         expect(isMutatingMethod('workspaces.getWorkspaces')).toBe(false)
+        expect(isMutatingMethod('workspaces.getPublicChannels')).toBe(false)
         expect(isMutatingMethod('threads.getThread')).toBe(false)
         expect(isMutatingMethod('threads.getUnread')).toBe(false)
         expect(isMutatingMethod('comments.getComment')).toBe(false)

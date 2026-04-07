@@ -11,6 +11,7 @@ export const READ_ONLY_ERROR_MESSAGE =
 const KNOWN_SAFE_API_METHODS = new Set([
     'users.getSessionUser',
     'workspaces.getWorkspaces',
+    'workspaces.getPublicChannels',
     'workspaceUsers.getWorkspaceUsers',
     'workspaceUsers.getUserById',
     'threads.getThread',
