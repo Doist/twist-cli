@@ -51,27 +51,26 @@ function summarizeChannel(channel: ListedChannel): Record<string, unknown> {
 
 function formatListedChannelsJson(
     channels: ListedChannel[],
-    scope: ChannelScope,
+    _scope: ChannelScope,
     full = false,
 ): string {
-    if (scope === 'joined') {
-        return formatJson(channels, 'channel', full)
+    if (full) {
+        return formatJson(channels, 'channel', true)
     }
 
-    return JSON.stringify(full ? channels : channels.map(summarizeChannel), null, 2)
+    return JSON.stringify(channels.map(summarizeChannel), null, 2)
 }
 
 function formatListedChannelsNdjson(
     channels: ListedChannel[],
-    scope: ChannelScope,
+    _scope: ChannelScope,
     full = false,
 ): string {
-    if (scope === 'joined') {
-        return formatNdjson(channels, 'channel', full)
+    if (full) {
+        return formatNdjson(channels, 'channel', true)
     }
 
-    const items = full ? channels : channels.map(summarizeChannel)
-    return items.map((item) => JSON.stringify(item)).join('\n')
+    return channels.map((channel) => JSON.stringify(summarizeChannel(channel))).join('\n')
 }
 
 function matchesChannelState(channel: Channel, state: ChannelState): boolean {

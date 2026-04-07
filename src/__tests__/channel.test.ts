@@ -232,6 +232,52 @@ describe('channels', () => {
         consoleSpy.mockRestore()
     })
 
+    it('includes archived state in joined JSON output without --full', async () => {
+        const client = createClient({
+            joinedChannels: [
+                createChannel(10, 'General'),
+                createChannel(40, 'Archive', { archived: true }),
+            ],
+        })
+        apiMocks.getTwistClient.mockResolvedValue(client)
+        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+        const program = createProgram()
+
+        await program.parseAsync(['node', 'tw', 'channels', '--state', 'all', '--json'])
+
+        const jsonOutput = JSON.parse(consoleSpy.mock.calls[0][0])
+        expect(jsonOutput).toEqual([
+            { id: 10, name: 'General', workspaceId: 1, archived: false },
+            { id: 40, name: 'Archive', workspaceId: 1, archived: true },
+        ])
+
+        consoleSpy.mockRestore()
+    })
+
+    it('includes archived state in joined NDJSON output without --full', async () => {
+        const client = createClient({
+            joinedChannels: [
+                createChannel(10, 'General'),
+                createChannel(40, 'Archive', { archived: true }),
+            ],
+        })
+        apiMocks.getTwistClient.mockResolvedValue(client)
+        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+        const program = createProgram()
+
+        await program.parseAsync(['node', 'tw', 'channels', '--state', 'all', '--ndjson'])
+
+        const ndjsonOutput = consoleSpy.mock.calls[0][0]
+            .split('\n')
+            .map((line: string) => JSON.parse(line) as Record<string, unknown>)
+        expect(ndjsonOutput).toEqual([
+            { id: 10, name: 'General', workspaceId: 1, archived: false },
+            { id: 40, name: 'Archive', workspaceId: 1, archived: true },
+        ])
+
+        consoleSpy.mockRestore()
+    })
+
     it('includes joined metadata in full JSON for public scope', async () => {
         const client = createClient({
             joinedChannels: [createChannel(10, 'General')],
