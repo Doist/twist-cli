@@ -1,3 +1,9 @@
+## [2.26.0](https://github.com/Doist/twist-cli/compare/v2.25.0...v2.26.0) (2026-04-07)
+
+### Features
+
+- add tw doctor command ([#150](https://github.com/Doist/twist-cli/issues/150)) ([0993103](https://github.com/Doist/twist-cli/commit/09931034c8aea01799e14ccbf5500169b48563dc))
+
 ## [2.25.0](https://github.com/Doist/twist-cli/compare/v2.24.1...v2.25.0) (2026-04-07)
 
 ### Features
