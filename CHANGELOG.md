@@ -1,3 +1,9 @@
+## [2.25.0](https://github.com/Doist/twist-cli/compare/v2.24.1...v2.25.0) (2026-04-07)
+
+### Features
+
+- add channel discovery and archive filters ([#151](https://github.com/Doist/twist-cli/issues/151)) ([3d89761](https://github.com/Doist/twist-cli/commit/3d897616104351b24d8c193025436638794d53ef))
+
 ## [2.24.1](https://github.com/Doist/twist-cli/compare/v2.24.0...v2.24.1) (2026-04-07)
 
 ### Bug Fixes
