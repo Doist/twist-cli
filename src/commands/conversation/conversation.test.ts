@@ -1,4 +1,5 @@
 import { describeEmptyMachineOutput } from '@doist/cli-core/testing'
+import type { BatchResponse as TwistBatchResponse } from '@doist/twist-sdk'
 import { Command } from 'commander'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { CliError } from '../../lib/errors.js'
@@ -15,7 +16,10 @@ const refsMocks = vi.hoisted(() => ({
     resolveUserRefs: vi.fn(),
 }))
 
-vi.mock('../../lib/api.js', () => apiMocks)
+vi.mock('../../lib/api.js', async (importOriginal) => ({
+    ...(await importOriginal<typeof import('../../lib/api.js')>()),
+    ...apiMocks,
+}))
 
 vi.mock('../../lib/refs.js', () => refsMocks)
 
@@ -62,6 +66,8 @@ function createConversation(id: number, userIds: number[], lastActive: string): 
         lastMessage: null,
     }
 }
+
+type BatchResult = Pick<TwistBatchResponse<unknown>, 'code' | 'data'>
 
 function createClient({
     activeConversations = [],
@@ -165,16 +171,19 @@ function createClient({
                     userId?: number
                     conversationId?: number
                 }>
-            ) =>
-                requests.map((request) => {
+            ): Promise<BatchResult[]> =>
+                requests.map((request): BatchResult => {
                     if (request.kind === 'conversation' && request.id) {
-                        return { data: conversationsById.get(request.id) }
+                        return { code: 200, data: conversationsById.get(request.id) }
                     }
                     if (request.kind === 'messages') {
-                        return { data: messagesByConversation[request.conversationId ?? -1] ?? [] }
+                        return {
+                            code: 200,
+                            data: messagesByConversation[request.conversationId ?? -1] ?? [],
+                        }
                     }
                     if (request.kind === 'user' && request.userId) {
-                        return { data: users[request.userId] }
+                        return { code: 200, data: users[request.userId] }
                     }
                     throw new Error(`Unexpected batch request: ${JSON.stringify(request)}`)
                 }),
@@ -548,6 +557,51 @@ describe('conversation view machine output', () => {
         expect(fullJsonOutput.messages[0].extra).toBe('message-extra')
 
         consoleSpy.mockRestore()
+    })
+})
+
+describe('conversation view with failed batch response', () => {
+    beforeEach(() => {
+        vi.clearAllMocks()
+    })
+
+    it('throws a clear error when a batched user lookup fails', async () => {
+        const conversation = createConversation(42, [1, 2], '2026-03-08T10:00:00.000Z')
+        const messages = [
+            {
+                id: 99,
+                content: '**hello**',
+                creator: 2,
+                conversationId: 42,
+                posted: new Date('2026-03-08T10:05:00.000Z'),
+                reactions: [],
+            },
+        ]
+        const client = createClient({
+            activeConversations: [conversation],
+            messagesByConversation: { 42: messages },
+            users: {
+                1: { id: 1, name: 'Me' },
+                2: { id: 2, name: 'Alice Example' },
+            },
+        })
+
+        client.batch
+            .mockResolvedValueOnce([
+                { code: 200, data: conversation },
+                { code: 200, data: messages },
+            ])
+            .mockResolvedValueOnce([
+                { code: 200, data: { id: 1, name: 'Me' } },
+                { code: 403, data: { errorString: 'User lookup failed' } },
+            ])
+        apiMocks.getTwistClient.mockResolvedValue(client)
+
+        const program = createProgram()
+
+        await expect(
+            program.parseAsync(['node', 'tw', 'conversation', 'view', '42']),
+        ).rejects.toThrow('Failed to fetch user 2: User lookup failed')
     })
 })
 

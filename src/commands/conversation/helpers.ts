@@ -1,6 +1,6 @@
 import type { Conversation } from '@doist/twist-sdk'
 import chalk from 'chalk'
-import { getTwistClient } from '../../lib/api.js'
+import { buildBatchNameMap, getTwistClient } from '../../lib/api.js'
 import { formatRelativeDate } from '../../lib/dates.js'
 import { CliError } from '../../lib/errors.js'
 import { isAccessible } from '../../lib/global-args.js'
@@ -179,11 +179,12 @@ export async function listConversationsWithUser(
         }
     }
 
-    const userCalls = [...userIds].map((userId) =>
+    const userIdList = [...userIds]
+    const userCalls = userIdList.map((userId) =>
         client.workspaceUsers.getUserById({ workspaceId, userId }, { batch: true }),
     )
     const userResponses = await client.batch(...userCalls)
-    const userMap = new Map(userResponses.map((response) => [response.data.id, response.data.name]))
+    const userMap = buildBatchNameMap(userIdList, userResponses, 'user')
 
     const output = conversations.map((conversation) => ({
         ...conversation,
