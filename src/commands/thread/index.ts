@@ -4,6 +4,7 @@ import { createThread } from './create.js'
 import { deleteThread } from './delete.js'
 import { markThreadDone } from './mutate.js'
 import { muteThread, unmuteThread } from './mute.js'
+import { renameThread } from './rename.js'
 import { replyToThread } from './reply.js'
 import { viewThread } from './view.js'
 
@@ -129,6 +130,14 @@ Examples:
   tw thread mute 12345 --minutes 480`,
         )
         .action(muteThread)
+
+    thread
+        .command('rename <thread-ref> <title>')
+        .description('Rename a thread (change its title)')
+        .option('--dry-run', 'Show what would happen without executing')
+        .option('--json', 'Output result as JSON')
+        .option('--full', 'Include all fields in JSON output')
+        .action(renameThread)
 
     thread
         .command('unmute <thread-ref>')
