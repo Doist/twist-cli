@@ -103,6 +103,7 @@ tw inbox --unread                  # unread threads only
 tw thread view <ref>               # view thread with comments
 tw thread view <ref> --comment 123 # view a specific comment
 tw thread reply <ref>              # reply to a thread
+tw thread rename <ref> "New title" # rename a thread
 tw conversation unread             # list unread conversations
 tw conversation view <ref>         # view conversation messages
 tw msg view <ref>                  # view a conversation message

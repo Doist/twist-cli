@@ -103,6 +103,10 @@ function createClient({
                 mutedUntil: null,
             })),
             deleteThread: vi.fn(async () => undefined),
+            updateThread: vi.fn(async (_args: { id: number; title?: string | null }) => ({
+                ...thread,
+                title: _args.title ?? thread.title,
+            })),
         },
         users: {
             getSessionUser: vi.fn((_options?: { batch?: boolean }) => {
@@ -875,5 +879,89 @@ describe('thread delete', () => {
         ).rejects.toHaveProperty('code', 'NOT_CREATOR')
 
         expect(client.threads.deleteThread).not.toHaveBeenCalled()
+    })
+})
+
+describe('thread rename', () => {
+    beforeEach(() => {
+        vi.clearAllMocks()
+    })
+
+    it('renames a thread', async () => {
+        const client = createClient()
+        apiMocks.getTwistClient.mockResolvedValue(client)
+
+        const program = createProgram()
+        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+        await program.parseAsync(['node', 'tw', 'thread', 'rename', '500', 'New Title'])
+
+        expect(client.threads.updateThread).toHaveBeenCalledWith({ id: 500, title: 'New Title' })
+        expect(consoleSpy).toHaveBeenCalledWith('Thread 500 renamed to "New Title".')
+
+        consoleSpy.mockRestore()
+    })
+
+    it('shows dry run output', async () => {
+        const program = createProgram()
+        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+        await program.parseAsync([
+            'node',
+            'tw',
+            'thread',
+            'rename',
+            '500',
+            'New Title',
+            '--dry-run',
+        ])
+
+        expect(consoleSpy).toHaveBeenCalledWith('Dry run: would rename thread 500 to "New Title"')
+
+        consoleSpy.mockRestore()
+    })
+
+    it('outputs JSON with --json including id and title', async () => {
+        const client = createClient()
+        apiMocks.getTwistClient.mockResolvedValue(client)
+
+        const program = createProgram()
+        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+        await program.parseAsync(['node', 'tw', 'thread', 'rename', '500', 'New Title', '--json'])
+
+        const jsonOutput = JSON.parse(consoleSpy.mock.calls[0][0])
+        expect(jsonOutput.id).toBe(500)
+        expect(jsonOutput.title).toBe('New Title')
+        expect(Object.keys(jsonOutput)).toEqual(['id', 'title'])
+
+        consoleSpy.mockRestore()
+    })
+
+    it('outputs full JSON with --json --full', async () => {
+        const client = createClient()
+        apiMocks.getTwistClient.mockResolvedValue(client)
+
+        const program = createProgram()
+        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+        await program.parseAsync([
+            'node',
+            'tw',
+            'thread',
+            'rename',
+            '500',
+            'New Title',
+            '--json',
+            '--full',
+        ])
+
+        const jsonOutput = JSON.parse(consoleSpy.mock.calls[0][0])
+        expect(jsonOutput.id).toBe(500)
+        expect(jsonOutput.title).toBe('New Title')
+        // Full output includes more fields
+        expect(Object.keys(jsonOutput).length).toBeGreaterThan(2)
+
+        consoleSpy.mockRestore()
     })
 })
