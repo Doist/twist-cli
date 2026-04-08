@@ -108,6 +108,7 @@ tw thread reopen <ref>             # undo thread done / reopen inbox state
 tw thread mark-unread <ref>        # mark a thread unread again
 tw thread mark-read <ref>          # explicitly mark a thread read
 tw thread restore <ref> --unread   # reopen and return it to unread inbox
+tw thread rename <ref> "New title" # rename a thread
 tw conversation unread             # list unread conversations
 tw conversation view <ref>         # view conversation messages
 tw msg view <ref>                  # view a conversation message

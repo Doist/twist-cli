@@ -96,6 +96,9 @@ tw thread unmute <ref> --json    # Unmute and return { id, mutedUntil } as JSON
 tw thread delete <ref>             # Preview thread deletion (requires --yes to execute)
 tw thread delete <ref> --yes       # Permanently delete a thread
 tw thread delete <ref> --yes --json # Delete and return status as JSON
+tw thread rename <ref> "New title"  # Rename a thread (change its title)
+tw thread rename <ref> "New title" --json  # Rename and return { id, title } as JSON
+tw thread rename <ref> "New title" --json --full  # Rename and return full thread as JSON
 \`\`\`
 
 Default \`--notify\` for reply is EVERYONE_IN_THREAD, which may notify more people than intended. Before posting, confirm with the user whether specific people should be notified instead (via \`--notify <user-ids>\`). Options: EVERYONE, EVERYONE_IN_THREAD, or comma-separated ID refs.
