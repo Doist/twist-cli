@@ -22,7 +22,7 @@ vi.mock('../lib/api.js', async (importOriginal) => ({
 }))
 
 vi.mock('../lib/markdown.js', () => ({
-    renderMarkdown: vi.fn((text: string) => text),
+    renderMarkdown: vi.fn((text: string) => Promise.resolve(text)),
 }))
 
 vi.mock('../lib/input.js', () => ({

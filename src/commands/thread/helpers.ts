@@ -28,15 +28,15 @@ export interface CommentLike {
     content: string
 }
 
-export function printComment(
+export async function printComment(
     comment: CommentLike,
     userMap: Map<number, string>,
     raw: boolean,
-): void {
+): Promise<void> {
     const author = colors.author(userMap.get(comment.creator) || `user:${comment.creator}`)
     const time = colors.timestamp(formatRelativeDate(comment.posted))
     console.log(`${author}  ${time}  ${colors.timestamp(`id:${comment.id}`)}`)
-    console.log(raw ? comment.content : renderMarkdown(comment.content))
+    console.log(raw ? comment.content : await renderMarkdown(comment.content))
     console.log('')
 }
 

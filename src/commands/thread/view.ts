@@ -71,7 +71,7 @@ async function viewSingleComment(
     console.log(chalk.bold(thread.title))
     console.log(colors.channel(`[${channel.name}]`))
     console.log('')
-    printComment(comment, userMap, options.raw ?? false)
+    await printComment(comment, userMap, options.raw ?? false)
 }
 
 export async function viewThread(ref: string, options: ViewOptions): Promise<void> {
@@ -198,7 +198,7 @@ export async function viewThread(ref: string, options: ViewOptions): Promise<voi
             `${colors.author(creatorName)}  ${colors.timestamp(formatRelativeDate(thread.posted))}  ${chalk.dim('(original post)')}`,
         )
         console.log('')
-        console.log(options.raw ? thread.content : renderMarkdown(thread.content))
+        console.log(options.raw ? thread.content : await renderMarkdown(thread.content))
 
         if (!hasUnread) {
             console.log('')
@@ -215,7 +215,7 @@ export async function viewThread(ref: string, options: ViewOptions): Promise<voi
                 console.log('')
             }
             for (const comment of contextComments) {
-                printComment(comment, userMap, options.raw ?? false)
+                await printComment(comment, userMap, options.raw ?? false)
             }
         } else if (lastReadObjIndex > 0) {
             printSeparator(`${lastReadObjIndex} ${pluralize(lastReadObjIndex, 'comment')} skipped`)
@@ -224,7 +224,7 @@ export async function viewThread(ref: string, options: ViewOptions): Promise<voi
         printSeparator(`UNREAD (${displayComments.length} new)`)
 
         for (const comment of displayComments) {
-            printComment(comment, userMap, options.raw ?? false)
+            await printComment(comment, userMap, options.raw ?? false)
         }
     } else {
         const creatorName = userMap.get(thread.creator) || `user:${thread.creator}`
@@ -232,7 +232,7 @@ export async function viewThread(ref: string, options: ViewOptions): Promise<voi
             `${colors.author(creatorName)}  ${colors.timestamp(formatRelativeDate(thread.posted))}`,
         )
         console.log('')
-        console.log(options.raw ? thread.content : renderMarkdown(thread.content))
+        console.log(options.raw ? thread.content : await renderMarkdown(thread.content))
         console.log('')
 
         if (comments.length > 0) {
@@ -242,7 +242,7 @@ export async function viewThread(ref: string, options: ViewOptions): Promise<voi
             console.log('')
 
             for (const comment of comments) {
-                printComment(comment, userMap, options.raw ?? false)
+                await printComment(comment, userMap, options.raw ?? false)
             }
         }
     }

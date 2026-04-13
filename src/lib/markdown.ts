@@ -1,18 +1,23 @@
-import { type MarkedExtension, marked } from 'marked'
-import { markedTerminal } from 'marked-terminal'
+import { Marked } from 'marked'
+import { createTerminalRenderer, darkTheme } from 'marked-terminal-renderer'
 
-let initialized = false
+let markedInstance: Marked | null = null
+
+function getMarkedInstance(): Marked {
+    if (!markedInstance) {
+        const instance = new Marked()
+        instance.use(createTerminalRenderer(darkTheme()))
+        markedInstance = instance
+    }
+    return markedInstance
+}
 
 function preprocessMentions(content: string): string {
     return content.replace(/\[([^\]]+)\]\((twist-mention:\/\/\d+)\)/g, '[@$1]($2)')
 }
 
-export function renderMarkdown(content: string): string {
-    if (!initialized) {
-        marked.use(markedTerminal() as unknown as MarkedExtension)
-        initialized = true
-    }
+export async function renderMarkdown(content: string): Promise<string> {
     const processed = preprocessMentions(content)
-    const rendered = marked.parse(processed, { async: false }) as string
-    return rendered.trimEnd()
+    const rendered = await getMarkedInstance().parse(processed)
+    return typeof rendered === 'string' ? rendered.trimEnd() : processed
 }
