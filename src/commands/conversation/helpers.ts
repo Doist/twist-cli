@@ -204,7 +204,7 @@ export async function listConversationsWithUser(
             `  ${colors.timestamp(`id:${conversation.id}`)}  ${colors.author(participants)}`,
         )
         if (options.snippet && conversation.snippet) {
-            console.log(renderMarkdown(conversation.snippet))
+            console.log(await renderMarkdown(conversation.snippet))
         }
         console.log(`  ${colors.timestamp(formatRelativeDate(conversation.lastActive))}`)
         console.log(`  ${colors.url(conversation.url)}`)

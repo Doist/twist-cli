@@ -84,7 +84,7 @@ export async function viewConversation(
         const author = colors.author(userMap.get(message.creator) || `user:${message.creator}`)
         const time = colors.timestamp(formatRelativeDate(message.posted))
         console.log(`${author}  ${time}  ${colors.timestamp(`id:${message.id}`)}`)
-        console.log(options.raw ? message.content : renderMarkdown(message.content))
+        console.log(options.raw ? message.content : await renderMarkdown(message.content))
         console.log('')
     }
 }

@@ -16,7 +16,7 @@ vi.mock('../lib/input.js', () => ({
 }))
 
 vi.mock('../lib/markdown.js', () => ({
-    renderMarkdown: vi.fn((text: string) => text),
+    renderMarkdown: vi.fn((text: string) => Promise.resolve(text)),
 }))
 
 vi.mock('chalk')

@@ -31,6 +31,6 @@ export async function viewMessage(ref: string, options: ViewOptions): Promise<vo
     const author = colors.author(creatorName)
     const time = colors.timestamp(formatRelativeDate(message.posted))
     console.log(`${author}  ${time}  ${colors.timestamp(`id:${message.id}`)}`)
-    console.log(options.raw ? message.content : renderMarkdown(message.content))
+    console.log(options.raw ? message.content : await renderMarkdown(message.content))
     console.log('')
 }

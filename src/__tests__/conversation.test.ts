@@ -19,7 +19,7 @@ vi.mock('../lib/api.js', () => apiMocks)
 vi.mock('../lib/refs.js', () => refsMocks)
 
 vi.mock('../lib/markdown.js', () => ({
-    renderMarkdown: vi.fn((text: string) => text),
+    renderMarkdown: vi.fn((text: string) => Promise.resolve(text)),
 }))
 
 vi.mock('chalk')

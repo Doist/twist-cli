@@ -25,6 +25,6 @@ export async function viewComment(ref: string, options: ViewOptions): Promise<vo
     const author = colors.author(creatorName)
     const time = colors.timestamp(formatRelativeDate(comment.posted))
     console.log(`${author}  ${time}  ${colors.timestamp(`id:${comment.id}`)}`)
-    console.log(options.raw ? comment.content : renderMarkdown(comment.content))
+    console.log(options.raw ? comment.content : await renderMarkdown(comment.content))
     console.log('')
 }
