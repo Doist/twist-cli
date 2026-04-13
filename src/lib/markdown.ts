@@ -19,5 +19,5 @@ function preprocessMentions(content: string): string {
 export async function renderMarkdown(content: string): Promise<string> {
     const processed = preprocessMentions(content)
     const rendered = await getMarkedInstance().parse(processed)
-    return typeof rendered === 'string' ? rendered.trimEnd() : processed
+    return rendered.trimEnd()
 }
