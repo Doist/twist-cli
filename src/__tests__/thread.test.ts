@@ -1,5 +1,7 @@
 import { Command } from 'commander'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+
+vi.mock('node:fs/promises')
 
 const apiMocks = vi.hoisted(() => ({
     getTwistClient: vi.fn(),
@@ -32,6 +34,7 @@ vi.mock('../lib/input.js', () => ({
 
 vi.mock('chalk')
 
+import { readFile } from 'node:fs/promises'
 import { registerThreadCommand } from '../commands/thread/index.js'
 import { readStdin } from '../lib/input.js'
 
@@ -45,7 +48,11 @@ function createThreadFixture(id: number) {
         workspaceId: 10,
         posted: new Date('2026-03-01T00:00:00.000Z'),
         commentCount: 3,
+        closed: false,
+        inInbox: true,
         isArchived: false,
+        lastObjIndex: 3,
+        lastUpdated: new Date('2026-03-03T00:00:00.000Z'),
         reactions: [],
         url: `https://twist.com/a/10/ch/100/t/${id}`,
     }
@@ -66,6 +73,7 @@ function createComment(id: number, objIndex: number) {
 
 function createClient({
     thread = createThreadFixture(500),
+    threads = [thread] as Array<ReturnType<typeof createThreadFixture>>,
     comments = [] as ReturnType<typeof createComment>[],
     unreadThreads = [] as Array<{
         threadId: number
@@ -77,13 +85,33 @@ function createClient({
     channel = { id: 100, name: 'General', workspaceId: 10 },
     sessionUser = { id: 1, name: 'Test User' },
 } = {}) {
+    const threadMap = new Map(threads.map((item) => [item.id, { ...item }]))
+    let currentUnreadThreads = unreadThreads.map((item) => ({ ...item }))
+    let lastUpdatedCounter = 0
+
+    const getThreadState = (id: number) => threadMap.get(id) ?? threadMap.get(thread.id) ?? thread
+    const getNextLastUpdated = () =>
+        new Date(Date.parse('2026-03-04T00:00:00.000Z') + lastUpdatedCounter++ * 60000)
+
+    const updateThreadState = (
+        id: number,
+        updater: (
+            current: ReturnType<typeof createThreadFixture>,
+        ) => ReturnType<typeof createThreadFixture>,
+    ) => {
+        const current = getThreadState(id)
+        const updated = { ...updater(current), lastUpdated: getNextLastUpdated() }
+        threadMap.set(id, updated)
+        return updated
+    }
+
     return {
         threads: {
             getThread: vi.fn((_id: number, options?: { batch?: boolean }) => {
                 if (options?.batch) return { kind: 'thread', id: _id }
-                return Promise.resolve(thread)
+                return Promise.resolve(getThreadState(_id))
             }),
-            getUnread: vi.fn(async () => unreadThreads),
+            getUnread: vi.fn(async () => currentUnreadThreads),
             createThread: vi.fn(
                 async (_args: { channelId: number; content: string; title?: string | null }) =>
                     createThreadFixture(999),
@@ -94,12 +122,32 @@ function createClient({
             reopenThread: vi.fn(async (_args: { id: number; content: string }) =>
                 createComment(11, 11),
             ),
+            markRead: vi.fn(async (_args: { id: number; objIndex: number }) => {
+                currentUnreadThreads = currentUnreadThreads.filter(
+                    (unreadThread) => unreadThread.threadId !== _args.id,
+                )
+                updateThreadState(_args.id, (current) => current)
+            }),
+            markUnread: vi.fn(async (_args: { id: number; objIndex: number }) => {
+                const current = getThreadState(_args.id)
+                const nextUnread = {
+                    threadId: _args.id,
+                    channelId: current.channelId,
+                    objIndex: _args.objIndex,
+                    directMention: false,
+                }
+                currentUnreadThreads = currentUnreadThreads.filter(
+                    (unreadThread) => unreadThread.threadId !== _args.id,
+                )
+                currentUnreadThreads.push(nextUnread)
+                updateThreadState(_args.id, (existing) => existing)
+            }),
             muteThread: vi.fn(async (_args: { id: number; minutes: number }) => ({
-                ...thread,
+                ...getThreadState(_args.id),
                 mutedUntil: new Date(Date.now() + _args.minutes * 60000),
             })),
             unmuteThread: vi.fn(async (_id: number) => ({
-                ...thread,
+                ...getThreadState(_id),
                 mutedUntil: null,
             })),
             deleteThread: vi.fn(async () => undefined),
@@ -107,6 +155,25 @@ function createClient({
                 ...thread,
                 title: _args.title ?? thread.title,
             })),
+        },
+        inbox: {
+            archiveThread: vi.fn(async (id: number) => {
+                currentUnreadThreads = currentUnreadThreads.filter(
+                    (unreadThread) => unreadThread.threadId !== id,
+                )
+                updateThreadState(id, (current) => ({
+                    ...current,
+                    inInbox: false,
+                    isArchived: true,
+                }))
+            }),
+            unarchiveThread: vi.fn(async (id: number) => {
+                updateThreadState(id, (current) => ({
+                    ...current,
+                    inInbox: true,
+                    isArchived: false,
+                }))
+            }),
         },
         users: {
             getSessionUser: vi.fn((_options?: { batch?: boolean }) => {
@@ -146,7 +213,9 @@ function createClient({
         },
         batch: vi.fn(async (...requests: Array<{ kind: string; id?: number; userId?: number }>) =>
             requests.map((request) => {
-                if (request.kind === 'thread') return { code: 200, data: thread }
+                if (request.kind === 'thread' && request.id) {
+                    return { code: 200, data: getThreadState(request.id) }
+                }
                 if (request.kind === 'comments') return { code: 200, data: comments }
                 if (request.kind === 'comment')
                     return {
@@ -169,6 +238,8 @@ function createClient({
         ),
     }
 }
+
+const readFileMock = vi.mocked(readFile)
 
 function createProgram() {
     const program = new Command()
@@ -692,6 +763,246 @@ describe('thread create', () => {
         await expect(
             program.parseAsync(['node', 'tw', 'thread', 'create', '100', 'My Title']),
         ).rejects.toHaveProperty('code', 'MISSING_CONTENT')
+    })
+})
+
+describe('thread state commands', () => {
+    beforeEach(() => {
+        vi.clearAllMocks()
+        process.exitCode = undefined
+    })
+
+    afterEach(() => {
+        process.exitCode = undefined
+    })
+
+    it('reopens a thread and outputs before/after JSON', async () => {
+        const client = createClient({
+            thread: {
+                ...createThreadFixture(500),
+                inInbox: false,
+                isArchived: true,
+            },
+        })
+        apiMocks.getTwistClient.mockResolvedValue(client)
+
+        const program = createProgram()
+        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+        await program.parseAsync(['node', 'tw', 'thread', 'reopen', '500', '--json'])
+
+        const jsonOutput = JSON.parse(consoleSpy.mock.calls[0][0])
+        expect(jsonOutput.status).toBe('changed')
+        expect(jsonOutput.before).toMatchObject({
+            id: 500,
+            title: 'Test Thread',
+            isArchived: true,
+            inInbox: false,
+            isUnread: false,
+            closed: false,
+        })
+        expect(jsonOutput.after).toMatchObject({
+            id: 500,
+            title: 'Test Thread',
+            isArchived: false,
+            inInbox: true,
+            isUnread: false,
+            closed: false,
+        })
+        expect(jsonOutput.before.lastUpdated).toBeDefined()
+        expect(jsonOutput.after.lastUpdated).toBeDefined()
+        expect(client.inbox.unarchiveThread).toHaveBeenCalledWith(500)
+
+        consoleSpy.mockRestore()
+    })
+
+    it('does not call the API when marking an already unread thread unread', async () => {
+        const client = createClient({
+            unreadThreads: [{ threadId: 500, channelId: 100, objIndex: -1, directMention: false }],
+        })
+        apiMocks.getTwistClient.mockResolvedValue(client)
+
+        const program = createProgram()
+        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+        await program.parseAsync(['node', 'tw', 'thread', 'mark-unread', '500'])
+
+        expect(client.threads.markUnread).not.toHaveBeenCalled()
+        expect(consoleSpy).toHaveBeenCalledWith('Thread Test Thread (500) is already unread.')
+
+        consoleSpy.mockRestore()
+    })
+
+    it('shows predicted before/after JSON for read --dry-run', async () => {
+        const client = createClient({
+            unreadThreads: [{ threadId: 500, channelId: 100, objIndex: 1, directMention: false }],
+        })
+        apiMocks.getTwistClient.mockResolvedValue(client)
+
+        const program = createProgram()
+        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+        await program.parseAsync([
+            'node',
+            'tw',
+            'thread',
+            'mark-read',
+            '500',
+            '--dry-run',
+            '--json',
+        ])
+
+        const jsonOutput = JSON.parse(consoleSpy.mock.calls[0][0])
+        expect(jsonOutput.status).toBe('preview')
+        expect(jsonOutput.dryRun).toBe(true)
+        expect(jsonOutput.before.isUnread).toBe(true)
+        expect(jsonOutput.after.isUnread).toBe(false)
+        expect(client.threads.markRead).not.toHaveBeenCalled()
+
+        consoleSpy.mockRestore()
+    })
+
+    it('keeps idempotent mark-unread --dry-run results as unchanged in JSON mode', async () => {
+        const client = createClient({
+            unreadThreads: [{ threadId: 500, channelId: 100, objIndex: -1, directMention: false }],
+        })
+        apiMocks.getTwistClient.mockResolvedValue(client)
+
+        const program = createProgram()
+        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+        await program.parseAsync([
+            'node',
+            'tw',
+            'thread',
+            'mark-unread',
+            '500',
+            '--dry-run',
+            '--json',
+        ])
+
+        const jsonOutput = JSON.parse(consoleSpy.mock.calls[0][0])
+        expect(jsonOutput.status).toBe('unchanged')
+        expect(jsonOutput.before.isUnread).toBe(true)
+        expect(jsonOutput.after.isUnread).toBe(true)
+        expect(jsonOutput.dryRun).toBeUndefined()
+        expect(client.threads.markUnread).not.toHaveBeenCalled()
+
+        consoleSpy.mockRestore()
+    })
+
+    it('restores a thread and marks it unread when --unread is passed', async () => {
+        const client = createClient({
+            thread: {
+                ...createThreadFixture(500),
+                inInbox: false,
+                isArchived: true,
+            },
+            unreadThreads: [],
+        })
+        apiMocks.getTwistClient.mockResolvedValue(client)
+
+        const program = createProgram()
+        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+        await program.parseAsync(['node', 'tw', 'thread', 'restore', '500', '--unread'])
+
+        expect(client.inbox.unarchiveThread).toHaveBeenCalledWith(500)
+        expect(client.threads.markUnread).toHaveBeenCalledWith({ id: 500, objIndex: -1 })
+        expect(consoleSpy).toHaveBeenCalledWith(
+            'Thread Test Thread (500) restored and marked unread.',
+        )
+
+        consoleSpy.mockRestore()
+    })
+
+    it('previews bulk reopen from --from-file until --yes is provided', async () => {
+        readFileMock.mockResolvedValue('500\n600\n')
+        const client = createClient({
+            threads: [
+                { ...createThreadFixture(500), inInbox: false, isArchived: true },
+                {
+                    ...createThreadFixture(600),
+                    title: 'Second Thread',
+                    inInbox: false,
+                    isArchived: true,
+                },
+            ],
+        })
+        apiMocks.getTwistClient.mockResolvedValue(client)
+
+        const program = createProgram()
+        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+        await program.parseAsync(['node', 'tw', 'thread', 'reopen', '--from-file', 'ids.txt'])
+
+        expect(client.inbox.unarchiveThread).not.toHaveBeenCalled()
+        expect(consoleSpy).toHaveBeenCalledWith('Would reopen thread Test Thread (500).')
+        expect(consoleSpy).toHaveBeenCalledWith('Would reopen thread Second Thread (600).')
+        expect(consoleSpy).toHaveBeenCalledWith('Use --yes to confirm.')
+
+        consoleSpy.mockRestore()
+    })
+
+    it('errors on bulk --json mutations without --yes', async () => {
+        const client = createClient({
+            threads: [
+                { ...createThreadFixture(500), inInbox: false, isArchived: true },
+                {
+                    ...createThreadFixture(600),
+                    title: 'Second Thread',
+                    inInbox: false,
+                    isArchived: true,
+                },
+            ],
+        })
+        apiMocks.getTwistClient.mockResolvedValue(client)
+
+        const program = createProgram()
+
+        await expect(
+            program.parseAsync(['node', 'tw', 'thread', 'reopen', '500', '600', '--json']),
+        ).rejects.toHaveProperty('code', 'MISSING_YES_FLAG')
+
+        expect(client.inbox.unarchiveThread).not.toHaveBeenCalled()
+    })
+
+    it('returns mixed success and failure results in --json mode', async () => {
+        const client = createClient()
+        apiMocks.getTwistClient.mockResolvedValue(client)
+
+        const program = createProgram()
+        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+        await program.parseAsync([
+            'node',
+            'tw',
+            'thread',
+            'mark-unread',
+            '500',
+            'nope',
+            '--json',
+            '--yes',
+        ])
+
+        const jsonOutput = JSON.parse(consoleSpy.mock.calls[0][0])
+        expect(jsonOutput).toHaveLength(2)
+        expect(jsonOutput[0]).toMatchObject({
+            ref: '500',
+            status: 'changed',
+            before: { isUnread: false },
+            after: { isUnread: true },
+        })
+        expect(jsonOutput[1]).toMatchObject({
+            ref: 'nope',
+            status: 'error',
+            error: {
+                code: 'INVALID_REF',
+            },
+        })
+        expect(process.exitCode).toBe(1)
+
+        consoleSpy.mockRestore()
     })
 })
 

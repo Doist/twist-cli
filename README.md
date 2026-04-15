@@ -103,6 +103,11 @@ tw inbox --unread                  # unread threads only
 tw thread view <ref>               # view thread with comments
 tw thread view <ref> --comment 123 # view a specific comment
 tw thread reply <ref>              # reply to a thread
+tw thread done <ref>               # mark a thread done
+tw thread reopen <ref>             # undo thread done / reopen inbox state
+tw thread mark-unread <ref>        # mark a thread unread again
+tw thread mark-read <ref>          # explicitly mark a thread read
+tw thread restore <ref> --unread   # reopen and return it to unread inbox
 tw thread rename <ref> "New title" # rename a thread
 tw conversation unread             # list unread conversations
 tw conversation view <ref>         # view conversation messages
@@ -115,6 +120,16 @@ tw away clear                      # clear away status
 ```
 
 References accept IDs (`123` or `id:123`), Twist URLs, or fuzzy names (for workspaces/users).
+
+Thread inbox state changes support `--dry-run`, `--json`, bulk refs, and `--from-file`:
+
+```bash
+tw thread reopen 12345 67890 --yes
+tw thread mark-unread --from-file ids.txt --dry-run
+tw thread restore 12345 --unread --json
+```
+
+Migration note: `tw thread done` is now reversible via `tw thread reopen`.
 
 Run `tw --help` or `tw <command> --help` for more options.
 

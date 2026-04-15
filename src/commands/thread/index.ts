@@ -2,10 +2,14 @@ import { Command, Option } from 'commander'
 import { withUnvalidatedChoices } from '../../lib/completion.js'
 import { createThread } from './create.js'
 import { deleteThread } from './delete.js'
-import { markThreadDone } from './mutate.js'
+import { markThreadDone } from './done.js'
 import { muteThread, unmuteThread } from './mute.js'
+import { markThreadRead } from './read.js'
 import { renameThread } from './rename.js'
+import { reopenThread } from './reopen.js'
 import { replyToThread } from './reply.js'
+import { restoreThread } from './restore.js'
+import { markThreadUnread } from './unread.js'
 import { viewThread } from './view.js'
 
 export function registerThreadCommand(program: Command): void {
@@ -84,9 +88,11 @@ Examples:
         )
         .action(createThread)
 
-    thread
-        .command('done <thread-ref>')
+    const doneCmd = thread
+        .command('done [thread-refs...]')
         .description('Archive a thread (mark as done)')
+        .option('--from-file <path>', 'Read thread refs from a file (one per line)')
+        .option('--yes', 'Skip confirmation for bulk operations')
         .option('--dry-run', 'Show what would happen without executing')
         .option('--json', 'Output result as JSON')
         .addHelpText(
@@ -94,10 +100,111 @@ Examples:
             `
 Examples:
   tw thread done 12345
+  tw thread done 12345 67890 --yes
+  tw thread done --from-file ids.txt --dry-run
   tw thread done 12345 --dry-run
   tw thread done 12345 --json`,
         )
-        .action(markThreadDone)
+        .action((refs, options) => {
+            if (refs.length === 0 && !options.fromFile) {
+                doneCmd.help()
+                return
+            }
+            return markThreadDone(refs, options)
+        })
+
+    const reopenCmd = thread
+        .command('reopen [thread-refs...]')
+        .description('Reopen a done thread (mark it not done)')
+        .option('--from-file <path>', 'Read thread refs from a file (one per line)')
+        .option('--yes', 'Skip confirmation for bulk operations')
+        .option('--dry-run', 'Show what would happen without executing')
+        .option('--json', 'Output result as JSON')
+        .addHelpText(
+            'after',
+            `
+Examples:
+  tw thread reopen 12345
+  tw thread reopen 12345 67890 --yes
+  tw thread reopen --from-file ids.txt --json`,
+        )
+        .action((refs, options) => {
+            if (refs.length === 0 && !options.fromFile) {
+                reopenCmd.help()
+                return
+            }
+            return reopenThread(refs, options)
+        })
+
+    const unreadCmd = thread
+        .command('mark-unread [thread-refs...]')
+        .description('Mark a thread unread for the current user')
+        .option('--from-file <path>', 'Read thread refs from a file (one per line)')
+        .option('--yes', 'Skip confirmation for bulk operations')
+        .option('--dry-run', 'Show what would happen without executing')
+        .option('--json', 'Output result as JSON')
+        .addHelpText(
+            'after',
+            `
+Examples:
+  tw thread mark-unread 12345
+  tw thread mark-unread 12345 67890 --yes
+  tw thread mark-unread --from-file ids.txt --dry-run`,
+        )
+        .action((refs, options) => {
+            if (refs.length === 0 && !options.fromFile) {
+                unreadCmd.help()
+                return
+            }
+            return markThreadUnread(refs, options)
+        })
+
+    const readCmd = thread
+        .command('mark-read [thread-refs...]')
+        .description('Mark a thread read for the current user')
+        .option('--from-file <path>', 'Read thread refs from a file (one per line)')
+        .option('--yes', 'Skip confirmation for bulk operations')
+        .option('--dry-run', 'Show what would happen without executing')
+        .option('--json', 'Output result as JSON')
+        .addHelpText(
+            'after',
+            `
+Examples:
+  tw thread mark-read 12345
+  tw thread mark-read 12345 67890 --yes
+  tw thread mark-read --from-file ids.txt --json`,
+        )
+        .action((refs, options) => {
+            if (refs.length === 0 && !options.fromFile) {
+                readCmd.help()
+                return
+            }
+            return markThreadRead(refs, options)
+        })
+
+    const restoreCmd = thread
+        .command('restore [thread-refs...]')
+        .description('Restore a thread to the inbox, optionally unread')
+        .option('--unread', 'Also mark restored threads unread')
+        .option('--from-file <path>', 'Read thread refs from a file (one per line)')
+        .option('--yes', 'Skip confirmation for bulk operations')
+        .option('--dry-run', 'Show what would happen without executing')
+        .option('--json', 'Output result as JSON')
+        .addHelpText(
+            'after',
+            `
+Examples:
+  tw thread restore 12345
+  tw thread restore 12345 --unread
+  tw thread restore 12345 67890 --unread --yes`,
+        )
+        .action((refs, options) => {
+            if (refs.length === 0 && !options.fromFile) {
+                restoreCmd.help()
+                return
+            }
+            return restoreThread(refs, options)
+        })
 
     thread
         .command('delete <thread-ref>')
@@ -152,4 +259,15 @@ Examples:
   tw thread unmute 12345`,
         )
         .action(unmuteThread)
+
+    thread.addHelpText(
+        'after',
+        `
+State examples:
+  tw thread done 12345
+  tw thread reopen 12345
+  tw thread mark-unread 12345
+  tw thread mark-read 12345
+  tw thread restore 12345 --unread`,
+    )
 }

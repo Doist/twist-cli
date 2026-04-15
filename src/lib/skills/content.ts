@@ -77,6 +77,16 @@ tw thread reply <ref> "content" --close       # Reply and close the thread
 tw thread reply <ref> "content" --reopen      # Reply and reopen a closed thread
 tw thread done <ref>             # Archive thread (mark done)
 tw thread done <ref> --json      # Archive and return status as JSON
+tw thread done <ref> <ref> --yes # Archive multiple threads after confirmation
+tw thread done --from-file ids.txt --dry-run # Preview bulk archive from file
+tw thread reopen <ref>           # Reopen a done thread
+tw thread reopen <ref> --json    # Return before/after inbox state as JSON
+tw thread reopen <ref> <ref> --yes # Reopen multiple threads
+tw thread mark-unread <ref>      # Mark a thread unread again
+tw thread mark-unread --from-file ids.txt --yes # Bulk mark unread from file
+tw thread mark-read <ref>        # Explicitly mark a thread read
+tw thread restore <ref>          # Restore a thread to the inbox
+tw thread restore <ref> --unread # Restore and mark unread in one step
 tw thread mute <ref>             # Mute thread for 60 minutes (default)
 tw thread mute <ref> --minutes 480  # Mute for custom duration
 tw thread mute <ref> --json      # Mute and return { id, mutedUntil } as JSON
@@ -94,6 +104,8 @@ tw thread rename <ref> "New title" --json --full  # Rename and return full threa
 Default \`--notify\` for reply is EVERYONE_IN_THREAD, which may notify more people than intended. Before posting, confirm with the user whether specific people should be notified instead (via \`--notify <user-ids>\`). Options: EVERYONE, EVERYONE_IN_THREAD, or comma-separated ID refs.
 
 \`--notify\` automatically resolves IDs: group IDs are routed to the \`groups\` API field, user IDs to \`recipients\`. No special syntax needed.
+
+Migration note: \`tw thread done\` is reversible via \`tw thread reopen\`.
 
 ## Thread Comments
 
