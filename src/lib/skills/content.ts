@@ -93,6 +93,7 @@ tw thread update <ref> "New body"   # Update a thread's body (the first post)
 echo "New body" | tw thread update <ref>  # Update body from stdin
 tw thread update <ref> "New body" --dry-run  # Preview without updating
 tw thread update <ref> "New body" --json  # Update and return { id, content } as JSON
+tw thread update <ref> "New body" --json --full  # Update and return full thread as JSON
 \`\`\`
 
 Default \`--notify\` for reply is EVERYONE_IN_THREAD, which may notify more people than intended. Before posting, confirm with the user whether specific people should be notified instead (via \`--notify <user-ids>\`). Options: EVERYONE, EVERYONE_IN_THREAD, or comma-separated ID refs.
