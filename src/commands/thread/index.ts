@@ -6,6 +6,7 @@ import { markThreadDone } from './mutate.js'
 import { muteThread, unmuteThread } from './mute.js'
 import { renameThread } from './rename.js'
 import { replyToThread } from './reply.js'
+import { updateThread } from './update.js'
 import { viewThread } from './view.js'
 
 export function registerThreadCommand(program: Command): void {
@@ -138,6 +139,22 @@ Examples:
         .option('--json', 'Output result as JSON')
         .option('--full', 'Include all fields in JSON output')
         .action(renameThread)
+
+    thread
+        .command('update <thread-ref> [content]')
+        .description("Update a thread's body (the first post)")
+        .option('--dry-run', 'Show what would be updated without updating')
+        .option('--json', 'Output updated thread as JSON')
+        .option('--full', 'Include all fields in JSON output')
+        .addHelpText(
+            'after',
+            `
+Examples:
+  tw thread update 12345 "Updated body text"
+  echo "New body" | tw thread update 12345
+  tw thread update 12345 "Fixed" --json`,
+        )
+        .action(updateThread)
 
     thread
         .command('unmute <thread-ref>')
