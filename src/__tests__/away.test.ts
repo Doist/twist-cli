@@ -128,18 +128,17 @@ describe('away', () => {
             logSpy.mockRestore()
         })
 
-        it('shows friendly error on insufficient scope (403)', async () => {
-            apiMocks.updateUser.mockRejectedValue(
-                new TwistRequestError('Request failed with status 403', 403, {
-                    error_code: 109,
-                    error_string: 'Insufficient scope provided: user:write',
-                }),
-            )
+        it('propagates insufficient scope errors (handled globally by API proxy)', async () => {
+            const scopeError = new TwistRequestError('Request failed with status 403', 403, {
+                error_code: 109,
+                error_string: 'Insufficient scope provided: user:write',
+            })
+            apiMocks.updateUser.mockRejectedValue(scopeError)
             const program = createProgram()
 
             await expect(
                 program.parseAsync(['node', 'tw', 'away', 'set', 'vacation', '2026-03-20']),
-            ).rejects.toHaveProperty('code', 'INSUFFICIENT_SCOPE')
+            ).rejects.toThrow(scopeError)
         })
 
         it('rejects invalid away type', async () => {

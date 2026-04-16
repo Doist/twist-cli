@@ -26,6 +26,7 @@ export const READ_WRITE_SCOPES = [
     'messages:write', // Send messages
     'reactions:read', // Read reactions
     'reactions:write', // Add reactions
+    'groups:read', // Read group information
     'search:read', // Search functionality
     'notifications:read', // Read notifications
     'groups:read', // Read groups (needed for --notify with group IDs)
@@ -40,6 +41,7 @@ export const READ_ONLY_SCOPES = [
     'comments:read',
     'messages:read',
     'reactions:read',
+    'groups:read',
     'search:read',
     'notifications:read',
     'groups:read',
