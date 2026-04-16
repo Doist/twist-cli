@@ -582,9 +582,9 @@ describe('conversation mute', () => {
 
         await program.parseAsync(['node', 'tw', 'conversation', 'mute', '42', '--dry-run'])
 
-        expect(consoleSpy).toHaveBeenCalledWith(
-            'Dry run: would mute conversation 42 for 60 minutes',
-        )
+        expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('Would mute conversation'))
+        expect(consoleSpy).toHaveBeenCalledWith('  Conversation: 42')
+        expect(consoleSpy).toHaveBeenCalledWith('  Duration: 60 minutes')
 
         consoleSpy.mockRestore()
     })
@@ -625,7 +625,10 @@ describe('conversation unmute', () => {
 
         await program.parseAsync(['node', 'tw', 'conversation', 'unmute', '42', '--dry-run'])
 
-        expect(consoleSpy).toHaveBeenCalledWith('Dry run: would unmute conversation 42')
+        expect(consoleSpy).toHaveBeenCalledWith(
+            expect.stringContaining('Would unmute conversation'),
+        )
+        expect(consoleSpy).toHaveBeenCalledWith('  Conversation: 42')
 
         consoleSpy.mockRestore()
     })

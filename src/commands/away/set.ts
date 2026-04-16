@@ -2,7 +2,7 @@ import { AWAY_MODE_TYPES, type AwayModeType } from '@doist/twist-sdk'
 import { getTwistClient } from '../../lib/api.js'
 import { CliError } from '../../lib/errors.js'
 import type { MutationOptions, ViewOptions } from '../../lib/options.js'
-import { formatJson } from '../../lib/output.js'
+import { formatJson, printDryRun } from '../../lib/output.js'
 import { formatAwayType, todayStr, tomorrowStr } from './helpers.js'
 
 type SetAwayOptions = ViewOptions & MutationOptions & { from?: string }
@@ -23,9 +23,11 @@ export async function setAway(
     const dateTo = until ?? tomorrowStr()
 
     if (options.dryRun) {
-        console.log(
-            `Dry run: would set away to ${formatAwayType(type)} from ${dateFrom} until ${dateTo}`,
-        )
+        printDryRun('set away status', {
+            Type: formatAwayType(type),
+            From: dateFrom,
+            Until: dateTo,
+        })
         return
     }
 

@@ -1,5 +1,8 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { isAccessible, resetGlobalArgs } from '../../lib/global-args.js'
+import { printDryRun } from '../../lib/output.js'
+
+vi.mock('chalk')
 
 describe('isAccessible', () => {
     const originalArgv = [...process.argv]
@@ -35,5 +38,47 @@ describe('isAccessible', () => {
         process.argv = ['node', 'tw', '--accessible']
         resetGlobalArgs()
         expect(isAccessible()).toBe(true)
+    })
+})
+
+describe('printDryRun', () => {
+    it('prints header, details, and footer', () => {
+        const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+        printDryRun('delete thread', { Thread: 'My thread (500)' })
+
+        expect(logSpy).toHaveBeenNthCalledWith(1, '[dry-run] Would delete thread:')
+        expect(logSpy).toHaveBeenNthCalledWith(2, '  Thread: My thread (500)')
+        expect(logSpy).toHaveBeenNthCalledWith(3, 'Run without --dry-run to execute.')
+
+        logSpy.mockRestore()
+    })
+
+    it('skips undefined values', () => {
+        const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+        printDryRun('mute thread', {
+            Thread: 'My thread (500)',
+            Notes: undefined,
+            Duration: '60 minutes',
+        })
+
+        const calls = logSpy.mock.calls.map((c) => c[0])
+        expect(calls).toContain('  Thread: My thread (500)')
+        expect(calls).toContain('  Duration: 60 minutes')
+        expect(calls.some((line) => String(line).includes('Notes'))).toBe(false)
+
+        logSpy.mockRestore()
+    })
+
+    it('works without details', () => {
+        const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+        printDryRun('clear away status')
+
+        expect(logSpy).toHaveBeenCalledWith('[dry-run] Would clear away status:')
+        expect(logSpy).toHaveBeenCalledWith('Run without --dry-run to execute.')
+
+        logSpy.mockRestore()
     })
 })

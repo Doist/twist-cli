@@ -271,6 +271,17 @@ All list/view commands support:
 --full    # Include all fields (default shows essential fields only)
 \`\`\`
 
+## Dry Run
+
+Mutating commands accept \`--dry-run\` to preview the operation without making the change. Validation (resource fetches, permission checks) runs first, so dry-run fails the same way the real command would if the target doesn't exist or isn't accessible. The preview is structured:
+
+\`\`\`
+[dry-run] Would <action>:
+  <Key>: <resolved value>
+  ...
+Run without --dry-run to execute.
+\`\`\`
+
 ## Reference System
 
 Commands accept flexible references:

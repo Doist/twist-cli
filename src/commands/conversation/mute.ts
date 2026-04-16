@@ -1,5 +1,5 @@
 import { getTwistClient } from '../../lib/api.js'
-import { formatJson } from '../../lib/output.js'
+import { formatJson, printDryRun } from '../../lib/output.js'
 import { resolveConversationId } from '../../lib/refs.js'
 import { type MuteOptions, parseMinutes } from './helpers.js'
 
@@ -8,7 +8,10 @@ export async function muteConversation(ref: string, options: MuteOptions): Promi
     const minutes = parseMinutes(options.minutes)
 
     if (options.dryRun) {
-        console.log(`Dry run: would mute conversation ${conversationId} for ${minutes} minutes`)
+        printDryRun('mute conversation', {
+            Conversation: String(conversationId),
+            Duration: `${minutes} minutes`,
+        })
         return
     }
 

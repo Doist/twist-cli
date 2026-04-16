@@ -75,12 +75,3 @@ export async function resolveNotifyIds(
 export function formatNotifyLabel(items: NamedEntity[]): string {
     return items.map((i) => `${i.name} (${i.id})`).join(', ')
 }
-
-export function printNotifyLines(notified: NotifiedInfo): void {
-    if (notified.users.length > 0) {
-        console.log(`Notify users: ${formatNotifyLabel(notified.users)}`)
-    }
-    if (notified.groups.length > 0) {
-        console.log(`Notify groups: ${formatNotifyLabel(notified.groups)}`)
-    }
-}

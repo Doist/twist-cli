@@ -1,5 +1,5 @@
 import { getTwistClient } from '../../lib/api.js'
-import { formatJson } from '../../lib/output.js'
+import { formatJson, printDryRun } from '../../lib/output.js'
 import { resolveConversationId } from '../../lib/refs.js'
 import type { DoneOptions } from './helpers.js'
 
@@ -7,7 +7,9 @@ export async function markConversationDone(ref: string, options: DoneOptions): P
     const conversationId = resolveConversationId(ref)
 
     if (options.dryRun) {
-        console.log(`Dry run: would archive conversation ${conversationId}`)
+        printDryRun('archive conversation', {
+            Conversation: String(conversationId),
+        })
         return
     }
 

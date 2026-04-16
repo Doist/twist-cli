@@ -1,7 +1,7 @@
 import { getTwistClient } from '../../lib/api.js'
 import { CliError } from '../../lib/errors.js'
 import { openEditor, readStdin } from '../../lib/input.js'
-import { formatJson } from '../../lib/output.js'
+import { formatJson, printDryRun } from '../../lib/output.js'
 import { resolveConversationId } from '../../lib/refs.js'
 import type { ReplyOptions } from './helpers.js'
 
@@ -27,9 +27,12 @@ export async function replyToConversation(
     }
 
     if (options.dryRun) {
-        console.log('Dry run: would send message to conversation', conversationId)
-        console.log('')
-        console.log(replyContent)
+        const preview =
+            replyContent.length > 200 ? `${replyContent.slice(0, 200)}...` : replyContent
+        printDryRun('send message to conversation', {
+            Conversation: String(conversationId),
+            Content: preview,
+        })
         return
     }
 

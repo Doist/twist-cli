@@ -2,10 +2,10 @@ import { getTwistClient } from '../../lib/api.js'
 import { CliError } from '../../lib/errors.js'
 import { openEditor, readStdin } from '../../lib/input.js'
 import type { MutationOptions } from '../../lib/options.js'
-import { formatJson } from '../../lib/output.js'
+import { formatJson, printDryRun } from '../../lib/output.js'
 import { assertChannelIsPublic } from '../../lib/public-channels.js'
 import { parseUserIdRefs, resolveChannelId } from '../../lib/refs.js'
-import { type ResolvedNotify, printNotifyLines, resolveNotifyIds } from './helpers.js'
+import { type ResolvedNotify, formatNotifyLabel, resolveNotifyIds } from './helpers.js'
 
 type CreateOptions = MutationOptions & {
     notify?: string
@@ -45,13 +45,21 @@ export async function createThread(
     }
 
     if (options.dryRun) {
-        console.log('Dry run: would create thread in channel', channelId)
-        console.log(`Title: ${title}`)
-        if (resolved) {
-            printNotifyLines(resolved.notified)
-        }
-        console.log('')
-        console.log(threadContent)
+        const preview =
+            threadContent.length > 200 ? `${threadContent.slice(0, 200)}...` : threadContent
+        printDryRun('create thread', {
+            Channel: `${channel.name} (${channelId})`,
+            Title: title,
+            'Notify users':
+                resolved && resolved.notified.users.length > 0
+                    ? formatNotifyLabel(resolved.notified.users)
+                    : undefined,
+            'Notify groups':
+                resolved && resolved.notified.groups.length > 0
+                    ? formatNotifyLabel(resolved.notified.groups)
+                    : undefined,
+            Content: preview,
+        })
         return
     }
 

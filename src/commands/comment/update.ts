@@ -2,7 +2,7 @@ import { getTwistClient } from '../../lib/api.js'
 import { CliError } from '../../lib/errors.js'
 import { openEditor, readStdin } from '../../lib/input.js'
 import type { MutationOptions } from '../../lib/options.js'
-import { formatJson } from '../../lib/output.js'
+import { formatJson, printDryRun } from '../../lib/output.js'
 import { resolveCommentId } from '../../lib/refs.js'
 
 type UpdateOptions = MutationOptions
@@ -29,9 +29,11 @@ export async function updateComment(
     }
 
     if (options.dryRun) {
-        console.log(`Dry run: would update comment ${commentId}`)
-        console.log('')
-        console.log(newContent)
+        const preview = newContent.length > 200 ? `${newContent.slice(0, 200)}...` : newContent
+        printDryRun('update comment', {
+            Comment: String(commentId),
+            Content: preview,
+        })
         return
     }
 

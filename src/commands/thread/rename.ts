@@ -1,6 +1,6 @@
 import { getTwistClient } from '../../lib/api.js'
 import type { MutationOptions } from '../../lib/options.js'
-import { formatJson } from '../../lib/output.js'
+import { formatJson, printDryRun } from '../../lib/output.js'
 import { assertChannelIsPublic } from '../../lib/public-channels.js'
 import { resolveThreadId } from '../../lib/refs.js'
 
@@ -11,14 +11,17 @@ export async function renameThread(
 ): Promise<void> {
     const threadId = resolveThreadId(ref)
 
-    if (options.dryRun) {
-        console.log(`Dry run: would rename thread ${threadId} to "${title}"`)
-        return
-    }
-
     const client = await getTwistClient()
     const thread = await client.threads.getThread(threadId)
     await assertChannelIsPublic(thread.channelId, thread.workspaceId)
+
+    if (options.dryRun) {
+        printDryRun('rename thread', {
+            Thread: `${thread.title} (${threadId})`,
+            'New title': title,
+        })
+        return
+    }
 
     const updated = await client.threads.updateThread({ id: threadId, title })
 
