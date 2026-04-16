@@ -1,3 +1,9 @@
+## [2.30.0](https://github.com/Doist/twist-cli/compare/v2.29.2...v2.30.0) (2026-04-16)
+
+### Features
+
+- **user:** add --json and --full support to tw user ([#175](https://github.com/Doist/twist-cli/issues/175)) ([00aae9f](https://github.com/Doist/twist-cli/commit/00aae9f97f4a422ef268a28a8ae8ffaf2c0cd10b))
+
 ## [2.29.2](https://github.com/Doist/twist-cli/compare/v2.29.1...v2.29.2) (2026-04-16)
 
 ### Bug Fixes
