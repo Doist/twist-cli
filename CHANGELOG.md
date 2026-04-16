@@ -1,3 +1,9 @@
+## [2.29.1](https://github.com/Doist/twist-cli/compare/v2.29.0...v2.29.1) (2026-04-16)
+
+### Bug Fixes
+
+- add missing groups:read OAuth scope for --notify group IDs ([#173](https://github.com/Doist/twist-cli/issues/173)) ([c2a0002](https://github.com/Doist/twist-cli/commit/c2a000231f2275822d01b7228a0d6520e8b2ac70)), closes [#171](https://github.com/Doist/twist-cli/issues/171)
+
 ## [2.29.0](https://github.com/Doist/twist-cli/compare/v2.28.0...v2.29.0) (2026-04-16)
 
 ### Features
