@@ -103,10 +103,13 @@ function createClient({
                 mutedUntil: null,
             })),
             deleteThread: vi.fn(async () => undefined),
-            updateThread: vi.fn(async (_args: { id: number; title?: string | null }) => ({
-                ...thread,
-                title: _args.title ?? thread.title,
-            })),
+            updateThread: vi.fn(
+                async (_args: { id: number; title?: string | null; content?: string | null }) => ({
+                    ...thread,
+                    title: _args.title ?? thread.title,
+                    content: _args.content ?? thread.content,
+                }),
+            ),
         },
         users: {
             getSessionUser: vi.fn((_options?: { batch?: boolean }) => {
@@ -961,6 +964,92 @@ describe('thread rename', () => {
         expect(jsonOutput.title).toBe('New Title')
         // Full output includes more fields
         expect(Object.keys(jsonOutput).length).toBeGreaterThan(2)
+
+        consoleSpy.mockRestore()
+    })
+})
+
+describe('thread update', () => {
+    beforeEach(() => {
+        vi.clearAllMocks()
+    })
+
+    it('updates a thread body', async () => {
+        const client = createClient()
+        apiMocks.getTwistClient.mockResolvedValue(client)
+
+        const program = createProgram()
+        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+        await program.parseAsync(['node', 'tw', 'thread', 'update', '500', 'New body'])
+
+        expect(client.threads.updateThread).toHaveBeenCalledWith({
+            id: 500,
+            content: 'New body',
+        })
+        expect(consoleSpy).toHaveBeenCalledWith('Thread 500 updated.')
+
+        consoleSpy.mockRestore()
+    })
+
+    it('shows dry run output without calling updateThread', async () => {
+        const client = createClient()
+        apiMocks.getTwistClient.mockResolvedValue(client)
+
+        const program = createProgram()
+        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+        await program.parseAsync(['node', 'tw', 'thread', 'update', '500', 'New body', '--dry-run'])
+
+        expect(consoleSpy).toHaveBeenCalledWith('Dry run: would update thread 500')
+        expect(consoleSpy).toHaveBeenCalledWith('New body')
+        expect(client.threads.updateThread).not.toHaveBeenCalled()
+
+        consoleSpy.mockRestore()
+    })
+
+    it('reads content from stdin', async () => {
+        vi.mocked(readStdin).mockResolvedValueOnce('Body from stdin')
+        const client = createClient()
+        apiMocks.getTwistClient.mockResolvedValue(client)
+
+        const program = createProgram()
+        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+        await program.parseAsync(['node', 'tw', 'thread', 'update', '500'])
+
+        expect(client.threads.updateThread).toHaveBeenCalledWith({
+            id: 500,
+            content: 'Body from stdin',
+        })
+
+        consoleSpy.mockRestore()
+    })
+
+    it('errors when no content is provided', async () => {
+        const program = createProgram()
+        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+        await expect(
+            program.parseAsync(['node', 'tw', 'thread', 'update', '500']),
+        ).rejects.toHaveProperty('code', 'MISSING_CONTENT')
+
+        consoleSpy.mockRestore()
+    })
+
+    it('outputs JSON with --json including id and content', async () => {
+        const client = createClient()
+        apiMocks.getTwistClient.mockResolvedValue(client)
+
+        const program = createProgram()
+        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+        await program.parseAsync(['node', 'tw', 'thread', 'update', '500', 'New body', '--json'])
+
+        const jsonOutput = JSON.parse(consoleSpy.mock.calls[0][0])
+        expect(jsonOutput.id).toBe(500)
+        expect(jsonOutput.content).toBe('New body')
+        expect(Object.keys(jsonOutput)).toEqual(['id', 'content'])
 
         consoleSpy.mockRestore()
     })
