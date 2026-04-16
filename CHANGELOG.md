@@ -1,3 +1,9 @@
+## [2.29.0](https://github.com/Doist/twist-cli/compare/v2.28.0...v2.29.0) (2026-04-16)
+
+### Features
+
+- **inbox:** add --archive-filter option ([#169](https://github.com/Doist/twist-cli/issues/169)) ([ed9ed7f](https://github.com/Doist/twist-cli/commit/ed9ed7fa0ae04c12c42cd492629e4e6f55a23612))
+
 ## [2.28.0](https://github.com/Doist/twist-cli/compare/v2.27.1...v2.28.0) (2026-04-16)
 
 ### Features
