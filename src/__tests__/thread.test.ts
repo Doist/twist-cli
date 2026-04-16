@@ -992,7 +992,10 @@ describe('thread update', () => {
         consoleSpy.mockRestore()
     })
 
-    it('shows dry run output', async () => {
+    it('shows dry run output without calling updateThread', async () => {
+        const client = createClient()
+        apiMocks.getTwistClient.mockResolvedValue(client)
+
         const program = createProgram()
         const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
 
@@ -1000,6 +1003,7 @@ describe('thread update', () => {
 
         expect(consoleSpy).toHaveBeenCalledWith('Dry run: would update thread 500')
         expect(consoleSpy).toHaveBeenCalledWith('New body')
+        expect(client.threads.updateThread).not.toHaveBeenCalled()
 
         consoleSpy.mockRestore()
     })

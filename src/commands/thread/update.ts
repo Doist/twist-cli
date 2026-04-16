@@ -29,16 +29,16 @@ export async function updateThread(
         )
     }
 
+    const client = await getTwistClient()
+    const thread = await client.threads.getThread(threadId)
+    await assertChannelIsPublic(thread.channelId, thread.workspaceId)
+
     if (options.dryRun) {
         console.log(`Dry run: would update thread ${threadId}`)
         console.log('')
         console.log(newContent)
         return
     }
-
-    const client = await getTwistClient()
-    const thread = await client.threads.getThread(threadId)
-    await assertChannelIsPublic(thread.channelId, thread.workspaceId)
 
     const updated = await client.threads.updateThread({
         id: threadId,
