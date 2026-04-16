@@ -62,7 +62,8 @@ export function isInsufficientScope(error: unknown): boolean {
     }
     return (
         httpStatusCode === 403 &&
-        responseData?.error_string?.includes('Insufficient scope') === true
+        typeof responseData?.error_string === 'string' &&
+        responseData.error_string.includes('Insufficient scope')
     )
 }
 
