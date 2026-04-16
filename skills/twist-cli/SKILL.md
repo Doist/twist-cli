@@ -177,6 +177,8 @@ tw search "query" --cursor <cur> # Pagination cursor
 
 ```bash
 tw user                          # Show current user info
+tw user --json                   # JSON output
+tw user --json --full            # Include all fields in JSON output
 tw users                         # List workspace users
 tw users --search <text>         # Filter by name/email
 tw channels                      # List active joined workspace channels

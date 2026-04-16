@@ -8,8 +8,13 @@ import { resolveWorkspaceRef } from '../lib/refs.js'
 
 type UsersOptions = ViewOptions & { workspace?: string; search?: string }
 
-async function showCurrentUser(): Promise<void> {
+async function showCurrentUser(options: ViewOptions): Promise<void> {
     const user = await getSessionUser()
+
+    if (options.json) {
+        console.log(formatJson(user, 'user', options.full))
+        return
+    }
 
     console.log(chalk.bold(user.name))
     console.log('')
@@ -77,11 +82,14 @@ export function registerUserCommand(program: Command): void {
     program
         .command('user')
         .description('Show current user info')
+        .option('--json', 'Output as JSON')
+        .option('--full', 'Include all fields in JSON output')
         .addHelpText(
             'after',
             `
 Examples:
-  tw user`,
+  tw user
+  tw user --json`,
         )
         .action(showCurrentUser)
 
