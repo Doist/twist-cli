@@ -1,3 +1,9 @@
+## [2.31.0](https://github.com/Doist/twist-cli/compare/v2.30.0...v2.31.0) (2026-04-16)
+
+### Features
+
+- consistency pass for --json across tw react/unreact, comment view, conversation with ([#176](https://github.com/Doist/twist-cli/issues/176)) ([5db95cc](https://github.com/Doist/twist-cli/commit/5db95cc498b1d3d4619d8f7bfa4099afc3f73aaa))
+
 ## [2.30.0](https://github.com/Doist/twist-cli/compare/v2.29.2...v2.30.0) (2026-04-16)
 
 ### Features
