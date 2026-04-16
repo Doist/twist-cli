@@ -48,6 +48,12 @@ export function buildConversationTitle(
     return conversation.title || `Conversation with ${participants}`
 }
 
+export function conversationLabel(conversation: Pick<Conversation, 'id' | 'title'>): string {
+    return conversation.title
+        ? `${conversation.title} (${conversation.id})`
+        : `conversation ${conversation.id}`
+}
+
 export function sortByLastActiveDescending(a: Conversation, b: Conversation): number {
     return new Date(b.lastActive).getTime() - new Date(a.lastActive).getTime()
 }

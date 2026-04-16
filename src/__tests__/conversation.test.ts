@@ -577,16 +577,36 @@ describe('conversation mute', () => {
     })
 
     it('shows dry run output', async () => {
+        const conversation = createConversation(42, [1, 2], '2026-03-08T10:00:00.000Z')
+        const client = createClient({ activeConversations: [conversation] })
+        apiMocks.getTwistClient.mockResolvedValue(client)
+
         const program = createProgram()
         const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
 
         await program.parseAsync(['node', 'tw', 'conversation', 'mute', '42', '--dry-run'])
 
         expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('Would mute conversation'))
-        expect(consoleSpy).toHaveBeenCalledWith('  Conversation: 42')
+        expect(consoleSpy).toHaveBeenCalledWith('  Conversation: conversation 42')
         expect(consoleSpy).toHaveBeenCalledWith('  Duration: 60 minutes')
+        expect(client.conversations.muteConversation).not.toHaveBeenCalled()
 
         consoleSpy.mockRestore()
+    })
+
+    it('runs validation in dry-run mode', async () => {
+        const client = createClient({ activeConversations: [] })
+        client.conversations.getConversation.mockRejectedValueOnce(
+            new Error('conversation not found'),
+        )
+        apiMocks.getTwistClient.mockResolvedValue(client)
+
+        const program = createProgram()
+
+        await expect(
+            program.parseAsync(['node', 'tw', 'conversation', 'mute', '42', '--dry-run']),
+        ).rejects.toThrow('conversation not found')
+        expect(client.conversations.muteConversation).not.toHaveBeenCalled()
     })
 
     it('rejects non-integer --minutes value', async () => {
@@ -620,6 +640,10 @@ describe('conversation unmute', () => {
     })
 
     it('shows dry run output', async () => {
+        const conversation = createConversation(42, [1, 2], '2026-03-08T10:00:00.000Z')
+        const client = createClient({ activeConversations: [conversation] })
+        apiMocks.getTwistClient.mockResolvedValue(client)
+
         const program = createProgram()
         const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
 
@@ -628,8 +652,80 @@ describe('conversation unmute', () => {
         expect(consoleSpy).toHaveBeenCalledWith(
             expect.stringContaining('Would unmute conversation'),
         )
-        expect(consoleSpy).toHaveBeenCalledWith('  Conversation: 42')
+        expect(consoleSpy).toHaveBeenCalledWith('  Conversation: conversation 42')
+        expect(client.conversations.unmuteConversation).not.toHaveBeenCalled()
 
         consoleSpy.mockRestore()
+    })
+
+    it('runs validation in dry-run mode', async () => {
+        const client = createClient({ activeConversations: [] })
+        client.conversations.getConversation.mockRejectedValueOnce(
+            new Error('conversation not found'),
+        )
+        apiMocks.getTwistClient.mockResolvedValue(client)
+
+        const program = createProgram()
+
+        await expect(
+            program.parseAsync(['node', 'tw', 'conversation', 'unmute', '42', '--dry-run']),
+        ).rejects.toThrow('conversation not found')
+        expect(client.conversations.unmuteConversation).not.toHaveBeenCalled()
+    })
+})
+
+describe('conversation done', () => {
+    beforeEach(() => {
+        vi.clearAllMocks()
+    })
+
+    it('archives a conversation', async () => {
+        const conversation = createConversation(42, [1, 2], '2026-03-08T10:00:00.000Z')
+        const client = createClient({ activeConversations: [conversation] })
+        apiMocks.getTwistClient.mockResolvedValue(client)
+
+        const program = createProgram()
+        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+        await program.parseAsync(['node', 'tw', 'conversation', 'done', '42'])
+
+        expect(client.conversations.archiveConversation).toHaveBeenCalledWith(42)
+        expect(consoleSpy).toHaveBeenCalledWith('Conversation 42 archived.')
+
+        consoleSpy.mockRestore()
+    })
+
+    it('shows dry run output', async () => {
+        const conversation = createConversation(42, [1, 2], '2026-03-08T10:00:00.000Z')
+        const client = createClient({ activeConversations: [conversation] })
+        apiMocks.getTwistClient.mockResolvedValue(client)
+
+        const program = createProgram()
+        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+        await program.parseAsync(['node', 'tw', 'conversation', 'done', '42', '--dry-run'])
+
+        expect(consoleSpy).toHaveBeenCalledWith(
+            expect.stringContaining('Would archive conversation'),
+        )
+        expect(consoleSpy).toHaveBeenCalledWith('  Conversation: conversation 42')
+        expect(client.conversations.archiveConversation).not.toHaveBeenCalled()
+
+        consoleSpy.mockRestore()
+    })
+
+    it('runs validation in dry-run mode', async () => {
+        const client = createClient({ activeConversations: [] })
+        client.conversations.getConversation.mockRejectedValueOnce(
+            new Error('conversation not found'),
+        )
+        apiMocks.getTwistClient.mockResolvedValue(client)
+
+        const program = createProgram()
+
+        await expect(
+            program.parseAsync(['node', 'tw', 'conversation', 'done', '42', '--dry-run']),
+        ).rejects.toThrow('conversation not found')
+        expect(client.conversations.archiveConversation).not.toHaveBeenCalled()
     })
 })

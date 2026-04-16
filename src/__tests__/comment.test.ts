@@ -5,6 +5,10 @@ const apiMocks = vi.hoisted(() => ({
     getTwistClient: vi.fn(),
 }))
 
+vi.mock('../lib/public-channels.js', () => ({
+    assertChannelIsPublic: vi.fn(),
+}))
+
 vi.mock('../lib/api.js', async (importOriginal) => ({
     ...(await importOriginal<typeof import('../lib/api.js')>()),
     getTwistClient: apiMocks.getTwistClient,
@@ -24,12 +28,13 @@ vi.mock('chalk')
 import { registerCommentCommand } from '../commands/comment/index.js'
 import { readStdin } from '../lib/input.js'
 
-function createCommentFixture(id: number) {
+function createCommentFixture(id: number, creator = 1) {
     return {
         id,
         content: `Comment ${id}`,
-        creator: 2,
+        creator,
         threadId: 500,
+        channelId: 100,
         workspaceId: 10,
         posted: new Date('2026-03-02T00:00:00.000Z'),
         reactions: [],
@@ -37,19 +42,39 @@ function createCommentFixture(id: number) {
     }
 }
 
-function createClient() {
+function createClient({ commentCreator = 1, sessionUserId = 1 } = {}) {
     return {
         comments: {
-            getComment: vi.fn(async (id: number) => createCommentFixture(id)),
+            getComment: vi.fn((id: number, options?: { batch?: boolean }) => {
+                if (options?.batch) return { kind: 'comment', id }
+                return Promise.resolve(createCommentFixture(id, commentCreator))
+            }),
             updateComment: vi.fn(async (args: { id: number; content: string }) => ({
-                ...createCommentFixture(args.id),
+                ...createCommentFixture(args.id, commentCreator),
                 content: args.content,
             })),
             deleteComment: vi.fn(async () => undefined),
         },
+        users: {
+            getSessionUser: vi.fn((options?: { batch?: boolean }) => {
+                if (options?.batch) return { kind: 'sessionUser' }
+                return Promise.resolve({ id: sessionUserId, name: 'Me' })
+            }),
+        },
         workspaceUsers: {
             getUserById: vi.fn(async () => ({ id: 2, name: 'Bob' })),
         },
+        batch: vi.fn(async (...requests: Array<{ kind: string; id?: number }>) =>
+            requests.map((request) => {
+                if (request.kind === 'comment' && request.id) {
+                    return { code: 200, data: createCommentFixture(request.id, commentCreator) }
+                }
+                if (request.kind === 'sessionUser') {
+                    return { code: 200, data: { id: sessionUserId, name: 'Me' } }
+                }
+                throw new Error(`Unexpected batch request: ${JSON.stringify(request)}`)
+            }),
+        ),
     }
 }
 
@@ -243,6 +268,8 @@ describe('comment delete', () => {
     })
 
     it('shows dry run output', async () => {
+        const client = createClient()
+        apiMocks.getTwistClient.mockResolvedValue(client)
         const program = createProgram()
         const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
 
@@ -250,7 +277,34 @@ describe('comment delete', () => {
 
         expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('Would delete comment'))
         expect(consoleSpy).toHaveBeenCalledWith('  Comment: 300')
+        expect(consoleSpy).toHaveBeenCalledWith('  Thread: 500')
+        expect(client.comments.deleteComment).not.toHaveBeenCalled()
         consoleSpy.mockRestore()
+    })
+
+    it('rejects non-creator with NOT_CREATOR in dry-run', async () => {
+        const client = createClient({ commentCreator: 99, sessionUserId: 1 })
+        apiMocks.getTwistClient.mockResolvedValue(client)
+        const program = createProgram()
+
+        await expect(
+            program.parseAsync(['node', 'tw', 'comment', 'delete', '300', '--dry-run']),
+        ).rejects.toHaveProperty('code', 'NOT_CREATOR')
+        expect(client.comments.deleteComment).not.toHaveBeenCalled()
+    })
+
+    it('rejects when assertChannelIsPublic throws in dry-run', async () => {
+        const { assertChannelIsPublic } = await import('../lib/public-channels.js')
+        vi.mocked(assertChannelIsPublic).mockRejectedValueOnce(new Error('channel is private'))
+
+        const client = createClient()
+        apiMocks.getTwistClient.mockResolvedValue(client)
+        const program = createProgram()
+
+        await expect(
+            program.parseAsync(['node', 'tw', 'comment', 'delete', '300', '--dry-run']),
+        ).rejects.toThrow('channel is private')
+        expect(client.comments.deleteComment).not.toHaveBeenCalled()
     })
 
     it('outputs JSON with --json', async () => {
