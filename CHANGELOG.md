@@ -1,3 +1,9 @@
+## [2.31.1](https://github.com/Doist/twist-cli/compare/v2.31.0...v2.31.1) (2026-04-16)
+
+### Bug Fixes
+
+- **dry-run:** run validation before short-circuit and print structured preview ([#177](https://github.com/Doist/twist-cli/issues/177)) ([d552e45](https://github.com/Doist/twist-cli/commit/d552e45b8e6d0b8e443ab1abd51b2cc987c77cc9))
+
 ## [2.31.0](https://github.com/Doist/twist-cli/compare/v2.30.0...v2.31.0) (2026-04-16)
 
 ### Features
