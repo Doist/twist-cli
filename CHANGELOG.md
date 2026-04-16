@@ -1,3 +1,9 @@
+## [2.31.2](https://github.com/Doist/twist-cli/compare/v2.31.1...v2.31.2) (2026-04-16)
+
+### Bug Fixes
+
+- **dry-run:** fetch resources in the remaining five commands ([#178](https://github.com/Doist/twist-cli/issues/178)) ([5f1ab22](https://github.com/Doist/twist-cli/commit/5f1ab2261930543b3b01762b33157c19ea627b5f))
+
 ## [2.31.1](https://github.com/Doist/twist-cli/compare/v2.31.0...v2.31.1) (2026-04-16)
 
 ### Bug Fixes
