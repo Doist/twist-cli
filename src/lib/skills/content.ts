@@ -208,7 +208,9 @@ tw away clear                    # Clear away status
 tw react thread <ref> 👍         # Add reaction to thread
 tw react comment <ref> +1        # Add reaction (shortcode)
 tw react message <ref> heart     # Add reaction to DM message
+tw react thread <ref> 👍 --json  # Output result as JSON
 tw unreact thread <ref> 👍       # Remove reaction
+tw unreact thread <ref> 👍 --json # Output result as JSON
 \`\`\`
 
 Supported shortcodes: +1, -1, heart, tada, smile, laughing, thinking, fire, check, x, eyes, pray, clap, rocket, wave

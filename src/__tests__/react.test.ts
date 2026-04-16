@@ -66,4 +66,65 @@ describe('react refs', () => {
         expect(apiMocks.removeReaction).toHaveBeenCalledWith({ messageId: 44, reaction: '❤️' })
         logSpy.mockRestore()
     })
+
+    it('outputs JSON for react --json', async () => {
+        const program = createProgram()
+        const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+        await program.parseAsync(['node', 'tw', 'react', 'thread', '99', '+1', '--json'])
+
+        expect(apiMocks.addReaction).toHaveBeenCalledWith({ threadId: 99, reaction: '👍' })
+        const output = JSON.parse(logSpy.mock.calls[0][0])
+        expect(output).toEqual({
+            targetType: 'thread',
+            targetId: 99,
+            emoji: '👍',
+            action: 'added',
+        })
+        logSpy.mockRestore()
+    })
+
+    it('outputs JSON for unreact --json', async () => {
+        const program = createProgram()
+        const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+        await program.parseAsync(['node', 'tw', 'unreact', 'comment', '42', 'heart', '--json'])
+
+        expect(apiMocks.removeReaction).toHaveBeenCalledWith({ commentId: 42, reaction: '❤️' })
+        const output = JSON.parse(logSpy.mock.calls[0][0])
+        expect(output).toEqual({
+            targetType: 'comment',
+            targetId: 42,
+            emoji: '❤️',
+            action: 'removed',
+        })
+        logSpy.mockRestore()
+    })
+
+    it('outputs JSON for react --json --dry-run without calling API', async () => {
+        const program = createProgram()
+        const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+        await program.parseAsync([
+            'node',
+            'tw',
+            'react',
+            'message',
+            '77',
+            'tada',
+            '--json',
+            '--dry-run',
+        ])
+
+        expect(apiMocks.addReaction).not.toHaveBeenCalled()
+        const output = JSON.parse(logSpy.mock.calls[0][0])
+        expect(output).toEqual({
+            targetType: 'message',
+            targetId: 77,
+            emoji: '🎉',
+            action: 'added',
+            dryRun: true,
+        })
+        logSpy.mockRestore()
+    })
 })
