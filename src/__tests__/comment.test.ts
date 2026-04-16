@@ -110,6 +110,22 @@ describe('comment view', () => {
         consoleSpy.mockRestore()
     })
 
+    it('outputs NDJSON with --ndjson', async () => {
+        const client = createClient()
+        apiMocks.getTwistClient.mockResolvedValue(client)
+        const program = createProgram()
+        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+        await program.parseAsync(['node', 'tw', 'comment', 'view', '300', '--ndjson'])
+
+        const line = consoleSpy.mock.calls[0][0]
+        expect(line).not.toContain('\n')
+        const parsed = JSON.parse(line)
+        expect(parsed.id).toBe(300)
+        expect(parsed.content).toBe('Comment 300')
+        consoleSpy.mockRestore()
+    })
+
     it('includes creatorName in --json --full output', async () => {
         const client = createClient()
         apiMocks.getTwistClient.mockResolvedValue(client)

@@ -403,6 +403,28 @@ describe('conversation with', () => {
         consoleSpy.mockRestore()
     })
 
+    it('emits empty JSON array when no 1:1 conversation is found with --json', async () => {
+        const client = createClient({
+            activeConversations: [],
+            users: {
+                1: { id: 1, name: 'Me' },
+                2: { id: 2, name: 'Alice Example' },
+            },
+        })
+
+        apiMocks.getTwistClient.mockResolvedValue(client)
+
+        const program = createProgram()
+        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+        await program.parseAsync(['node', 'tw', 'conversation', 'with', 'Alice', '--json'])
+
+        expect(consoleSpy).toHaveBeenCalledTimes(1)
+        expect(JSON.parse(consoleSpy.mock.calls[0][0])).toEqual([])
+
+        consoleSpy.mockRestore()
+    })
+
     it('prints a clean error and exits non-zero for ambiguous user refs', async () => {
         refsMocks.resolveUserRefs.mockRejectedValue(
             new CliError(

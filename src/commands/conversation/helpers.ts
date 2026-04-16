@@ -157,6 +157,13 @@ export async function listConversationsWithUser(
     options: ConversationWithOptions,
 ): Promise<void> {
     if (conversations.length === 0) {
+        if (options.json) {
+            console.log(formatJson([], 'conversation', options.full))
+            return
+        }
+        if (options.ndjson) {
+            return
+        }
         console.log('No matching conversations found.')
         return
     }

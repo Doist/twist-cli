@@ -109,6 +109,7 @@ tw comment <comment-ref>                       # View a comment (shorthand for v
 tw comment view <comment-ref>                  # View a single thread comment
 tw comment view <comment-ref> --raw            # Show raw markdown
 tw comment view <comment-ref> --json           # Output as JSON
+tw comment view <comment-ref> --ndjson         # Output as newline-delimited JSON
 tw comment view <comment-ref> --json --full    # Include all fields in JSON output
 tw comment update <comment-ref> "new content"  # Update a thread comment
 tw comment update <comment-ref> "content" --json  # Update and return updated comment as JSON
@@ -208,7 +209,9 @@ tw away clear                    # Clear away status
 tw react thread <ref> 👍         # Add reaction to thread
 tw react comment <ref> +1        # Add reaction (shortcode)
 tw react message <ref> heart     # Add reaction to DM message
+tw react thread <ref> 👍 --json  # Output result as JSON
 tw unreact thread <ref> 👍       # Remove reaction
+tw unreact thread <ref> 👍 --json # Output result as JSON
 \`\`\`
 
 Supported shortcodes: +1, -1, heart, tada, smile, laughing, thinking, fire, check, x, eyes, pray, clap, rocket, wave

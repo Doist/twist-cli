@@ -2,6 +2,7 @@ import { Command } from 'commander'
 import { getTwistClient } from '../lib/api.js'
 import { CliError } from '../lib/errors.js'
 import type { MutationOptions } from '../lib/options.js'
+import { formatJson } from '../lib/output.js'
 import { resolveCommentId, resolveMessageId, resolveThreadId } from '../lib/refs.js'
 
 type TargetType = 'thread' | 'comment' | 'message'
@@ -50,6 +51,18 @@ async function addReaction(
     const normalizedEmoji = normalizeEmoji(emoji)
 
     if (options.dryRun) {
+        if (options.json) {
+            console.log(
+                formatJson({
+                    targetType,
+                    targetId,
+                    emoji: normalizedEmoji,
+                    action: 'added',
+                    dryRun: true,
+                }),
+            )
+            return
+        }
         console.log(`Dry run: would add ${normalizedEmoji} to ${targetType} ${targetId}`)
         return
     }
@@ -70,6 +83,12 @@ async function addReaction(
     }
 
     await client.reactions.add(params)
+
+    if (options.json) {
+        console.log(formatJson({ targetType, targetId, emoji: normalizedEmoji, action: 'added' }))
+        return
+    }
+
     console.log(`Added ${normalizedEmoji} to ${targetType} ${targetId}`)
 }
 
@@ -83,6 +102,18 @@ async function removeReaction(
     const normalizedEmoji = normalizeEmoji(emoji)
 
     if (options.dryRun) {
+        if (options.json) {
+            console.log(
+                formatJson({
+                    targetType,
+                    targetId,
+                    emoji: normalizedEmoji,
+                    action: 'removed',
+                    dryRun: true,
+                }),
+            )
+            return
+        }
         console.log(`Dry run: would remove ${normalizedEmoji} from ${targetType} ${targetId}`)
         return
     }
@@ -103,6 +134,12 @@ async function removeReaction(
     }
 
     await client.reactions.remove(params)
+
+    if (options.json) {
+        console.log(formatJson({ targetType, targetId, emoji: normalizedEmoji, action: 'removed' }))
+        return
+    }
+
     console.log(`Removed ${normalizedEmoji} from ${targetType} ${targetId}`)
 }
 
@@ -111,13 +148,15 @@ export function registerReactCommand(program: Command): void {
         .command('react <target-type> <target-ref> <emoji>')
         .description('Add an emoji reaction (target-type: thread, comment, message)')
         .option('--dry-run', 'Show what would happen without executing')
+        .option('--json', 'Output result as JSON')
         .addHelpText(
             'after',
             `
 Examples:
   tw react thread 12345 +1
   tw react comment 67890 heart
-  tw react message 11111 tada --dry-run`,
+  tw react message 11111 tada --dry-run
+  tw react thread 12345 +1 --json`,
         )
         .action((targetType: string, targetRef: string, emoji: string, options: ReactOptions) => {
             if (!['thread', 'comment', 'message'].includes(targetType)) {
@@ -133,12 +172,14 @@ Examples:
         .command('unreact <target-type> <target-ref> <emoji>')
         .description('Remove an emoji reaction (target-type: thread, comment, message)')
         .option('--dry-run', 'Show what would happen without executing')
+        .option('--json', 'Output result as JSON')
         .addHelpText(
             'after',
             `
 Examples:
   tw unreact thread 12345 +1
-  tw unreact comment 67890 heart`,
+  tw unreact comment 67890 heart
+  tw unreact thread 12345 +1 --json`,
         )
         .action((targetType: string, targetRef: string, emoji: string, options: ReactOptions) => {
             if (!['thread', 'comment', 'message'].includes(targetType)) {
