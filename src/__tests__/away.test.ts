@@ -124,7 +124,7 @@ describe('away', () => {
             ])
 
             expect(apiMocks.updateUser).not.toHaveBeenCalled()
-            expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('Dry run'))
+            expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('Would set away status'))
             logSpy.mockRestore()
         })
 
@@ -169,7 +169,7 @@ describe('away', () => {
             await program.parseAsync(['node', 'tw', 'away', 'clear', '--dry-run'])
 
             expect(apiMocks.updateUser).not.toHaveBeenCalled()
-            expect(logSpy).toHaveBeenCalledWith('Dry run: would clear away status')
+            expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('Would clear away status'))
             logSpy.mockRestore()
         })
     })

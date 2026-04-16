@@ -1,6 +1,6 @@
 import { getTwistClient } from '../../lib/api.js'
 import type { MutationOptions } from '../../lib/options.js'
-import { formatJson } from '../../lib/output.js'
+import { formatJson, printDryRun } from '../../lib/output.js'
 import { resolveCommentId } from '../../lib/refs.js'
 
 type DeleteOptions = MutationOptions
@@ -9,7 +9,9 @@ export async function deleteComment(ref: string, options: DeleteOptions): Promis
     const commentId = resolveCommentId(ref)
 
     if (options.dryRun) {
-        console.log(`Dry run: would delete comment ${commentId}`)
+        printDryRun('delete comment', {
+            Comment: String(commentId),
+        })
         return
     }
 

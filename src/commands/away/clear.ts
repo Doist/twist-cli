@@ -1,9 +1,9 @@
 import { getTwistClient } from '../../lib/api.js'
 import type { MutationOptions, ViewOptions } from '../../lib/options.js'
-import { formatJson } from '../../lib/output.js'
+import { formatJson, printDryRun } from '../../lib/output.js'
 export async function clearAway(options: MutationOptions & ViewOptions): Promise<void> {
     if (options.dryRun) {
-        console.log('Dry run: would clear away status')
+        printDryRun('clear away status')
         return
     }
 

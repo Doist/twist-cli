@@ -176,8 +176,9 @@ describe('comment update', () => {
             '--dry-run',
         ])
 
-        expect(consoleSpy).toHaveBeenCalledWith('Dry run: would update comment 300')
-        expect(consoleSpy).toHaveBeenCalledWith('New content')
+        expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('Would update comment'))
+        expect(consoleSpy).toHaveBeenCalledWith('  Comment: 300')
+        expect(consoleSpy).toHaveBeenCalledWith('  Content: New content')
         consoleSpy.mockRestore()
     })
 
@@ -247,7 +248,8 @@ describe('comment delete', () => {
 
         await program.parseAsync(['node', 'tw', 'comment', 'delete', '300', '--dry-run'])
 
-        expect(consoleSpy).toHaveBeenCalledWith('Dry run: would delete comment 300')
+        expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('Would delete comment'))
+        expect(consoleSpy).toHaveBeenCalledWith('  Comment: 300')
         consoleSpy.mockRestore()
     })
 

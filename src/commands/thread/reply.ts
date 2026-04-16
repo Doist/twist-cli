@@ -2,10 +2,10 @@ import { getTwistClient } from '../../lib/api.js'
 import { CliError } from '../../lib/errors.js'
 import { openEditor, readStdin } from '../../lib/input.js'
 import type { MutationOptions } from '../../lib/options.js'
-import { formatJson } from '../../lib/output.js'
+import { formatJson, printDryRun } from '../../lib/output.js'
 import { assertChannelIsPublic } from '../../lib/public-channels.js'
 import { parseUserIdRefs, resolveThreadId } from '../../lib/refs.js'
-import { type ResolvedNotify, printNotifyLines, resolveNotifyIds } from './helpers.js'
+import { type ResolvedNotify, formatNotifyLabel, resolveNotifyIds } from './helpers.js'
 
 type ReplyOptions = MutationOptions & {
     notify?: string
@@ -60,14 +60,21 @@ export async function replyToThread(
 
     if (options.dryRun) {
         const actionSuffix = actionLabel ? ` and ${actionLabel} it` : ''
-        console.log(`Dry run: would post comment to thread ${threadId}${actionSuffix}`)
-        if (isSpecialRecipient) {
-            console.log(`Notify: ${notifyValue}`)
-        } else if (resolved) {
-            printNotifyLines(resolved.notified)
-        }
-        console.log('')
-        console.log(replyContent)
+        const preview =
+            replyContent.length > 200 ? `${replyContent.slice(0, 200)}...` : replyContent
+        printDryRun(`post comment to thread${actionSuffix}`, {
+            Thread: `${thread.title} (${threadId})`,
+            Notify: isSpecialRecipient ? notifyValue : undefined,
+            'Notify users':
+                !isSpecialRecipient && resolved && resolved.notified.users.length > 0
+                    ? formatNotifyLabel(resolved.notified.users)
+                    : undefined,
+            'Notify groups':
+                !isSpecialRecipient && resolved && resolved.notified.groups.length > 0
+                    ? formatNotifyLabel(resolved.notified.groups)
+                    : undefined,
+            Content: preview,
+        })
         return
     }
 

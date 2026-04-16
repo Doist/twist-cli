@@ -1,13 +1,15 @@
 import { getTwistClient } from '../../lib/api.js'
 import type { MutationOptions } from '../../lib/options.js'
-import { formatJson } from '../../lib/output.js'
+import { formatJson, printDryRun } from '../../lib/output.js'
 import { resolveConversationId } from '../../lib/refs.js'
 
 export async function unmuteConversation(ref: string, options: MutationOptions): Promise<void> {
     const conversationId = resolveConversationId(ref)
 
     if (options.dryRun) {
-        console.log(`Dry run: would unmute conversation ${conversationId}`)
+        printDryRun('unmute conversation', {
+            Conversation: String(conversationId),
+        })
         return
     }
 

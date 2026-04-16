@@ -1,7 +1,7 @@
 import { getTwistClient } from '../../lib/api.js'
 import { CliError } from '../../lib/errors.js'
 import type { MutationOptions } from '../../lib/options.js'
-import { formatJson } from '../../lib/output.js'
+import { formatJson, printDryRun } from '../../lib/output.js'
 import { assertChannelIsPublic } from '../../lib/public-channels.js'
 import { resolveThreadId } from '../../lib/refs.js'
 
@@ -25,14 +25,17 @@ export async function muteThread(ref: string, options: MuteOptions): Promise<voi
     const threadId = resolveThreadId(ref)
     const minutes = parseMinutes(options.minutes)
 
-    if (options.dryRun) {
-        console.log(`Dry run: would mute thread ${threadId} for ${minutes} minutes`)
-        return
-    }
-
     const client = await getTwistClient()
     const thread = await client.threads.getThread(threadId)
     await assertChannelIsPublic(thread.channelId, thread.workspaceId)
+
+    if (options.dryRun) {
+        printDryRun('mute thread', {
+            Thread: `${thread.title} (${threadId})`,
+            Duration: `${minutes} minutes`,
+        })
+        return
+    }
 
     const updated = await client.threads.muteThread({ id: threadId, minutes })
 
@@ -51,14 +54,16 @@ export async function muteThread(ref: string, options: MuteOptions): Promise<voi
 export async function unmuteThread(ref: string, options: MutationOptions): Promise<void> {
     const threadId = resolveThreadId(ref)
 
-    if (options.dryRun) {
-        console.log(`Dry run: would unmute thread ${threadId}`)
-        return
-    }
-
     const client = await getTwistClient()
     const thread = await client.threads.getThread(threadId)
     await assertChannelIsPublic(thread.channelId, thread.workspaceId)
+
+    if (options.dryRun) {
+        printDryRun('unmute thread', {
+            Thread: `${thread.title} (${threadId})`,
+        })
+        return
+    }
 
     const updated = await client.threads.unmuteThread(threadId)
 

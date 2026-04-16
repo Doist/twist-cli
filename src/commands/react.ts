@@ -2,7 +2,7 @@ import { Command } from 'commander'
 import { getTwistClient } from '../lib/api.js'
 import { CliError } from '../lib/errors.js'
 import type { MutationOptions } from '../lib/options.js'
-import { formatJson } from '../lib/output.js'
+import { formatJson, printDryRun } from '../lib/output.js'
 import { resolveCommentId, resolveMessageId, resolveThreadId } from '../lib/refs.js'
 
 type TargetType = 'thread' | 'comment' | 'message'
@@ -63,7 +63,10 @@ async function addReaction(
             )
             return
         }
-        console.log(`Dry run: would add ${normalizedEmoji} to ${targetType} ${targetId}`)
+        printDryRun('add reaction', {
+            Target: `${targetType} ${targetId}`,
+            Emoji: normalizedEmoji,
+        })
         return
     }
 
@@ -114,7 +117,10 @@ async function removeReaction(
             )
             return
         }
-        console.log(`Dry run: would remove ${normalizedEmoji} from ${targetType} ${targetId}`)
+        printDryRun('remove reaction', {
+            Target: `${targetType} ${targetId}`,
+            Emoji: normalizedEmoji,
+        })
         return
     }
 

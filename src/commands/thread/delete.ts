@@ -1,7 +1,7 @@
 import { assertBatchData, getTwistClient } from '../../lib/api.js'
 import { CliError } from '../../lib/errors.js'
 import type { MutationOptions } from '../../lib/options.js'
-import { formatJson } from '../../lib/output.js'
+import { formatJson, printDryRun } from '../../lib/output.js'
 import { assertChannelIsPublic } from '../../lib/public-channels.js'
 import { resolveThreadId } from '../../lib/refs.js'
 
@@ -26,7 +26,9 @@ export async function deleteThread(ref: string, options: DeleteOptions): Promise
     }
 
     if (options.dryRun) {
-        console.log(`Dry run: would delete thread ${threadId}`)
+        printDryRun('delete thread', {
+            Thread: `${thread.title} (${threadId})`,
+        })
         return
     }
 

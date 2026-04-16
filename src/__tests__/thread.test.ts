@@ -136,6 +136,9 @@ function createClient({
                 return Promise.resolve(channel)
             }),
         },
+        inbox: {
+            archiveThread: vi.fn(async () => undefined),
+        },
         workspaceUsers: {
             getUserById: vi.fn(
                 (
@@ -219,7 +222,9 @@ describe('thread implicit view', () => {
             '--dry-run',
         ])
 
-        expect(consoleSpy).toHaveBeenCalledWith('Dry run: would post comment to thread 100')
+        expect(consoleSpy).toHaveBeenCalledWith(
+            expect.stringContaining('Would post comment to thread'),
+        )
         consoleSpy.mockRestore()
     })
 
@@ -243,7 +248,7 @@ describe('thread implicit view', () => {
         ])
 
         expect(consoleSpy).toHaveBeenCalledWith(
-            'Dry run: would post comment to thread 100 and close it',
+            expect.stringContaining('Would post comment to thread and close it'),
         )
         consoleSpy.mockRestore()
     })
@@ -268,7 +273,7 @@ describe('thread implicit view', () => {
         ])
 
         expect(consoleSpy).toHaveBeenCalledWith(
-            'Dry run: would post comment to thread 100 and reopen it',
+            expect.stringContaining('Would post comment to thread and reopen it'),
         )
         consoleSpy.mockRestore()
     })
@@ -566,9 +571,9 @@ describe('thread create', () => {
             '--dry-run',
         ])
 
-        expect(consoleSpy).toHaveBeenCalledWith('Dry run: would create thread in channel', 100)
-        expect(consoleSpy).toHaveBeenCalledWith('Title: Test Title')
-        expect(consoleSpy).toHaveBeenCalledWith('Dry run content')
+        expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('Would create thread'))
+        expect(consoleSpy).toHaveBeenCalledWith('  Title: Test Title')
+        expect(consoleSpy).toHaveBeenCalledWith('  Content: Dry run content')
 
         consoleSpy.mockRestore()
     })
@@ -734,14 +739,33 @@ describe('thread mute', () => {
     })
 
     it('shows dry run output', async () => {
+        const client = createClient()
+        apiMocks.getTwistClient.mockResolvedValue(client)
+
         const program = createProgram()
         const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
 
         await program.parseAsync(['node', 'tw', 'thread', 'mute', '500', '--dry-run'])
 
-        expect(consoleSpy).toHaveBeenCalledWith('Dry run: would mute thread 500 for 60 minutes')
+        expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('Would mute thread'))
+        expect(consoleSpy).toHaveBeenCalledWith('  Thread: Test Thread (500)')
+        expect(consoleSpy).toHaveBeenCalledWith('  Duration: 60 minutes')
+        expect(client.threads.muteThread).not.toHaveBeenCalled()
 
         consoleSpy.mockRestore()
+    })
+
+    it('runs validation in dry-run mode', async () => {
+        const client = createClient()
+        apiMocks.getTwistClient.mockResolvedValue(client)
+        client.threads.getThread.mockRejectedValueOnce(new Error('thread not found'))
+
+        const program = createProgram()
+
+        await expect(
+            program.parseAsync(['node', 'tw', 'thread', 'mute', '500', '--dry-run']),
+        ).rejects.toThrow('thread not found')
+        expect(client.threads.muteThread).not.toHaveBeenCalled()
     })
 
     it('outputs JSON with --json including id and mutedUntil', async () => {
@@ -791,14 +815,32 @@ describe('thread unmute', () => {
     })
 
     it('shows dry run output', async () => {
+        const client = createClient()
+        apiMocks.getTwistClient.mockResolvedValue(client)
+
         const program = createProgram()
         const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
 
         await program.parseAsync(['node', 'tw', 'thread', 'unmute', '500', '--dry-run'])
 
-        expect(consoleSpy).toHaveBeenCalledWith('Dry run: would unmute thread 500')
+        expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('Would unmute thread'))
+        expect(consoleSpy).toHaveBeenCalledWith('  Thread: Test Thread (500)')
+        expect(client.threads.unmuteThread).not.toHaveBeenCalled()
 
         consoleSpy.mockRestore()
+    })
+
+    it('runs validation in dry-run mode', async () => {
+        const client = createClient()
+        apiMocks.getTwistClient.mockResolvedValue(client)
+        client.threads.getThread.mockRejectedValueOnce(new Error('thread not found'))
+
+        const program = createProgram()
+
+        await expect(
+            program.parseAsync(['node', 'tw', 'thread', 'unmute', '500', '--dry-run']),
+        ).rejects.toThrow('thread not found')
+        expect(client.threads.unmuteThread).not.toHaveBeenCalled()
     })
 })
 
@@ -842,7 +884,8 @@ describe('thread delete', () => {
 
         await program.parseAsync(['node', 'tw', 'thread', 'delete', '500', '--dry-run'])
 
-        expect(consoleSpy).toHaveBeenCalledWith('Dry run: would delete thread 500')
+        expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('Would delete thread'))
+        expect(consoleSpy).toHaveBeenCalledWith('  Thread: Test Thread (500)')
         expect(client.threads.deleteThread).not.toHaveBeenCalled()
         consoleSpy.mockRestore()
     })
@@ -906,6 +949,9 @@ describe('thread rename', () => {
     })
 
     it('shows dry run output', async () => {
+        const client = createClient()
+        apiMocks.getTwistClient.mockResolvedValue(client)
+
         const program = createProgram()
         const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
 
@@ -919,9 +965,25 @@ describe('thread rename', () => {
             '--dry-run',
         ])
 
-        expect(consoleSpy).toHaveBeenCalledWith('Dry run: would rename thread 500 to "New Title"')
+        expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('Would rename thread'))
+        expect(consoleSpy).toHaveBeenCalledWith('  Thread: Test Thread (500)')
+        expect(consoleSpy).toHaveBeenCalledWith('  New title: New Title')
+        expect(client.threads.updateThread).not.toHaveBeenCalled()
 
         consoleSpy.mockRestore()
+    })
+
+    it('runs validation in dry-run mode', async () => {
+        const client = createClient()
+        apiMocks.getTwistClient.mockResolvedValue(client)
+        client.threads.getThread.mockRejectedValueOnce(new Error('thread not found'))
+
+        const program = createProgram()
+
+        await expect(
+            program.parseAsync(['node', 'tw', 'thread', 'rename', '500', 'New Title', '--dry-run']),
+        ).rejects.toThrow('thread not found')
+        expect(client.threads.updateThread).not.toHaveBeenCalled()
     })
 
     it('outputs JSON with --json including id and title', async () => {
@@ -1001,8 +1063,9 @@ describe('thread update', () => {
 
         await program.parseAsync(['node', 'tw', 'thread', 'update', '500', 'New body', '--dry-run'])
 
-        expect(consoleSpy).toHaveBeenCalledWith('Dry run: would update thread 500')
-        expect(consoleSpy).toHaveBeenCalledWith('New body')
+        expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('Would update thread'))
+        expect(consoleSpy).toHaveBeenCalledWith('  Thread: Test Thread (500)')
+        expect(consoleSpy).toHaveBeenCalledWith('  Content: New body')
         expect(client.threads.updateThread).not.toHaveBeenCalled()
 
         consoleSpy.mockRestore()
@@ -1052,5 +1115,68 @@ describe('thread update', () => {
         expect(Object.keys(jsonOutput)).toEqual(['id', 'content'])
 
         consoleSpy.mockRestore()
+    })
+
+    it('runs validation in dry-run mode', async () => {
+        const client = createClient()
+        apiMocks.getTwistClient.mockResolvedValue(client)
+        client.threads.getThread.mockRejectedValueOnce(new Error('thread not found'))
+
+        const program = createProgram()
+
+        await expect(
+            program.parseAsync(['node', 'tw', 'thread', 'update', '500', 'New body', '--dry-run']),
+        ).rejects.toThrow('thread not found')
+        expect(client.threads.updateThread).not.toHaveBeenCalled()
+    })
+})
+
+describe('thread done', () => {
+    beforeEach(() => {
+        vi.clearAllMocks()
+    })
+
+    it('archives a thread', async () => {
+        const client = createClient()
+        apiMocks.getTwistClient.mockResolvedValue(client)
+
+        const program = createProgram()
+        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+        await program.parseAsync(['node', 'tw', 'thread', 'done', '500'])
+
+        expect(client.inbox.archiveThread).toHaveBeenCalledWith(500)
+        expect(consoleSpy).toHaveBeenCalledWith('Thread 500 archived.')
+
+        consoleSpy.mockRestore()
+    })
+
+    it('shows dry run output', async () => {
+        const client = createClient()
+        apiMocks.getTwistClient.mockResolvedValue(client)
+
+        const program = createProgram()
+        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+        await program.parseAsync(['node', 'tw', 'thread', 'done', '500', '--dry-run'])
+
+        expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('Would archive thread'))
+        expect(consoleSpy).toHaveBeenCalledWith('  Thread: Test Thread (500)')
+        expect(client.inbox.archiveThread).not.toHaveBeenCalled()
+
+        consoleSpy.mockRestore()
+    })
+
+    it('runs validation in dry-run mode', async () => {
+        const client = createClient()
+        apiMocks.getTwistClient.mockResolvedValue(client)
+        client.threads.getThread.mockRejectedValueOnce(new Error('thread not found'))
+
+        const program = createProgram()
+
+        await expect(
+            program.parseAsync(['node', 'tw', 'thread', 'done', '500', '--dry-run']),
+        ).rejects.toThrow('thread not found')
+        expect(client.inbox.archiveThread).not.toHaveBeenCalled()
     })
 })

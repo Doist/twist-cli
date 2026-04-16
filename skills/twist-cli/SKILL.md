@@ -272,6 +272,17 @@ All list/view commands support:
 --full    # Include all fields (default shows essential fields only)
 ```
 
+## Dry Run
+
+Mutating commands accept `--dry-run` to preview the operation without making the change. Where a command performs pre-flight validation (e.g. fetching the target thread to check channel access or ownership), those checks still run in dry-run — only the mutating write is skipped. Commands that have no pre-flight validation parse the reference and print the preview without hitting the API. The preview is structured:
+
+```
+[dry-run] Would <action>:
+  <Key>: <resolved value>
+  ...
+Run without --dry-run to execute.
+```
+
 ## Reference System
 
 Commands accept flexible references:

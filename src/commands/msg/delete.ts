@@ -1,6 +1,6 @@
 import { getTwistClient } from '../../lib/api.js'
 import type { MutationOptions } from '../../lib/options.js'
-import { formatJson } from '../../lib/output.js'
+import { formatJson, printDryRun } from '../../lib/output.js'
 import { resolveMessageId } from '../../lib/refs.js'
 
 type DeleteOptions = MutationOptions
@@ -9,7 +9,9 @@ export async function deleteMessage(ref: string, options: DeleteOptions): Promis
     const messageId = resolveMessageId(ref)
 
     if (options.dryRun) {
-        console.log(`Dry run: would delete message ${messageId}`)
+        printDryRun('delete message', {
+            Message: String(messageId),
+        })
         return
     }
 

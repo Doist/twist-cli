@@ -227,3 +227,20 @@ export function printNdjson<T extends object>(items: T[], type?: EntityType, ful
 export function pluralize(count: number, singular: string): string {
     return count === 1 ? singular : `${singular}s`
 }
+
+export function printDryRun(
+    action: string,
+    details: Record<string, string | undefined> = {},
+): void {
+    console.log(chalk.yellow(`[dry-run] Would ${action}:`))
+    for (const [key, value] of Object.entries(details)) {
+        if (value !== undefined) {
+            const [firstLine, ...rest] = value.split('\n')
+            console.log(`  ${key}: ${firstLine}`)
+            for (const line of rest) {
+                console.log(`    ${line}`)
+            }
+        }
+    }
+    console.log(chalk.dim('Run without --dry-run to execute.'))
+}
