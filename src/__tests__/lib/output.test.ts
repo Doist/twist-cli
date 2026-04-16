@@ -71,6 +71,22 @@ describe('printDryRun', () => {
         logSpy.mockRestore()
     })
 
+    it('indents continuation lines for multiline values', () => {
+        const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+        printDryRun('update thread', {
+            Content: 'First line\nSecond line\nThird line',
+        })
+
+        expect(logSpy).toHaveBeenNthCalledWith(1, '[dry-run] Would update thread:')
+        expect(logSpy).toHaveBeenNthCalledWith(2, '  Content: First line')
+        expect(logSpy).toHaveBeenNthCalledWith(3, '    Second line')
+        expect(logSpy).toHaveBeenNthCalledWith(4, '    Third line')
+        expect(logSpy).toHaveBeenNthCalledWith(5, 'Run without --dry-run to execute.')
+
+        logSpy.mockRestore()
+    })
+
     it('works without details', () => {
         const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
 

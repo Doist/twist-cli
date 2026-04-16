@@ -235,7 +235,11 @@ export function printDryRun(
     console.log(chalk.yellow(`[dry-run] Would ${action}:`))
     for (const [key, value] of Object.entries(details)) {
         if (value !== undefined) {
-            console.log(`  ${key}: ${value}`)
+            const [firstLine, ...rest] = value.split('\n')
+            console.log(`  ${key}: ${firstLine}`)
+            for (const line of rest) {
+                console.log(`    ${line}`)
+            }
         }
     }
     console.log(chalk.dim('Run without --dry-run to execute.'))

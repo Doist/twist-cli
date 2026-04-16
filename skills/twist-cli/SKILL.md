@@ -274,7 +274,7 @@ All list/view commands support:
 
 ## Dry Run
 
-Mutating commands accept `--dry-run` to preview the operation without making the change. Validation (resource fetches, permission checks) runs first, so dry-run fails the same way the real command would if the target doesn't exist or isn't accessible. The preview is structured:
+Mutating commands accept `--dry-run` to preview the operation without making the change. Where a command performs pre-flight validation (e.g. fetching the target thread to check channel access or ownership), those checks still run in dry-run — only the mutating write is skipped. Commands that have no pre-flight validation parse the reference and print the preview without hitting the API. The preview is structured:
 
 ```
 [dry-run] Would <action>:
