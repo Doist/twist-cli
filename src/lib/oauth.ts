@@ -28,6 +28,7 @@ export const READ_WRITE_SCOPES = [
     'reactions:write', // Add reactions
     'search:read', // Search functionality
     'notifications:read', // Read notifications
+    'groups:read', // Read groups (needed for --notify with group IDs)
 ].join(' ')
 
 // OAuth scopes for read-only CLI operations (no :write scopes)
@@ -41,6 +42,7 @@ export const READ_ONLY_SCOPES = [
     'reactions:read',
     'search:read',
     'notifications:read',
+    'groups:read',
 ].join(' ')
 
 /**

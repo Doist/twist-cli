@@ -26,6 +26,7 @@ const KNOWN_SAFE_API_METHODS = new Set([
     'conversationMessages.getMessage',
     'conversationMessages.getMessages',
     'inbox.getInbox',
+    'groups.getGroups',
     'batch',
 ])
 
