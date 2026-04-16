@@ -1,3 +1,9 @@
+## [2.28.0](https://github.com/Doist/twist-cli/compare/v2.27.1...v2.28.0) (2026-04-16)
+
+### Features
+
+- add `tw thread update` command to edit thread bodies ([#168](https://github.com/Doist/twist-cli/issues/168)) ([4ae0cfa](https://github.com/Doist/twist-cli/commit/4ae0cfa779d04a4b8d5c536d1949d900d35292f3))
+
 ## [2.27.1](https://github.com/Doist/twist-cli/compare/v2.27.0...v2.27.1) (2026-04-16)
 
 ### Bug Fixes
