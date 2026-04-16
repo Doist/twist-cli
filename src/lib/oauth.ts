@@ -42,6 +42,7 @@ export const READ_ONLY_SCOPES = [
     'reactions:read',
     'search:read',
     'notifications:read',
+    'groups:read',
 ].join(' ')
 
 /**
