@@ -1,6 +1,8 @@
+import type { ArchiveFilter } from '@doist/twist-sdk'
 import chalk from 'chalk'
-import { Command } from 'commander'
+import { Command, Option } from 'commander'
 import { getCurrentWorkspaceId, getTwistClient } from '../lib/api.js'
+import { withCaseInsensitiveChoices } from '../lib/completion.js'
 import { formatRelativeDate } from '../lib/dates.js'
 import { CliError } from '../lib/errors.js'
 import { includePrivateChannels, isAccessible } from '../lib/global-args.js'
@@ -13,6 +15,7 @@ type InboxOptions = PaginatedViewOptions & {
     workspace?: string
     channel?: string
     unread?: boolean
+    archiveFilter?: ArchiveFilter
 }
 
 async function showInbox(workspaceRef: string | undefined, options: InboxOptions): Promise<void> {
@@ -43,6 +46,7 @@ async function showInbox(workspaceRef: string | undefined, options: InboxOptions
                 since: options.since ? new Date(options.since) : undefined,
                 until: options.until ? new Date(options.until) : undefined,
                 limit,
+                archiveFilter: options.archiveFilter ?? 'active',
             },
             { batch: true },
         ),
@@ -158,6 +162,15 @@ export function registerInboxCommand(program: Command): void {
         .option('--workspace <ref>', 'Workspace ID or name')
         .option('--channel <filter>', 'Filter by channel name (fuzzy match)')
         .option('--unread', 'Only show unread threads')
+        .addOption(
+            withCaseInsensitiveChoices(
+                new Option(
+                    '--archive-filter <filter>',
+                    'Show active, archived, or all inbox threads (default: active)',
+                ),
+                ['active', 'archived', 'all'],
+            ),
+        )
         .option('--since <date>', 'Filter by date (ISO format)')
         .option('--until <date>', 'Filter by date')
         .option('--limit <n>', 'Max items (default: 50)')
@@ -170,6 +183,8 @@ export function registerInboxCommand(program: Command): void {
 Examples:
   tw inbox
   tw inbox --unread
+  tw inbox --archive-filter all
+  tw inbox --archive-filter archived
   tw inbox --channel engineering --since 2025-01-01
   tw inbox --limit 10 --json`,
         )

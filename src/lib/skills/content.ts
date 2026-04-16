@@ -46,6 +46,8 @@ All target command flags pass through (e.g. \`--json\`, \`--raw\`, \`--full\`).
 \`\`\`bash
 tw inbox                         # Show inbox threads
 tw inbox --unread                # Only unread threads
+tw inbox --archive-filter all      # Show active + done threads
+tw inbox --archive-filter archived # Show only done threads
 tw inbox --channel <filter>      # Filter by channel name (fuzzy)
 tw inbox --since <date>          # Filter by date (ISO format)
 tw inbox --limit <n>             # Max items (default: 50)
