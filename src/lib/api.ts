@@ -7,7 +7,7 @@ import {
 } from '@doist/twist-sdk'
 import { getApiToken } from './auth.js'
 import { getConfig, updateConfig } from './config.js'
-import { CliError } from './errors.js'
+import { CliError, isInsufficientScope } from './errors.js'
 import { ensureWriteAllowed, isMutatingMethod } from './permissions.js'
 import { getProgressTracker } from './progress.js'
 import { withSpinner } from './spinner.js'
@@ -174,6 +174,13 @@ function wrapResult(
         .catch((error: Error) => {
             if (progressTracker.isEnabled()) {
                 progressTracker.emitError(error.name || 'API_ERROR', error.message)
+            }
+            if (isInsufficientScope(error)) {
+                throw new CliError(
+                    'INSUFFICIENT_SCOPE',
+                    'This action requires permissions your current token does not have.',
+                    ['Run `tw auth login` to re-authenticate with the required scopes'],
+                )
             }
             throw error
         })

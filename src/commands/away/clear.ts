@@ -1,8 +1,6 @@
 import { getTwistClient } from '../../lib/api.js'
 import type { MutationOptions, ViewOptions } from '../../lib/options.js'
 import { formatJson } from '../../lib/output.js'
-import { handleAwayError } from './helpers.js'
-
 export async function clearAway(options: MutationOptions & ViewOptions): Promise<void> {
     if (options.dryRun) {
         console.log('Dry run: would clear away status')
@@ -10,16 +8,12 @@ export async function clearAway(options: MutationOptions & ViewOptions): Promise
     }
 
     const client = await getTwistClient()
-    try {
-        const user = await client.users.update({ awayMode: '' as never })
+    const user = await client.users.update({ awayMode: '' as never })
 
-        if (options.json) {
-            console.log(formatJson(user, 'user', options.full))
-            return
-        }
-
-        console.log('Away status cleared.')
-    } catch (error) {
-        handleAwayError(error)
+    if (options.json) {
+        console.log(formatJson(user, 'user', options.full))
+        return
     }
+
+    console.log('Away status cleared.')
 }

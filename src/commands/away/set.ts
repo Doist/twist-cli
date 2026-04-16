@@ -3,7 +3,7 @@ import { getTwistClient } from '../../lib/api.js'
 import { CliError } from '../../lib/errors.js'
 import type { MutationOptions, ViewOptions } from '../../lib/options.js'
 import { formatJson } from '../../lib/output.js'
-import { formatAwayType, handleAwayError, todayStr, tomorrowStr } from './helpers.js'
+import { formatAwayType, todayStr, tomorrowStr } from './helpers.js'
 
 type SetAwayOptions = ViewOptions & MutationOptions & { from?: string }
 
@@ -30,18 +30,14 @@ export async function setAway(
     }
 
     const client = await getTwistClient()
-    try {
-        const user = await client.users.update({
-            awayMode: { type: type as AwayModeType, dateFrom, dateTo },
-        })
+    const user = await client.users.update({
+        awayMode: { type: type as AwayModeType, dateFrom, dateTo },
+    })
 
-        if (options.json) {
-            console.log(formatJson(user, 'user', options.full))
-            return
-        }
-
-        console.log(`Set away: ${formatAwayType(type)} from ${dateFrom} until ${dateTo}`)
-    } catch (error) {
-        handleAwayError(error)
+    if (options.json) {
+        console.log(formatJson(user, 'user', options.full))
+        return
     }
+
+    console.log(`Set away: ${formatAwayType(type)} from ${dateFrom} until ${dateTo}`)
 }

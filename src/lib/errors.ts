@@ -43,6 +43,29 @@ export type ErrorCode =
 
 export type ErrorType = 'error' | 'info'
 
+/**
+ * Check whether an error is a Twist API 403 "Insufficient scope" response.
+ * Works with any error shaped like TwistRequestError (httpStatusCode + responseData).
+ */
+export function isInsufficientScope(error: unknown): boolean {
+    if (
+        typeof error !== 'object' ||
+        error === null ||
+        !('httpStatusCode' in error) ||
+        !('responseData' in error)
+    ) {
+        return false
+    }
+    const { httpStatusCode, responseData } = error as {
+        httpStatusCode: number
+        responseData: { error_string?: string } | undefined
+    }
+    return (
+        httpStatusCode === 403 &&
+        responseData?.error_string?.includes('Insufficient scope') === true
+    )
+}
+
 export class CliError extends Error {
     constructor(
         public readonly code: ErrorCode,
