@@ -8,9 +8,9 @@ export async function unmuteConversation(ref: string, options: MutationOptions):
     const conversationId = resolveConversationId(ref)
 
     const client = await getTwistClient()
-    const conversation = await client.conversations.getConversation(conversationId)
 
     if (options.dryRun) {
+        const conversation = await client.conversations.getConversation(conversationId)
         printDryRun('unmute conversation', {
             Conversation: conversationLabel(conversation),
             'Currently muted until': conversation.mutedUntil?.toISOString() ?? 'not muted',

@@ -8,9 +8,9 @@ export async function muteConversation(ref: string, options: MuteOptions): Promi
     const minutes = parseMinutes(options.minutes)
 
     const client = await getTwistClient()
-    const conversation = await client.conversations.getConversation(conversationId)
 
     if (options.dryRun) {
+        const conversation = await client.conversations.getConversation(conversationId)
         printDryRun('mute conversation', {
             Conversation: conversationLabel(conversation),
             Duration: `${minutes} minutes`,

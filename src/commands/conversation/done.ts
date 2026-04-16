@@ -7,9 +7,9 @@ export async function markConversationDone(ref: string, options: DoneOptions): P
     const conversationId = resolveConversationId(ref)
 
     const client = await getTwistClient()
-    const conversation = await client.conversations.getConversation(conversationId)
 
     if (options.dryRun) {
+        const conversation = await client.conversations.getConversation(conversationId)
         printDryRun('archive conversation', {
             Conversation: conversationLabel(conversation),
             Status: conversation.archived ? 'already archived' : undefined,
