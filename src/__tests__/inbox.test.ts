@@ -1,9 +1,14 @@
 import { Command } from 'commander'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-vi.mock('../lib/api.js', () => ({
+const apiMocks = vi.hoisted(() => ({
     getTwistClient: vi.fn(),
-    getCurrentWorkspaceId: vi.fn().mockResolvedValue(1),
+    getCurrentWorkspaceId: vi.fn(),
+}))
+
+vi.mock('../lib/api.js', () => ({
+    getTwistClient: apiMocks.getTwistClient,
+    getCurrentWorkspaceId: apiMocks.getCurrentWorkspaceId,
 }))
 
 vi.mock('../lib/refs.js', () => ({
@@ -41,5 +46,44 @@ describe('inbox --workspace conflict', () => {
         await expect(
             program.parseAsync(['node', 'tw', 'inbox', 'Doist', '--workspace', 'Other']),
         ).rejects.toThrow('Cannot specify workspace both as argument and --workspace flag')
+    })
+})
+
+describe('inbox --archive-filter', () => {
+    const mockGetInbox = vi.fn()
+    const mockGetUnread = vi.fn()
+    const mockBatch = vi.fn()
+
+    beforeEach(() => {
+        vi.clearAllMocks()
+        apiMocks.getCurrentWorkspaceId.mockResolvedValue(1)
+        mockGetInbox.mockReturnValue({ data: [] })
+        mockGetUnread.mockReturnValue({ data: [] })
+        mockBatch.mockResolvedValue([{ data: [] }, { data: [] }])
+        apiMocks.getTwistClient.mockResolvedValue({
+            inbox: { getInbox: mockGetInbox },
+            threads: { getUnread: mockGetUnread },
+            batch: mockBatch,
+        })
+    })
+
+    it('passes archiveFilter to SDK getInbox', async () => {
+        const program = createProgram()
+        await program.parseAsync(['node', 'tw', 'inbox', '--archive-filter', 'all', '--json'])
+
+        expect(mockGetInbox).toHaveBeenCalledWith(
+            expect.objectContaining({ archiveFilter: 'all' }),
+            { batch: true },
+        )
+    })
+
+    it('defaults archiveFilter to active when not provided', async () => {
+        const program = createProgram()
+        await program.parseAsync(['node', 'tw', 'inbox', '--json'])
+
+        expect(mockGetInbox).toHaveBeenCalledWith(
+            expect.objectContaining({ archiveFilter: 'active' }),
+            { batch: true },
+        )
     })
 })

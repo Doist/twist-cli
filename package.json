@@ -50,7 +50,7 @@
         "CHANGELOG.md"
     ],
     "dependencies": {
-        "@doist/twist-sdk": "2.3.1",
+        "@doist/twist-sdk": "2.4.0",
         "@pnpm/tabtab": "0.5.4",
         "chalk": "5.6.2",
         "commander": "14.0.3",
@@ -60,14 +60,14 @@
         "yocto-spinner": "1.1.0"
     },
     "devDependencies": {
-        "oxfmt": "0.44.0",
-        "oxlint": "1.59.0",
         "@semantic-release/changelog": "6.0.3",
         "@semantic-release/exec": "7.1.0",
         "@semantic-release/git": "10.0.1",
         "@types/node": "25.6.0",
         "conventional-changelog-conventionalcommits": "9.3.1",
         "lefthook": "2.1.5",
+        "oxfmt": "0.44.0",
+        "oxlint": "1.59.0",
         "semantic-release": "25.0.3",
         "typescript": "6.0.2",
         "vitest": "4.1.4"
