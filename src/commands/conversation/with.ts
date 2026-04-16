@@ -59,6 +59,11 @@ export async function findConversationWithUser(
     )
 
     if (!directConversation) {
+        if (options.json || options.ndjson) {
+            await listConversationsWithUser([], workspaceId, options)
+            return
+        }
+
         const suggestion =
             groupConversationCount > 0
                 ? ` Found ${groupConversationCount} group conversation${groupConversationCount === 1 ? '' : 's'} with ${targetUser.name}. Use --include-groups to list them.`
