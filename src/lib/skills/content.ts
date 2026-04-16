@@ -109,6 +109,7 @@ tw comment <comment-ref>                       # View a comment (shorthand for v
 tw comment view <comment-ref>                  # View a single thread comment
 tw comment view <comment-ref> --raw            # Show raw markdown
 tw comment view <comment-ref> --json           # Output as JSON
+tw comment view <comment-ref> --ndjson         # Output as newline-delimited JSON
 tw comment view <comment-ref> --json --full    # Include all fields in JSON output
 tw comment update <comment-ref> "new content"  # Update a thread comment
 tw comment update <comment-ref> "content" --json  # Update and return updated comment as JSON

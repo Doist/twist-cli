@@ -2,7 +2,7 @@ import { getTwistClient } from '../../lib/api.js'
 import { formatRelativeDate } from '../../lib/dates.js'
 import { renderMarkdown } from '../../lib/markdown.js'
 import type { ViewOptions } from '../../lib/options.js'
-import { colors, formatJson } from '../../lib/output.js'
+import { colors, formatJson, formatNdjson } from '../../lib/output.js'
 import { resolveCommentId } from '../../lib/refs.js'
 
 export async function viewComment(ref: string, options: ViewOptions): Promise<void> {
@@ -19,6 +19,12 @@ export async function viewComment(ref: string, options: ViewOptions): Promise<vo
     if (options.json) {
         const output = { ...comment, creatorName }
         console.log(formatJson(output, options.full ? undefined : 'comment', options.full))
+        return
+    }
+
+    if (options.ndjson) {
+        const output = { ...comment, creatorName }
+        console.log(formatNdjson([output], options.full ? undefined : 'comment', options.full))
         return
     }
 

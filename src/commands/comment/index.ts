@@ -13,6 +13,7 @@ export function registerCommentCommand(program: Command): void {
         .description('View a single thread comment')
         .option('--raw', 'Show raw markdown instead of rendered')
         .option('--json', 'Output as JSON')
+        .option('--ndjson', 'Output as newline-delimited JSON')
         .option('--full', 'Include all fields in JSON output')
         .addHelpText(
             'after',
