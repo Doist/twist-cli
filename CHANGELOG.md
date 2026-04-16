@@ -1,3 +1,9 @@
+## [2.29.2](https://github.com/Doist/twist-cli/compare/v2.29.1...v2.29.2) (2026-04-16)
+
+### Bug Fixes
+
+- add groups:read scope and handle 403 errors globally ([#172](https://github.com/Doist/twist-cli/issues/172)) ([7d62fc3](https://github.com/Doist/twist-cli/commit/7d62fc338ff19b19dc2405045da5e366b53f806a)), closes [#171](https://github.com/Doist/twist-cli/issues/171)
+
 ## [2.29.1](https://github.com/Doist/twist-cli/compare/v2.29.0...v2.29.1) (2026-04-16)
 
 ### Bug Fixes
