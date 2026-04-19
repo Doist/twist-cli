@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs'
+import packageJson from '../../../package.json' with { type: 'json' }
 
 export const SKILL_NAME = 'twist-cli'
 
@@ -8,9 +8,6 @@ export const SKILL_DESCRIPTION =
 export const SKILL_AUTHOR = 'Doist'
 
 export const SKILL_LICENSE = 'MIT'
-
-const packageJsonUrl = new URL('../../../package.json', import.meta.url)
-const packageJson = JSON.parse(readFileSync(packageJsonUrl, 'utf-8')) as { version: string }
 
 export const SKILL_VERSION = packageJson.version
 
