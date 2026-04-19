@@ -1,6 +1,10 @@
 ---
 name: twist-cli
-description: "Twist messaging CLI for team communication"
+description: "Twist messaging CLI. View and respond to inbox threads, channel threads, direct messages, and group conversations; search, react, archive, mute, and manage workspaces. Use when the user mentions Twist, asks about their inbox, threads, DMs, channels, or wants to read or send Twist messages."
+license: MIT
+metadata:
+  author: Doist
+  version: "2.31.2"
 ---
 
 # Twist CLI (tw)
