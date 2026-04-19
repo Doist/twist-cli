@@ -1,3 +1,9 @@
+## [2.32.0](https://github.com/Doist/twist-cli/compare/v2.31.2...v2.32.0) (2026-04-19)
+
+### Features
+
+- **skill:** align with agentskills.io spec and validate in CI ([#179](https://github.com/Doist/twist-cli/issues/179)) ([4fda70e](https://github.com/Doist/twist-cli/commit/4fda70e9812f2e8db443decc7a8a6c71d77043c1))
+
 ## [2.31.2](https://github.com/Doist/twist-cli/compare/v2.31.1...v2.31.2) (2026-04-16)
 
 ### Bug Fixes
