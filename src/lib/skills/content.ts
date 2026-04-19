@@ -1,6 +1,15 @@
+import packageJson from '../../../package.json' with { type: 'json' }
+
 export const SKILL_NAME = 'twist-cli'
 
-export const SKILL_DESCRIPTION = 'Twist messaging CLI for team communication'
+export const SKILL_DESCRIPTION =
+    'Twist messaging CLI. View and respond to inbox threads, channel threads, direct messages, and group conversations; search, react, archive, mute, and manage workspaces. Use when the user mentions Twist, asks about their inbox, threads, DMs, channels, or wants to read or send Twist messages.'
+
+export const SKILL_AUTHOR = 'Doist'
+
+export const SKILL_LICENSE = 'MIT'
+
+export const SKILL_VERSION = packageJson.version
 
 export const SKILL_CONTENT = `# Twist CLI (tw)
 
@@ -337,6 +346,10 @@ tw conversation reply <id> "Got it, thanks!"
 export const SKILL_FILE_CONTENT = `---
 name: ${SKILL_NAME}
 description: ${JSON.stringify(SKILL_DESCRIPTION)}
+license: ${SKILL_LICENSE}
+metadata:
+  author: ${SKILL_AUTHOR}
+  version: ${JSON.stringify(SKILL_VERSION)}
 ---
 
 ${SKILL_CONTENT}`
