@@ -14,12 +14,14 @@ npm run lint           # Fix lint issues (oxlint) + format (oxfmt)
 npm run lint:check     # Check lint + formatting (for CI)
 ```
 
-The project uses two tsconfig files: `tsconfig.json` includes test files for type-checking, while `tsconfig.build.json` extends it and excludes `src/__tests__/` so that test files are not compiled into `dist/`.
+The project uses two tsconfig files: `tsconfig.json` includes test files for type-checking, while `tsconfig.build.json` extends it and excludes colocated `*.test.ts` files (plus `src/__mocks__`) so test-only code is not compiled into `dist/`.
+
+Tests are colocated next to the module they cover (for example `src/commands/thread/thread.test.ts` or `src/lib/refs.test.ts`). Shared Vitest manual mocks for npm packages live in `src/__mocks__/` (e.g. `chalk.ts`).
 
 Run a single test file:
 
 ```bash
-npx vitest run src/__tests__/lib/refs.test.ts
+npx vitest run src/lib/refs.test.ts
 ```
 
 Run the CLI locally:
