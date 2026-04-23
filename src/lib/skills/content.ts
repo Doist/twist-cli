@@ -27,6 +27,7 @@ tw auth logout                   # Remove saved token and auth metadata
 tw workspaces                    # List available workspaces
 tw workspace use <ref>           # Set current workspace
 tw completion install            # Install shell completions
+tw config view                   # Show the current CLI configuration file (token masked)
 tw doctor                        # Diagnose CLI setup and environment issues
 tw update                        # Update CLI to latest version
 tw changelog                     # Show recent changelog entries
@@ -241,6 +242,14 @@ tw completion uninstall          # Remove completions
 tw doctor                        # Run local + network diagnostics
 tw doctor --offline              # Skip Twist and npm network checks
 tw doctor --json                 # JSON output with per-check results
+\`\`\`
+
+### Configuration
+
+\`\`\`bash
+tw config view                   # Pretty-printed config, token masked, labels actual token source
+tw config view --json            # Raw JSON, token masked
+tw config view --show-token      # Include the full token
 \`\`\`
 
 ### Update

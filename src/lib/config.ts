@@ -1,8 +1,9 @@
 import { chmod, mkdir, readFile, writeFile } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { dirname, join } from 'node:path'
+import { CliError } from './errors.js'
 
-const CONFIG_PATH = join(homedir(), '.config', 'twist-cli', 'config.json')
+export const CONFIG_PATH = join(homedir(), '.config', 'twist-cli', 'config.json')
 
 export type AuthMode = 'read-only' | 'read-write' | 'unknown'
 export type UpdateChannel = 'stable' | 'pre-release'
@@ -38,6 +39,55 @@ export async function getConfig(): Promise<Config> {
     } catch {
         return {}
     }
+}
+
+export type StrictReadResult = { state: 'missing' } | { state: 'present'; config: Config }
+
+/**
+ * Read and parse the config file strictly — for inspection commands that need
+ * to distinguish "missing" from "present but broken". `getConfig` deliberately
+ * swallows errors for runtime code paths; this one surfaces them.
+ */
+export async function readConfigStrict(): Promise<StrictReadResult> {
+    let content: string
+    try {
+        content = await readFile(CONFIG_PATH, 'utf-8')
+    } catch (error) {
+        if (isMissingFileError(error)) return { state: 'missing' }
+        const detail = error instanceof Error ? error.message : String(error)
+        throw new CliError(
+            'CONFIG_READ_FAILED',
+            `Could not read config file ${CONFIG_PATH}: ${detail}`,
+            ['Check file permissions, or run `tw doctor` to diagnose'],
+        )
+    }
+
+    let parsed: unknown
+    try {
+        parsed = JSON.parse(content)
+    } catch (error) {
+        const detail = error instanceof Error ? error.message : String(error)
+        throw new CliError(
+            'CONFIG_INVALID_JSON',
+            `Config file at ${CONFIG_PATH} is not valid JSON: ${detail}`,
+            ['Fix the JSON by hand, or delete the file and re-authenticate with `tw auth login`'],
+        )
+    }
+
+    if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) {
+        const actual = Array.isArray(parsed) ? 'array' : parsed === null ? 'null' : typeof parsed
+        throw new CliError(
+            'CONFIG_INVALID_SHAPE',
+            `Config file at ${CONFIG_PATH} must contain a JSON object (got ${actual})`,
+            ['Fix the JSON by hand, or delete the file and re-authenticate with `tw auth login`'],
+        )
+    }
+
+    return { state: 'present', config: parsed as Config }
+}
+
+function isMissingFileError(error: unknown): boolean {
+    return error instanceof Error && 'code' in error && error.code === 'ENOENT'
 }
 
 export async function setConfig(config: Config): Promise<void> {
