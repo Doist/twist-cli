@@ -205,6 +205,7 @@ Arguments:
 
 Options:
 
+- `--yes` - Confirm archive (required to execute)
 - `--dry-run` - Show what would happen without executing
 
 ---
@@ -276,6 +277,7 @@ Arguments:
 
 Options:
 
+- `--yes` - Confirm archive (required to execute)
 - `--dry-run` - Show what would happen without executing
 
 ---
@@ -322,6 +324,7 @@ Arguments:
 
 Options:
 
+- `--yes` - Confirm deletion (required to execute)
 - `--dry-run` - Show what would happen without executing
 
 ---
@@ -499,7 +502,7 @@ echo "Multiline\nreply" | tw thread reply id:123456
 tw thread reply id:123456  # opens $EDITOR
 
 # Mark thread as done
-tw thread done id:123456
+tw thread done id:123456 --yes
 
 # List unread conversations
 tw conversation unread

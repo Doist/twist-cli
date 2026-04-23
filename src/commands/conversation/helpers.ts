@@ -22,7 +22,7 @@ export type ReplyOptions = MutationOptions
 
 export type MuteOptions = MutationOptions & { minutes?: string }
 
-export type DoneOptions = MutationOptions
+export type DoneOptions = MutationOptions & { yes?: boolean }
 
 export const CONVERSATION_PAGE_LIMIT = 100
 
