@@ -35,6 +35,8 @@ const loadChangelogCommand = async () =>
     (await import('./commands/changelog.js')).registerChangelogCommand
 const loadGroupsCommand = async () => (await import('./commands/groups.js')).registerGroupsCommand
 const loadDoctorCommand = async () => (await import('./commands/doctor.js')).registerDoctorCommand
+const loadConfigCommand = async () =>
+    (await import('./commands/config/index.js')).registerConfigCommand
 
 const commands: Record<string, [string, () => Promise<(p: Command) => void>]> = {
     workspaces: ['List all workspaces', loadWorkspaceCommand],
@@ -59,6 +61,7 @@ const commands: Record<string, [string, () => Promise<(p: Command) => void>]> = 
     changelog: ['Show recent changelog entries', loadChangelogCommand],
     doctor: ['Diagnose common CLI setup and environment issues', loadDoctorCommand],
     groups: ['List groups in a workspace', loadGroupsCommand],
+    config: ['Manage CLI configuration', loadConfigCommand],
 }
 
 const commandAliases: Record<string, string> = {
