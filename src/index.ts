@@ -11,7 +11,7 @@ const loadWorkspaceCommand = async () =>
     (await import('./commands/workspace.js')).registerWorkspaceCommand
 const loadUserCommand = async () => (await import('./commands/user.js')).registerUserCommand
 const loadChannelCommand = async () =>
-    (await import('./commands/channel.js')).registerChannelCommand
+    (await import('./commands/channel/index.js')).registerChannelCommand
 const loadInboxCommand = async () => (await import('./commands/inbox.js')).registerInboxCommand
 const loadThreadCommand = async () =>
     (await import('./commands/thread/index.js')).registerThreadCommand
@@ -41,10 +41,7 @@ const commands: Record<string, [string, () => Promise<(p: Command) => void>]> = 
     workspace: ['Manage workspace', loadWorkspaceCommand],
     user: ['Show current user info', loadUserCommand],
     users: ['List users in a workspace', loadUserCommand],
-    channels: [
-        'List active joined channels or widen to public/discoverable channels',
-        loadChannelCommand,
-    ],
+    channel: ['Channel operations (list, threads)', loadChannelCommand],
     inbox: ['Show inbox threads', loadInboxCommand],
     thread: ['Thread operations', loadThreadCommand],
     conversation: ['Conversation (DM/group) operations', loadConversationCommand],
@@ -65,6 +62,7 @@ const commands: Record<string, [string, () => Promise<(p: Command) => void>]> = 
 }
 
 const commandAliases: Record<string, string> = {
+    channels: 'channel',
     convo: 'conversation',
     message: 'msg',
 }

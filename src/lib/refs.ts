@@ -1,5 +1,5 @@
-import type { Workspace } from '@doist/twist-sdk'
-import { fetchWorkspaces } from './api.js'
+import type { Channel, Workspace } from '@doist/twist-sdk'
+import { fetchWorkspaces, getTwistClient } from './api.js'
 import { CliError } from './errors.js'
 
 function normalizeRef(ref: string): string {
@@ -173,6 +173,40 @@ export function resolveThreadId(ref: string): number {
         'INVALID_REF',
         `Invalid thread reference: ${ref}. Use 123, id:123, or a Twist URL.`,
     )
+}
+
+export async function resolveChannelRef(ref: string, workspaceId: number): Promise<Channel> {
+    const parsed = parseRef(ref)
+    const client = await getTwistClient()
+
+    if (parsed.type === 'id') {
+        return client.channels.getChannel(parsed.id)
+    }
+
+    if (parsed.type === 'url' && parsed.parsed.channelId) {
+        return client.channels.getChannel(parsed.parsed.channelId)
+    }
+
+    if (parsed.type === 'name') {
+        const channels = await client.channels.getChannels({ workspaceId })
+        const lower = parsed.name.toLowerCase()
+        const exact = channels.find((c) => c.name.toLowerCase() === lower)
+        if (exact) return exact
+
+        const partial = channels.filter((c) => c.name.toLowerCase().includes(lower))
+        if (partial.length === 1) return partial[0]
+        if (partial.length > 1) {
+            const matches = partial
+                .slice(0, 5)
+                .map((c) => `"${c.name}" (id:${c.id})`)
+                .join(', ')
+            throw new CliError('AMBIGUOUS_CHANNEL', `Multiple channels match "${ref}": ${matches}`)
+        }
+    }
+
+    throw new CliError('CHANNEL_NOT_FOUND', `Channel "${ref}" not found`, [
+        'Run: tw channels to list available channels',
+    ])
 }
 
 export function resolveChannelId(ref: string): number {

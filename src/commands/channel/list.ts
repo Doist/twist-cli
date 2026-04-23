@@ -1,11 +1,10 @@
 import type { Channel } from '@doist/twist-sdk'
-import { Command } from 'commander'
-import { getCurrentWorkspaceId, getTwistClient } from '../lib/api.js'
-import { CliError } from '../lib/errors.js'
-import { includePrivateChannels } from '../lib/global-args.js'
-import type { ViewOptions } from '../lib/options.js'
-import { colors, formatJson, formatNdjson } from '../lib/output.js'
-import { resolveWorkspaceRef } from '../lib/refs.js'
+import { getCurrentWorkspaceId, getTwistClient } from '../../lib/api.js'
+import { CliError } from '../../lib/errors.js'
+import { includePrivateChannels } from '../../lib/global-args.js'
+import type { ViewOptions } from '../../lib/options.js'
+import { colors, formatJson, formatNdjson } from '../../lib/output.js'
+import { resolveWorkspaceRef } from '../../lib/refs.js'
 
 const CHANNEL_SCOPES = ['joined', 'public', 'discoverable'] as const
 const CHANNEL_STATES = ['active', 'all', 'archived'] as const
@@ -13,7 +12,12 @@ const CHANNEL_STATES = ['active', 'all', 'archived'] as const
 type ChannelScope = (typeof CHANNEL_SCOPES)[number]
 type ChannelState = (typeof CHANNEL_STATES)[number]
 type ListedChannel = Channel & { joined?: boolean }
-type ChannelsOptions = ViewOptions & { workspace?: string; scope?: string; state?: string }
+
+export type ListChannelsOptions = ViewOptions & {
+    workspace?: string
+    scope?: string
+    state?: string
+}
 
 function parseChannelScope(scope: string | undefined): ChannelScope {
     const resolved = scope ?? 'joined'
@@ -109,7 +113,7 @@ function getEmptyStateMessage(scope: ChannelScope, state: ChannelState): string 
 
 async function getWorkspaceId(
     workspaceRef: string | undefined,
-    options: ChannelsOptions,
+    options: ListChannelsOptions,
 ): Promise<number> {
     if (workspaceRef && options.workspace) {
         throw new CliError(
@@ -143,9 +147,9 @@ function formatChannelLine(channel: ListedChannel, scope: ChannelScope): string 
     return `${id}  ${name}${visibility}${membership}${archived}`
 }
 
-async function listChannels(
+export async function listChannels(
     workspaceRef: string | undefined,
-    options: ChannelsOptions,
+    options: ListChannelsOptions,
 ): Promise<void> {
     const scope = parseChannelScope(options.scope)
     const state = parseChannelState(options.state)
@@ -203,46 +207,4 @@ async function listChannels(
     for (const channel of channels) {
         console.log(formatChannelLine(channel, scope))
     }
-}
-
-export function registerChannelCommand(program: Command): void {
-    program
-        .command('channels [workspace-ref]')
-        .description('List joined channels or discoverable public channels in a workspace')
-        .option('--workspace <ref>', 'Workspace ID or name')
-        .option(
-            '--scope <scope>',
-            'Channel set to list: joined, public, or discoverable (default: joined)',
-        )
-        .option(
-            '--state <state>',
-            'Channel state to list: active, all, or archived (default: active)',
-        )
-        .option('--json', 'Output as JSON')
-        .option('--ndjson', 'Output as newline-delimited JSON')
-        .option('--full', 'Include all fields in JSON output')
-        .addHelpText(
-            'after',
-            `
-Examples:
-  tw channels
-  tw channels --state all
-  tw channels --scope discoverable
-  tw channels --scope public --state archived
-  tw channels --scope public --state all --json
-  tw channels --json
-  tw channels "My Workspace" --scope discoverable --json
-
-Notes:
-  Defaults to active channels that you have joined.
-  joined        Channels you have joined (private channels require --include-private-channels)
-  public        Public channels visible in the workspace, whether joined or not
-  discoverable  Public channels visible in the workspace that you have not joined
-  active        Non-archived channels only
-  all           Both active and archived channels
-  archived      Archived channels only
-
-  Twist does not expose unjoined private channels, so public/discoverable scopes never include them.`,
-        )
-        .action(listChannels)
 }
