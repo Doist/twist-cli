@@ -175,16 +175,36 @@ export function resolveThreadId(ref: string): number {
     )
 }
 
+function assertChannelInWorkspace(channel: Channel, workspaceId: number): void {
+    if (channel.workspaceId !== workspaceId) {
+        throw new CliError(
+            'CHANNEL_NOT_FOUND',
+            `Channel ${channel.id} does not belong to workspace ${workspaceId}`,
+        )
+    }
+}
+
 export async function resolveChannelRef(ref: string, workspaceId: number): Promise<Channel> {
     const parsed = parseRef(ref)
     const client = await getTwistClient()
 
     if (parsed.type === 'id') {
-        return client.channels.getChannel(parsed.id)
+        const channel = await client.channels.getChannel(parsed.id)
+        assertChannelInWorkspace(channel, workspaceId)
+        return channel
     }
 
     if (parsed.type === 'url' && parsed.parsed.channelId) {
-        return client.channels.getChannel(parsed.parsed.channelId)
+        if (parsed.parsed.workspaceId && parsed.parsed.workspaceId !== workspaceId) {
+            throw new CliError(
+                'CHANNEL_NOT_FOUND',
+                `Channel URL belongs to workspace ${parsed.parsed.workspaceId}, but the current workspace is ${workspaceId}`,
+                ['Pass the matching workspace-ref or use the default workspace that owns the URL.'],
+            )
+        }
+        const channel = await client.channels.getChannel(parsed.parsed.channelId)
+        assertChannelInWorkspace(channel, workspaceId)
+        return channel
     }
 
     if (parsed.type === 'name') {

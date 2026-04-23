@@ -27,8 +27,14 @@ vi.mock('../../lib/global-args.js', async (importOriginal) => ({
     isAccessible: vi.fn().mockReturnValue(false),
 }))
 
+vi.mock('../../lib/public-channels.js', () => ({
+    assertChannelIsPublic: vi.fn().mockResolvedValue(undefined),
+}))
+
 vi.mock('chalk')
 
+import { CliError } from '../../lib/errors.js'
+import { assertChannelIsPublic } from '../../lib/public-channels.js'
 import { decodeCursor, encodeCursor } from './helpers.js'
 import { registerChannelCommand } from './index.js'
 
@@ -397,6 +403,66 @@ describe('channel threads', () => {
         consoleSpy.mockRestore()
     })
 
+    it('calls assertChannelIsPublic after resolving the channel', async () => {
+        setupClient({ threads: [createThread(1)] })
+        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+        const program = createProgram()
+
+        await program.parseAsync(['node', 'tw', 'channel', 'threads', '12345', '--json'])
+
+        expect(vi.mocked(assertChannelIsPublic)).toHaveBeenCalledWith(100, 1)
+
+        consoleSpy.mockRestore()
+    })
+
+    it('propagates the error when the channel is private and the guard rejects', async () => {
+        setupClient({ threads: [createThread(1)] })
+        vi.mocked(assertChannelIsPublic).mockRejectedValueOnce(
+            new CliError('NOT_FOUND', 'This thread belongs to a private channel.'),
+        )
+        const program = createProgram()
+
+        await expect(
+            program.parseAsync(['node', 'tw', 'channel', 'threads', '12345', '--json']),
+        ).rejects.toThrow('This thread belongs to a private channel.')
+    })
+
+    it('rejects an invalid --since with INVALID_DATE', async () => {
+        setupClient({ threads: [createThread(1)] })
+        const program = createProgram()
+
+        await expect(
+            program.parseAsync([
+                'node',
+                'tw',
+                'channel',
+                'threads',
+                '12345',
+                '--since',
+                'not-a-date',
+                '--json',
+            ]),
+        ).rejects.toHaveProperty('code', 'INVALID_DATE')
+    })
+
+    it('rejects an invalid --until with INVALID_DATE', async () => {
+        setupClient({ threads: [createThread(1)] })
+        const program = createProgram()
+
+        await expect(
+            program.parseAsync([
+                'node',
+                'tw',
+                'channel',
+                'threads',
+                '12345',
+                '--until',
+                'junk',
+                '--json',
+            ]),
+        ).rejects.toHaveProperty('code', 'INVALID_DATE')
+    })
+
     it('rejects a malformed --cursor with INVALID_CURSOR', async () => {
         setupClient({ threads: [createThread(1)] })
         const program = createProgram()
@@ -470,10 +536,11 @@ describe('channel threads', () => {
             '2',
         ])
 
-        expect(consoleSpy).toHaveBeenCalledTimes(3)
-        const first = JSON.parse(consoleSpy.mock.calls[0][0])
-        const second = JSON.parse(consoleSpy.mock.calls[1][0])
-        const meta = JSON.parse(consoleSpy.mock.calls[2][0])
+        const lines = (consoleSpy.mock.calls[0][0] as string).split('\n')
+        expect(lines).toHaveLength(3)
+        const first = JSON.parse(lines[0])
+        const second = JSON.parse(lines[1])
+        const meta = JSON.parse(lines[2])
         expect(first.id).toBe(1)
         expect(second.id).toBe(2)
         expect(meta).toEqual({ _meta: true, nextCursor: encodeCursor(2) })

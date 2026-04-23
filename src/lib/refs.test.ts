@@ -242,6 +242,23 @@ describe('resolveChannelRef', () => {
         expect(result).toEqual(ch)
     })
 
+    it('throws CHANNEL_NOT_FOUND when id: ref resolves to a channel in another workspace', async () => {
+        mockGetChannel.mockResolvedValue(createChannel(42, 'engineering', { workspaceId: 2 }))
+
+        await expect(resolveChannelRef('id:42', 1)).rejects.toHaveProperty(
+            'code',
+            'CHANNEL_NOT_FOUND',
+        )
+    })
+
+    it('throws CHANNEL_NOT_FOUND when URL workspaceId conflicts with expected workspaceId', async () => {
+        await expect(resolveChannelRef('https://twist.com/a/2/ch/42', 1)).rejects.toHaveProperty(
+            'code',
+            'CHANNEL_NOT_FOUND',
+        )
+        expect(mockGetChannel).not.toHaveBeenCalled()
+    })
+
     it('resolves exact case-insensitive name match', async () => {
         const ch = createChannel(10, 'General')
         mockGetChannels.mockResolvedValue([ch, createChannel(20, 'Leadership')])

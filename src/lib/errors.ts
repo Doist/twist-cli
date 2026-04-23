@@ -13,6 +13,7 @@ export type ErrorCode =
     // Validation
     | 'CONFLICTING_OPTIONS'
     | 'INVALID_CURSOR'
+    | 'INVALID_DATE'
     | 'INVALID_ID'
     | 'INVALID_MINUTES'
     | 'INVALID_REF'

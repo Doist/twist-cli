@@ -5,7 +5,13 @@ import { formatRelativeDate } from '../../lib/dates.js'
 import { CliError } from '../../lib/errors.js'
 import { isAccessible } from '../../lib/global-args.js'
 import type { PaginatedViewOptions } from '../../lib/options.js'
-import { colors } from '../../lib/output.js'
+import {
+    colors,
+    formatPaginatedJson,
+    formatPaginatedNdjson,
+    type PaginatedOutput,
+} from '../../lib/output.js'
+import { assertChannelIsPublic } from '../../lib/public-channels.js'
 import { resolveChannelRef, resolveWorkspaceRef } from '../../lib/refs.js'
 import { decodeCursor, encodeCursor } from './helpers.js'
 
@@ -18,20 +24,6 @@ type ChannelThreadsOptions = PaginatedViewOptions & {
 
 type DecoratedThread = Thread & { isUnread: boolean }
 
-const THREAD_ESSENTIAL_FIELDS: readonly (keyof DecoratedThread | 'url')[] = [
-    'id',
-    'title',
-    'channelId',
-    'workspaceId',
-    'creator',
-    'posted',
-    'lastUpdated',
-    'commentCount',
-    'isArchived',
-    'isUnread',
-    'url',
-] as const
-
 function archiveFilterToFlag(filter: ArchiveFilter | undefined): boolean | undefined {
     switch (filter ?? 'active') {
         case 'active':
@@ -43,12 +35,15 @@ function archiveFilterToFlag(filter: ArchiveFilter | undefined): boolean | undef
     }
 }
 
-function pickEssential(thread: DecoratedThread): Record<string, unknown> {
-    const out: Record<string, unknown> = {}
-    for (const field of THREAD_ESSENTIAL_FIELDS) {
-        out[field] = (thread as unknown as Record<string, unknown>)[field]
+function parseDateFilter(value: string, flag: string): number {
+    const ts = new Date(value).getTime()
+    if (Number.isNaN(ts)) {
+        throw new CliError(
+            'INVALID_DATE',
+            `Invalid ${flag} value: "${value}". Use an ISO-8601 date (e.g. 2026-01-15 or 2026-01-15T09:00:00Z).`,
+        )
     }
-    return out
+    return ts
 }
 
 export async function showChannelThreads(
@@ -63,6 +58,9 @@ export async function showChannelThreads(
         )
     }
 
+    const sinceTs = options.since ? parseDateFilter(options.since, '--since') : undefined
+    const untilTs = options.until ? parseDateFilter(options.until, '--until') : undefined
+
     let workspaceId: number
     const ref = workspaceRef || options.workspace
     if (ref) {
@@ -73,6 +71,8 @@ export async function showChannelThreads(
     }
 
     const channel = await resolveChannelRef(channelRef, workspaceId)
+    await assertChannelIsPublic(channel.id, workspaceId)
+
     const archived = archiveFilterToFlag(options.archiveFilter)
     const client = await getTwistClient()
 
@@ -96,14 +96,12 @@ export async function showChannelThreads(
         threads = threads.filter((t) => t.isUnread)
     }
 
-    if (options.since) {
-        const since = new Date(options.since).getTime()
-        threads = threads.filter((t) => new Date(t.lastUpdated).getTime() >= since)
+    if (sinceTs !== undefined) {
+        threads = threads.filter((t) => new Date(t.lastUpdated).getTime() >= sinceTs)
     }
 
-    if (options.until) {
-        const until = new Date(options.until).getTime()
-        threads = threads.filter((t) => new Date(t.lastUpdated).getTime() < until)
+    if (untilTs !== undefined) {
+        threads = threads.filter((t) => new Date(t.lastUpdated).getTime() < untilTs)
     }
 
     threads.sort((a, b) => new Date(b.lastUpdated).getTime() - new Date(a.lastUpdated).getTime())
@@ -114,19 +112,15 @@ export async function showChannelThreads(
     const page = threads.slice(offset, offset + limit)
     const nextCursor = offset + limit < threads.length ? encodeCursor(offset + limit) : null
 
+    const paginated: PaginatedOutput<DecoratedThread> = { results: page, nextCursor }
+
     if (options.json) {
-        const results = options.full ? page : page.map(pickEssential)
-        console.log(JSON.stringify({ results, nextCursor }, null, 2))
+        console.log(formatPaginatedJson(paginated, 'thread', options.full))
         return
     }
 
     if (options.ndjson) {
-        for (const t of page) {
-            console.log(JSON.stringify(options.full ? t : pickEssential(t)))
-        }
-        if (nextCursor) {
-            console.log(JSON.stringify({ _meta: true, nextCursor }))
-        }
+        console.log(formatPaginatedNdjson(paginated, 'thread', options.full))
         return
     }
 

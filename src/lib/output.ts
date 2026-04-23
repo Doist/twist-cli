@@ -17,8 +17,11 @@ const THREAD_ESSENTIAL_FIELDS = [
     'workspaceId',
     'creator',
     'posted',
+    'lastUpdated',
     'commentCount',
     'isArchived',
+    'isUnread',
+    'url',
     'reactions',
 ] as const
 
