@@ -8,9 +8,9 @@ export async function markConversationDone(ref: string, options: DoneOptions): P
     const conversationId = resolveConversationId(ref)
 
     const client = await getTwistClient()
-    const conversation = await client.conversations.getConversation(conversationId)
 
     if (options.dryRun) {
+        const conversation = await client.conversations.getConversation(conversationId)
         printDryRun('archive conversation', {
             Conversation: conversationLabel(conversation),
             Status: conversation.archived ? 'already archived' : undefined,
@@ -25,6 +25,7 @@ export async function markConversationDone(ref: string, options: DoneOptions): P
                 '--yes is required to execute archive in --json mode.',
             )
         }
+        const conversation = await client.conversations.getConversation(conversationId)
         console.log(`Would archive: ${conversationLabel(conversation)}`)
         console.log('Use --yes to confirm.')
         return
