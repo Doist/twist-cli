@@ -129,7 +129,43 @@ describe('config view', () => {
         expect(output).toContain('TWIST_API_TOKEN')
         // Active mode is unknown (env scope isn't introspectable), not read-only.
         expect(output).toContain('Mode:          unknown')
+        // Scope is genuinely unintrospectable for env tokens — render as
+        // 'unknown', not 'not set', to avoid reading as an explicit empty scope.
+        expect(output).toContain('Scope:         unknown')
         expect(output).not.toMatch(/Scope:\s+user:read/)
+        expect(output).not.toMatch(/Scope:\s+not set/)
+
+        consoleSpy.mockRestore()
+    })
+
+    it('annotates a missing config file even when a token is present', async () => {
+        // User runs with TWIST_API_TOKEN set but no config file yet —
+        // the header must clearly report that the file does not exist.
+        missingConfig()
+        mockToken('env', { token: 'tw_envXXXXXXXX9999', authMode: 'unknown' })
+        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+        await createProgram().parseAsync(['node', 'tw', 'config', 'view'])
+
+        const output = consoleSpy.mock.calls.map((c) => c[0]).join('\n')
+        expect(output).toContain('/tmp/fake-twist-cli/config.json')
+        expect(output).toContain('not created yet')
+        expect(output).toContain('****…9999')
+        expect(output).toContain('TWIST_API_TOKEN')
+
+        consoleSpy.mockRestore()
+    })
+
+    it('runs view by default when no subcommand is given', async () => {
+        presentConfig()
+        mockToken('config-file')
+        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+        await createProgram().parseAsync(['node', 'tw', 'config'])
+
+        const output = consoleSpy.mock.calls.map((c) => c[0]).join('\n')
+        expect(output).toContain('Authentication')
+        expect(output).toContain('****…7890')
 
         consoleSpy.mockRestore()
     })

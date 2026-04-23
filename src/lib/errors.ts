@@ -38,6 +38,10 @@ export type ErrorCode =
     // API & internal
     | 'API_ERROR'
     | 'INTERNAL_ERROR'
+    // Config file inspection
+    | 'CONFIG_READ_FAILED'
+    | 'CONFIG_INVALID_JSON'
+    | 'CONFIG_INVALID_SHAPE'
     // Escape hatch for dynamic codes
     | (string & {})
 

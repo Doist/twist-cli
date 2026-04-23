@@ -5,7 +5,7 @@ export function registerConfigCommand(program: Command): void {
     const config = program.command('config').description('Manage CLI configuration')
 
     config
-        .command('view')
+        .command('view', { isDefault: true })
         .description('Show the current CLI configuration file')
         .option('--json', 'Output the raw config as JSON')
         .option('--show-token', 'Include the full token instead of masking it')

@@ -69,9 +69,15 @@ function renderTokenLine(token: TokenStatus, showToken: boolean): string {
     }
 }
 
-function formatConfigView(config: Config, token: TokenStatus, showToken: boolean): string {
+function formatConfigView(
+    config: Config,
+    token: TokenStatus,
+    showToken: boolean,
+    configMissing: boolean,
+): string {
     const lines: string[] = []
-    lines.push(`${chalk.dim('Config file:')} ${CONFIG_PATH}`)
+    const headerSuffix = configMissing ? ` ${chalk.dim('(not created yet)')}` : ''
+    lines.push(`${chalk.dim('Config file:')} ${CONFIG_PATH}${headerSuffix}`)
     lines.push('')
 
     // When a token is present, its metadata is the ground truth for the active
@@ -82,10 +88,19 @@ function formatConfigView(config: Config, token: TokenStatus, showToken: boolean
     const effectiveMode = token.state === 'present' ? token.metadata.authMode : config.authMode
     const effectiveScope = token.state === 'present' ? token.metadata.authScope : config.authScope
 
+    // When the mode is 'unknown' and no scope is recorded, the scope is
+    // genuinely unintrospectable (env-sourced tokens, or tokens saved via
+    // `tw auth token` without metadata). Render 'unknown' rather than
+    // 'not set' to avoid reading as an explicit empty scope.
+    const scopeDisplay =
+        effectiveMode === 'unknown' && effectiveScope === undefined
+            ? 'unknown'
+            : formatValue(effectiveScope)
+
     lines.push(chalk.bold('Authentication'))
     lines.push(`  Token:         ${renderTokenLine(token, showToken)}`)
     lines.push(`  Mode:          ${formatValue(effectiveMode)}`)
-    lines.push(`  Scope:         ${formatValue(effectiveScope)}`)
+    lines.push(`  Scope:         ${scopeDisplay}`)
     lines.push('')
 
     lines.push(chalk.bold('Workspace'))
@@ -118,5 +133,7 @@ export async function viewConfig(options: ViewConfigOptions): Promise<void> {
         return
     }
 
-    console.log(formatConfigView(config, token, options.showToken ?? false))
+    console.log(
+        formatConfigView(config, token, options.showToken ?? false, read.state === 'missing'),
+    )
 }
