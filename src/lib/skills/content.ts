@@ -190,10 +190,17 @@ tw user --json                   # JSON output
 tw user --json --full            # Include all fields in JSON output
 tw users                         # List workspace users
 tw users --search <text>         # Filter by name/email
-tw channels                      # List active joined workspace channels
+tw channels                      # List active joined workspace channels (alias of: tw channel list)
 tw channels --state all          # Include archived joined channels too
 tw channels --scope discoverable # Active public channels you can see but have not joined
 tw channels --scope public --state all --json # All visible public channels, with joined status
+tw channel threads <channel-ref>  # List threads in a channel (fuzzy name, id:, numeric ID, or URL)
+tw channel threads "general" --unread       # Only unread threads
+tw channel threads <ref> --archive-filter all  # Include archived threads (active|archived|all)
+tw channel threads <ref> --since 2026-01-01 # Filter by last-updated date (ISO)
+tw channel threads <ref> --limit 20         # Max threads per page (default: 50)
+tw channel threads <ref> --limit 20 --cursor <cursor-from-prev> # Paginate
+tw channel threads <ref> --json  # { results, nextCursor } with isUnread + url
 tw groups                        # List workspace groups
 tw groups --search "frontend"    # Filter groups by name (case-insensitive)
 tw groups --json                 # JSON output
@@ -201,6 +208,8 @@ tw groups --json --full          # Include all fields in JSON output
 \`\`\`
 
 If a channel is not found in \`tw channels\`, widen with broader listings such as \`tw channels --scope public\`, then \`tw channels --scope public --state all\`. Check \`tw channels --help\` for other available filters.
+
+\`tw channel threads\` returns every thread in the channel; pagination filters (\`--limit\`, \`--cursor\`, \`--since\`, \`--until\`, \`--unread\`) are applied client-side after fetch. \`--archive-filter\` is applied server-side. Results are sorted newest-first by last activity. In \`--json\` / \`--ndjson\`, the response includes a \`nextCursor\` string (opaque) you can pass via \`--cursor\` to fetch the next page; NDJSON emits the cursor as a final \`{ "_meta": true, "nextCursor": "..." }\` line.
 
 ## Away Status
 

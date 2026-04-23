@@ -1,4 +1,17 @@
-import { describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+
+const apiMocks = vi.hoisted(() => ({
+    getTwistClient: vi.fn(),
+    fetchWorkspaces: vi.fn(),
+    getWorkspaceUsers: vi.fn(),
+}))
+
+vi.mock('./api.js', () => ({
+    getTwistClient: apiMocks.getTwistClient,
+    fetchWorkspaces: apiMocks.fetchWorkspaces,
+    getWorkspaceUsers: apiMocks.getWorkspaceUsers,
+}))
+
 import {
     classifyTwistUrl,
     extractId,
@@ -8,6 +21,7 @@ import {
     parseTwistUrl,
     partitionNotifyIds,
     resolveChannelId,
+    resolveChannelRef,
     resolveCommentId,
     resolveConversationId,
     resolveMessageId,
@@ -176,6 +190,113 @@ describe('resolveChannelId', () => {
 
     it('resolves channel URLs', () => {
         expect(resolveChannelId('https://twist.com/a/12345/ch/67890')).toBe(67890)
+    })
+})
+
+describe('resolveChannelRef', () => {
+    function createChannel(id: number, name: string, overrides: Record<string, unknown> = {}) {
+        return {
+            id,
+            name,
+            public: true,
+            workspaceId: 1,
+            archived: false,
+            creator: 1,
+            created: new Date('2026-01-01T00:00:00Z'),
+            version: 1,
+            ...overrides,
+        }
+    }
+
+    const mockGetChannel = vi.fn()
+    const mockGetChannels = vi.fn()
+
+    beforeEach(() => {
+        vi.clearAllMocks()
+        apiMocks.getTwistClient.mockResolvedValue({
+            channels: {
+                getChannel: mockGetChannel,
+                getChannels: mockGetChannels,
+            },
+        })
+    })
+
+    it('fetches channel by id: ref via getChannel', async () => {
+        const ch = createChannel(42, 'engineering')
+        mockGetChannel.mockResolvedValue(ch)
+
+        const result = await resolveChannelRef('id:42', 1)
+
+        expect(mockGetChannel).toHaveBeenCalledWith(42)
+        expect(mockGetChannels).not.toHaveBeenCalled()
+        expect(result).toEqual(ch)
+    })
+
+    it('fetches channel by Twist URL via getChannel', async () => {
+        const ch = createChannel(42, 'engineering')
+        mockGetChannel.mockResolvedValue(ch)
+
+        const result = await resolveChannelRef('https://twist.com/a/1/ch/42', 1)
+
+        expect(mockGetChannel).toHaveBeenCalledWith(42)
+        expect(result).toEqual(ch)
+    })
+
+    it('throws CHANNEL_NOT_FOUND when id: ref resolves to a channel in another workspace', async () => {
+        mockGetChannel.mockResolvedValue(createChannel(42, 'engineering', { workspaceId: 2 }))
+
+        await expect(resolveChannelRef('id:42', 1)).rejects.toHaveProperty(
+            'code',
+            'CHANNEL_NOT_FOUND',
+        )
+    })
+
+    it('throws CHANNEL_NOT_FOUND when URL workspaceId conflicts with expected workspaceId', async () => {
+        await expect(resolveChannelRef('https://twist.com/a/2/ch/42', 1)).rejects.toHaveProperty(
+            'code',
+            'CHANNEL_NOT_FOUND',
+        )
+        expect(mockGetChannel).not.toHaveBeenCalled()
+    })
+
+    it('resolves exact case-insensitive name match', async () => {
+        const ch = createChannel(10, 'General')
+        mockGetChannels.mockResolvedValue([ch, createChannel(20, 'Leadership')])
+
+        const result = await resolveChannelRef('general', 1)
+
+        expect(mockGetChannels).toHaveBeenCalledWith({ workspaceId: 1 })
+        expect(result).toEqual(ch)
+    })
+
+    it('resolves unique substring name match', async () => {
+        const ch = createChannel(30, 'Marketing')
+        mockGetChannels.mockResolvedValue([createChannel(10, 'General'), ch])
+
+        const result = await resolveChannelRef('market', 1)
+
+        expect(result).toEqual(ch)
+    })
+
+    it('throws AMBIGUOUS_CHANNEL on multiple substring matches', async () => {
+        mockGetChannels.mockResolvedValue([
+            createChannel(10, 'Engineering'),
+            createChannel(20, 'Engineering-Ops'),
+        ])
+
+        await expect(resolveChannelRef('eng', 1)).rejects.toHaveProperty(
+            'code',
+            'AMBIGUOUS_CHANNEL',
+        )
+    })
+
+    it('throws CHANNEL_NOT_FOUND when no match', async () => {
+        mockGetChannels.mockResolvedValue([createChannel(10, 'General')])
+
+        await expect(resolveChannelRef('nope', 1)).rejects.toHaveProperty(
+            'code',
+            'CHANNEL_NOT_FOUND',
+        )
     })
 })
 

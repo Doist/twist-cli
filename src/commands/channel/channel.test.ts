@@ -8,28 +8,32 @@ const apiMocks = vi.hoisted(() => ({
 
 const refsMocks = vi.hoisted(() => ({
     resolveWorkspaceRef: vi.fn(),
+    resolveChannelRef: vi.fn(),
 }))
 
 const globalArgsMocks = vi.hoisted(() => ({
     includePrivateChannels: vi.fn().mockReturnValue(false),
+    isAccessible: vi.fn().mockReturnValue(false),
 }))
 
-vi.mock('../lib/api.js', () => ({
+vi.mock('../../lib/api.js', () => ({
     getTwistClient: apiMocks.getTwistClient,
     getCurrentWorkspaceId: apiMocks.getCurrentWorkspaceId,
 }))
 
-vi.mock('../lib/refs.js', () => ({
+vi.mock('../../lib/refs.js', () => ({
     resolveWorkspaceRef: refsMocks.resolveWorkspaceRef,
+    resolveChannelRef: refsMocks.resolveChannelRef,
 }))
 
-vi.mock('../lib/global-args.js', () => ({
+vi.mock('../../lib/global-args.js', () => ({
     includePrivateChannels: globalArgsMocks.includePrivateChannels,
+    isAccessible: globalArgsMocks.isAccessible,
 }))
 
 vi.mock('chalk')
 
-import { registerChannelCommand } from './channel.js'
+import { registerChannelCommand } from './index.js'
 
 function createProgram() {
     const program = new Command()
@@ -69,7 +73,7 @@ function createClient({
     }
 }
 
-describe('channels', () => {
+describe('channels list', () => {
     beforeEach(() => {
         vi.clearAllMocks()
         globalArgsMocks.includePrivateChannels.mockReturnValue(false)
@@ -83,7 +87,7 @@ describe('channels', () => {
         ).rejects.toThrow('Cannot specify workspace both as argument and --workspace flag')
     })
 
-    it('lists joined public channels by default', async () => {
+    it('lists joined public channels by default (via channels alias)', async () => {
         const client = createClient({
             joinedChannels: [
                 createChannel(10, 'General'),
@@ -104,6 +108,43 @@ describe('channels', () => {
         expect(consoleSpy).toHaveBeenCalledTimes(1)
         expect(consoleSpy.mock.calls[0][0]).toContain('General')
         expect(consoleSpy.mock.calls[0][0]).not.toContain('Leadership')
+
+        consoleSpy.mockRestore()
+    })
+
+    it('also works via the singular channel command name', async () => {
+        const client = createClient({
+            joinedChannels: [createChannel(10, 'General')],
+        })
+        apiMocks.getTwistClient.mockResolvedValue(client)
+        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+        const program = createProgram()
+
+        await program.parseAsync(['node', 'tw', 'channel'])
+
+        expect(client.channels.getChannels).toHaveBeenCalledWith({
+            workspaceId: 1,
+            archived: false,
+        })
+        expect(consoleSpy.mock.calls[0][0]).toContain('General')
+
+        consoleSpy.mockRestore()
+    })
+
+    it('supports explicit channel list subcommand', async () => {
+        const client = createClient({
+            joinedChannels: [createChannel(10, 'General')],
+        })
+        apiMocks.getTwistClient.mockResolvedValue(client)
+        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+        const program = createProgram()
+
+        await program.parseAsync(['node', 'tw', 'channel', 'list'])
+
+        expect(client.channels.getChannels).toHaveBeenCalledWith({
+            workspaceId: 1,
+            archived: false,
+        })
 
         consoleSpy.mockRestore()
     })
