@@ -1,3 +1,14 @@
+## [2.33.0](https://github.com/Doist/twist-cli/compare/v2.32.2...v2.33.0) (2026-04-23)
+
+### Features
+
+- **channel:** add channel threads listing with pagination ([#191](https://github.com/Doist/twist-cli/issues/191)) ([f17f09f](https://github.com/Doist/twist-cli/commit/f17f09fbfc3a11ee3bf641bc40a9e5702d3b311f))
+- **config:** add `tw config view` to inspect the CLI config file ([#192](https://github.com/Doist/twist-cli/issues/192)) ([f7d0d9b](https://github.com/Doist/twist-cli/commit/f7d0d9bbc3fbee03825032d6c54f293429bee45f))
+
+### Bug Fixes
+
+- **deps:** update dependency marked to v18.0.2 ([#189](https://github.com/Doist/twist-cli/issues/189)) ([f4caf89](https://github.com/Doist/twist-cli/commit/f4caf8978a12a547050a7649de2285d41330abe6))
+
 ## [2.32.2](https://github.com/Doist/twist-cli/compare/v2.32.1...v2.32.2) (2026-04-22)
 
 ### Bug Fixes
