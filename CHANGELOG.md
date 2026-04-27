@@ -1,3 +1,9 @@
+## [2.34.0](https://github.com/Doist/twist-cli/compare/v2.33.0...v2.34.0) (2026-04-27)
+
+### Features
+
+- **thread:** opt-in unarchive of newly-created threads ([#196](https://github.com/Doist/twist-cli/issues/196)) ([1872225](https://github.com/Doist/twist-cli/commit/1872225d3ae23b0322c1ed6c6e08d088fb872580))
+
 ## [2.33.0](https://github.com/Doist/twist-cli/compare/v2.32.2...v2.33.0) (2026-04-23)
 
 ### Features
