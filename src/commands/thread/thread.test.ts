@@ -5,6 +5,15 @@ const apiMocks = vi.hoisted(() => ({
     getTwistClient: vi.fn(),
 }))
 
+const configMocks = vi.hoisted(() => ({
+    getConfig: vi.fn().mockResolvedValue({}),
+}))
+
+vi.mock('../../lib/config.js', async (importOriginal) => ({
+    ...(await importOriginal<typeof import('../../lib/config.js')>()),
+    getConfig: configMocks.getConfig,
+}))
+
 vi.mock('../../lib/public-channels.js', () => ({
     assertChannelIsPublic: vi.fn(),
 }))
@@ -138,6 +147,7 @@ function createClient({
         },
         inbox: {
             archiveThread: vi.fn(async () => undefined),
+            unarchiveThread: vi.fn(async () => undefined),
         },
         workspaceUsers: {
             getUserById: vi.fn(
@@ -522,6 +532,7 @@ describe('thread view with failed batch response', () => {
 describe('thread create', () => {
     beforeEach(() => {
         vi.clearAllMocks()
+        configMocks.getConfig.mockResolvedValue({})
     })
 
     it('creates a thread with positional title and content', async () => {
@@ -700,6 +711,109 @@ describe('thread create', () => {
         await expect(
             program.parseAsync(['node', 'tw', 'thread', 'create', '100', 'My Title']),
         ).rejects.toHaveProperty('code', 'MISSING_CONTENT')
+    })
+
+    it('does not unarchive by default', async () => {
+        const client = createClient()
+        apiMocks.getTwistClient.mockResolvedValue(client)
+
+        const program = createProgram()
+        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+        await program.parseAsync(['node', 'tw', 'thread', 'create', '100', 'T', 'body'])
+
+        expect(client.inbox.unarchiveThread).not.toHaveBeenCalled()
+        consoleSpy.mockRestore()
+    })
+
+    it('unarchives the new thread when --unarchive is passed', async () => {
+        const client = createClient()
+        apiMocks.getTwistClient.mockResolvedValue(client)
+
+        const program = createProgram()
+        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+        await program.parseAsync([
+            'node',
+            'tw',
+            'thread',
+            'create',
+            '100',
+            'T',
+            'body',
+            '--unarchive',
+        ])
+
+        expect(client.inbox.unarchiveThread).toHaveBeenCalledWith(999)
+        consoleSpy.mockRestore()
+    })
+
+    it('unarchives when userSettings.unarchiveNewThreads is true', async () => {
+        configMocks.getConfig.mockResolvedValueOnce({
+            userSettings: { unarchiveNewThreads: true },
+        })
+        const client = createClient()
+        apiMocks.getTwistClient.mockResolvedValue(client)
+
+        const program = createProgram()
+        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+        await program.parseAsync(['node', 'tw', 'thread', 'create', '100', 'T', 'body'])
+
+        expect(client.inbox.unarchiveThread).toHaveBeenCalledWith(999)
+        consoleSpy.mockRestore()
+    })
+
+    it('--no-unarchive overrides config default of true', async () => {
+        configMocks.getConfig.mockResolvedValueOnce({
+            userSettings: { unarchiveNewThreads: true },
+        })
+        const client = createClient()
+        apiMocks.getTwistClient.mockResolvedValue(client)
+
+        const program = createProgram()
+        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+        await program.parseAsync([
+            'node',
+            'tw',
+            'thread',
+            'create',
+            '100',
+            'T',
+            'body',
+            '--no-unarchive',
+        ])
+
+        expect(client.inbox.unarchiveThread).not.toHaveBeenCalled()
+        consoleSpy.mockRestore()
+    })
+
+    it('unarchive failure does not fail the command', async () => {
+        const client = createClient()
+        client.inbox.unarchiveThread.mockRejectedValueOnce(new Error('boom'))
+        apiMocks.getTwistClient.mockResolvedValue(client)
+
+        const program = createProgram()
+        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+        const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+        await program.parseAsync([
+            'node',
+            'tw',
+            'thread',
+            'create',
+            '100',
+            'T',
+            'body',
+            '--unarchive',
+        ])
+
+        expect(client.threads.createThread).toHaveBeenCalled()
+        expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('failed to unarchive'))
+        expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('Thread created:'))
+        consoleSpy.mockRestore()
+        errorSpy.mockRestore()
     })
 })
 

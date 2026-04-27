@@ -1,4 +1,5 @@
 import { getTwistClient } from '../../lib/api.js'
+import { getConfig } from '../../lib/config.js'
 import { CliError } from '../../lib/errors.js'
 import { openEditor, readStdin } from '../../lib/input.js'
 import type { MutationOptions } from '../../lib/options.js'
@@ -9,6 +10,7 @@ import { type ResolvedNotify, formatNotifyLabel, resolveNotifyIds } from './help
 
 type CreateOptions = MutationOptions & {
     notify?: string
+    unarchive?: boolean
 }
 
 export async function createThread(
@@ -44,6 +46,9 @@ export async function createThread(
         resolved = await resolveNotifyIds(allIds, channel.workspaceId)
     }
 
+    const config = await getConfig()
+    const shouldUnarchive = options.unarchive ?? config.userSettings?.unarchiveNewThreads ?? false
+
     if (options.dryRun) {
         const preview =
             threadContent.length > 200 ? `${threadContent.slice(0, 200)}...` : threadContent
@@ -58,6 +63,7 @@ export async function createThread(
                 resolved && resolved.notified.groups.length > 0
                     ? formatNotifyLabel(resolved.notified.groups)
                     : undefined,
+            Unarchive: shouldUnarchive ? 'yes' : undefined,
             Content: preview,
         })
         return
@@ -70,6 +76,15 @@ export async function createThread(
         recipients: resolved?.recipients,
         groups: resolved?.groups,
     })
+
+    if (shouldUnarchive) {
+        try {
+            await client.inbox.unarchiveThread(thread.id)
+        } catch (error) {
+            const detail = error instanceof Error ? error.message : String(error)
+            console.error(`Warning: created thread but failed to unarchive it (${detail})`)
+        }
+    }
 
     if (options.json) {
         const output = resolved ? { ...thread, notified: resolved.notified } : thread
