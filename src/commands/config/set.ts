@@ -1,5 +1,5 @@
 import chalk from 'chalk'
-import { getConfig, setConfig, type UserSettings } from '../../lib/config.js'
+import { type Config, readConfigStrict, setConfig } from '../../lib/config.js'
 import { CliError } from '../../lib/errors.js'
 
 const TRUE_VALUES = new Set(['true', 'on', '1', 'yes'])
@@ -15,7 +15,7 @@ function parseBoolean(raw: string, key: string): boolean {
     )
 }
 
-type Setter = (config: { userSettings?: UserSettings }, value: string) => string
+type Setter = (config: Config, value: string) => string
 
 const SETTERS: Record<string, { description: string; apply: Setter }> = {
     'unarchive-new-threads': {
@@ -35,7 +35,8 @@ export async function setConfigValue(key: string, value: string): Promise<void> 
         throw new CliError('UNKNOWN_KEY', `Unknown config key "${key}". Known keys: ${known}.`)
     }
 
-    const config = await getConfig()
+    const read = await readConfigStrict()
+    const config: Config = read.state === 'present' ? read.config : {}
     const summary = setter.apply(config, value)
     await setConfig(config)
 

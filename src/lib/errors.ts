@@ -21,8 +21,10 @@ export type ErrorCode =
     | 'INVALID_STATE'
     | 'INVALID_TYPE'
     | 'INVALID_URL'
+    | 'INVALID_VALUE'
     | 'MISSING_CONTENT'
     | 'MISSING_YES_FLAG'
+    | 'UNKNOWN_KEY'
     // Not found
     | 'CHANNEL_NOT_FOUND'
     | 'NOT_FOUND'
