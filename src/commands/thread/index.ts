@@ -72,6 +72,11 @@ Examples:
         .command('create <channel-ref> <title> [content]')
         .description('Create a new thread in a channel')
         .option('--notify <recipients>', 'Comma-separated user IDs to notify')
+        .option(
+            '--unarchive',
+            'Unarchive after creation so the thread appears in your Inbox (overrides userSettings.unarchiveNewThreads when false)',
+        )
+        .option('--no-unarchive', 'Skip unarchive even if userSettings.unarchiveNewThreads is true')
         .option('--dry-run', 'Show what would be posted without posting')
         .option('--json', 'Output created thread as JSON')
         .option('--full', 'Include all fields in JSON output')
@@ -81,7 +86,8 @@ Examples:
 Examples:
   tw thread create 12345 "Weekly update" "Here's what happened..."
   echo "Body from stdin" | tw thread create id:12345 "Title"
-  tw thread create 12345 "Title" "Body" --notify 67890,11111 --json`,
+  tw thread create 12345 "Title" "Body" --notify 67890,11111 --json
+  tw thread create 12345 "Title" "Body" --unarchive`,
         )
         .action(createThread)
 

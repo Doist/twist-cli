@@ -28,6 +28,7 @@ tw workspaces                    # List available workspaces
 tw workspace use <ref>           # Set current workspace
 tw completion install            # Install shell completions
 tw config view                   # Show the current CLI configuration file (token masked)
+tw config set <key> <value>      # Set a user preference (e.g. unarchive-new-threads true)
 tw doctor                        # Diagnose CLI setup and environment issues
 tw update                        # Update CLI to latest version
 tw changelog                     # Show recent changelog entries
@@ -79,6 +80,8 @@ tw thread create <channel-ref> "Title" "content"    # Create a new thread
 tw thread create <channel-ref> "Title" "content" --json       # Create and return as JSON
 tw thread create <channel-ref> "Title" "content" --json --full # Include all thread fields
 tw thread create <channel-ref> "Title" "content" --notify 123,456  # Notify specific users
+tw thread create <channel-ref> "Title" "content" --unarchive  # Land thread in author's Inbox (overrides default Twist auto-archive)
+tw thread create <channel-ref> "Title" "content" --no-unarchive  # Force archive even when userSettings.unarchiveNewThreads=true
 tw thread create <channel-ref> "Title" "content" --dry-run  # Preview without posting
 tw thread reply <ref> "content"  # Post a comment (notifies EVERYONE_IN_THREAD by default)
 tw thread reply <ref> "content" --notify EVERYONE  # Notify all workspace members
@@ -259,7 +262,11 @@ tw doctor --json                 # JSON output with per-check results
 tw config view                   # Pretty-printed config, token masked, labels actual token source
 tw config view --json            # Raw JSON, token masked
 tw config view --show-token      # Include the full token
+tw config set unarchive-new-threads true   # Persist: always unarchive new threads so they land in your Inbox
+tw config set unarchive-new-threads false  # Persist: keep Twist's default (thread auto-archived for author)
 \`\`\`
+
+User preferences are stored under \`userSettings\` in the config file. Currently supported keys: \`unarchive-new-threads\`. The flag on \`tw thread create\` (\`--unarchive\` / \`--no-unarchive\`) overrides this default per-invocation.
 
 ### Update
 

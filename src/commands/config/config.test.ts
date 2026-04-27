@@ -9,6 +9,7 @@ vi.mock('../../lib/config.js', async (importOriginal) => {
         ...actual,
         CONFIG_PATH: '/tmp/fake-twist-cli/config.json',
         readConfigStrict: vi.fn(),
+        setConfig: vi.fn(),
     }
 })
 
@@ -21,13 +22,14 @@ vi.mock('../../lib/auth.js', async (importOriginal) => {
 })
 
 import { NoTokenError, probeApiToken } from '../../lib/auth.js'
-import { type Config, readConfigStrict } from '../../lib/config.js'
+import { type Config, readConfigStrict, setConfig } from '../../lib/config.js'
 import { CliError } from '../../lib/errors.js'
 import { SecureStoreUnavailableError } from '../../lib/secure-store.js'
 import { registerConfigCommand } from './index.js'
 
 const mockReadConfigStrict = vi.mocked(readConfigStrict)
 const mockProbeApiToken = vi.mocked(probeApiToken)
+const mockSetConfig = vi.mocked(setConfig)
 
 function createProgram() {
     const program = new Command()
@@ -269,5 +271,155 @@ describe('config view', () => {
         expect(parsed.token).not.toContain('abcd')
 
         consoleSpy.mockRestore()
+    })
+
+    it('shows the user settings section', async () => {
+        presentConfig({ userSettings: { unarchiveNewThreads: true } })
+        mockProbeApiToken.mockRejectedValue(new NoTokenError())
+        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+        await createProgram().parseAsync(['node', 'tw', 'config', 'view'])
+
+        const output = consoleSpy.mock.calls.map((c) => c[0]).join('\n')
+        expect(output).toContain('User settings')
+        expect(output).toContain('Unarchive new threads')
+        expect(output).toContain('true')
+        consoleSpy.mockRestore()
+    })
+})
+
+describe('config set', () => {
+    beforeEach(() => {
+        vi.clearAllMocks()
+        mockSetConfig.mockResolvedValue()
+    })
+
+    it('writes userSettings.unarchiveNewThreads = true', async () => {
+        mockReadConfigStrict.mockResolvedValue({ state: 'present', config: {} })
+        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+        await createProgram().parseAsync([
+            'node',
+            'tw',
+            'config',
+            'set',
+            'unarchive-new-threads',
+            'true',
+        ])
+
+        expect(mockSetConfig).toHaveBeenCalledWith({
+            userSettings: { unarchiveNewThreads: true },
+        })
+        const output = consoleSpy.mock.calls.map((c) => c.join(' ')).join('\n')
+        expect(output).toContain('userSettings.unarchiveNewThreads = true')
+        consoleSpy.mockRestore()
+    })
+
+    it('writes false for off/0/no', async () => {
+        mockReadConfigStrict.mockResolvedValue({
+            state: 'present',
+            config: { userSettings: { unarchiveNewThreads: true } },
+        })
+        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+        await createProgram().parseAsync([
+            'node',
+            'tw',
+            'config',
+            'set',
+            'unarchive-new-threads',
+            'off',
+        ])
+
+        expect(mockSetConfig).toHaveBeenCalledWith({
+            userSettings: { unarchiveNewThreads: false },
+        })
+        consoleSpy.mockRestore()
+    })
+
+    it('preserves other userSettings keys when updating', async () => {
+        mockReadConfigStrict.mockResolvedValue({
+            state: 'present',
+            config: {
+                userSettings: { unarchiveNewThreads: false },
+                currentWorkspace: 7,
+            } as Config,
+        })
+        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+        await createProgram().parseAsync([
+            'node',
+            'tw',
+            'config',
+            'set',
+            'unarchive-new-threads',
+            'true',
+        ])
+
+        expect(mockSetConfig).toHaveBeenCalledWith({
+            userSettings: { unarchiveNewThreads: true },
+            currentWorkspace: 7,
+        })
+        consoleSpy.mockRestore()
+    })
+
+    it('rejects unknown keys', async () => {
+        mockReadConfigStrict.mockResolvedValue({ state: 'present', config: {} })
+
+        await expect(
+            createProgram().parseAsync(['node', 'tw', 'config', 'set', 'nope', 'true']),
+        ).rejects.toBeInstanceOf(CliError)
+        expect(mockSetConfig).not.toHaveBeenCalled()
+    })
+
+    it('rejects invalid boolean values', async () => {
+        mockReadConfigStrict.mockResolvedValue({ state: 'present', config: {} })
+
+        await expect(
+            createProgram().parseAsync([
+                'node',
+                'tw',
+                'config',
+                'set',
+                'unarchive-new-threads',
+                'maybe',
+            ]),
+        ).rejects.toMatchObject({ code: 'INVALID_VALUE' })
+        expect(mockSetConfig).not.toHaveBeenCalled()
+    })
+
+    it('writes a fresh config when the file is missing', async () => {
+        mockReadConfigStrict.mockResolvedValue({ state: 'missing' })
+        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+        await createProgram().parseAsync([
+            'node',
+            'tw',
+            'config',
+            'set',
+            'unarchive-new-threads',
+            'true',
+        ])
+
+        expect(mockSetConfig).toHaveBeenCalledWith({
+            userSettings: { unarchiveNewThreads: true },
+        })
+        consoleSpy.mockRestore()
+    })
+
+    it('refuses to overwrite a malformed config file', async () => {
+        mockReadConfigStrict.mockRejectedValue(new CliError('CONFIG_INVALID_JSON', 'broken'))
+
+        await expect(
+            createProgram().parseAsync([
+                'node',
+                'tw',
+                'config',
+                'set',
+                'unarchive-new-threads',
+                'true',
+            ]),
+        ).rejects.toMatchObject({ code: 'CONFIG_INVALID_JSON' })
+        expect(mockSetConfig).not.toHaveBeenCalled()
     })
 })

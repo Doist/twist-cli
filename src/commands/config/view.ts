@@ -109,6 +109,10 @@ function formatConfigView(
 
     lines.push(chalk.bold('Updates'))
     lines.push(`  Channel:       ${formatValue(config.updateChannel)}`)
+    lines.push('')
+
+    lines.push(chalk.bold('User settings'))
+    lines.push(`  Unarchive new threads: ${formatValue(config.userSettings?.unarchiveNewThreads)}`)
 
     return lines.join('\n')
 }

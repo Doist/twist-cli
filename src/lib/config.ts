@@ -15,10 +15,17 @@ const KNOWN_CONFIG_KEYS: ReadonlySet<string> = new Set([
     'authMode',
     'authScope',
     'updateChannel',
+    'userSettings',
 ])
+
+const KNOWN_USER_SETTINGS_KEYS: ReadonlySet<string> = new Set(['unarchiveNewThreads'])
 
 const AUTH_MODES: ReadonlySet<AuthMode> = new Set(['read-only', 'read-write', 'unknown'])
 const UPDATE_CHANNELS: ReadonlySet<UpdateChannel> = new Set(['stable', 'pre-release'])
+
+export interface UserSettings {
+    unarchiveNewThreads?: boolean
+}
 
 export interface Config {
     // Legacy plaintext token storage retained for migration and secure-store fallback only.
@@ -30,6 +37,7 @@ export interface Config {
     authMode?: AuthMode
     authScope?: string
     updateChannel?: UpdateChannel
+    userSettings?: UserSettings
 }
 
 export async function getConfig(): Promise<Config> {
@@ -149,6 +157,30 @@ export function validateConfigForDoctor(config: Record<string, unknown>): string
             !UPDATE_CHANNELS.has(config.updateChannel as UpdateChannel))
     ) {
         issues.push('updateChannel must be one of: stable, pre-release')
+    }
+
+    if (config.userSettings !== undefined) {
+        const userSettings = config.userSettings
+        if (
+            userSettings === null ||
+            typeof userSettings !== 'object' ||
+            Array.isArray(userSettings)
+        ) {
+            issues.push('userSettings must be an object')
+        } else {
+            const settingsRecord = userSettings as Record<string, unknown>
+            for (const key of Object.keys(settingsRecord)) {
+                if (!KNOWN_USER_SETTINGS_KEYS.has(key)) {
+                    issues.push(`userSettings contains unrecognized key "${key}"`)
+                }
+            }
+            if (
+                settingsRecord.unarchiveNewThreads !== undefined &&
+                typeof settingsRecord.unarchiveNewThreads !== 'boolean'
+            ) {
+                issues.push('userSettings.unarchiveNewThreads must be a boolean')
+            }
+        }
     }
 
     return issues
