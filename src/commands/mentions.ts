@@ -6,45 +6,36 @@ import {
     type SearchCommandOptions,
 } from '../lib/search-command.js'
 
-type SearchOptions = SearchCommandOptions & {
-    titleOnly?: boolean
-    mentionMe?: boolean
-}
-
-async function search(
-    query: string,
+async function mentions(
     workspaceRef: string | undefined,
-    options: SearchOptions,
+    options: SearchCommandOptions,
 ): Promise<void> {
     const { workspaceId, response } = await runSearchCommand(workspaceRef, {
         ...options,
-        query: options.titleOnly ? undefined : query,
-        title: options.titleOnly ? query : undefined,
-        mentionSelf: options.mentionMe,
+        mentionSelf: true,
     })
+
     printSearchCommandResults(workspaceId, response, options)
 }
 
-export function registerSearchCommand(program: Command): void {
+export function registerMentionsCommand(program: Command): void {
     program
-        .command('search <query> [workspace-ref]')
-        .description('Search content across a workspace')
+        .command('mentions [workspace-ref]')
+        .description('Show content mentioning the current user')
         .option('--workspace <ref>', 'Workspace ID or name')
         .option('--channel <channel-refs>', 'Filter by channels (comma-separated refs)')
         .option('--author <user-refs>', 'Filter by author (comma-separated refs)')
-        .option('--to <user-refs>', 'Messages sent TO user (comma-separated refs)')
+        .option('--to <user-refs>', 'Messages sent to user (comma-separated refs)')
         .addOption(
             withCaseInsensitiveChoices(
                 new Option('--type <type>', 'Filter: threads, messages, or all'),
                 ['threads', 'messages', 'all'],
             ),
         )
-        .option('--title-only', 'Search in thread titles only')
         .option('--conversation <refs>', 'Limit to conversations (comma-separated refs)')
-        .option('--mention-me', 'Only results mentioning current user')
         .option('--since <date>', 'Content from date')
         .option('--until <date>', 'Content until date')
-        .option('--limit <n>', 'Max results (default: 50)')
+        .option('--limit <n>', 'Max results per page (default: 50)')
         .option('--cursor <cursor>', 'Pagination cursor')
         .option('--all', 'Fetch all pages of results')
         .option('--json', 'Output as JSON')
@@ -54,10 +45,9 @@ export function registerSearchCommand(program: Command): void {
             'after',
             `
 Examples:
-  tw search "deployment issue"
-  tw search "bug report" --type threads --channel id:12345
-  tw search "API" --author id:5678 --since 2025-01-01 --json
-  tw search "incident" --all --json`,
+  tw mentions
+  tw mentions --since 2026-04-01 --all
+  tw mentions --type threads --json`,
         )
-        .action(search)
+        .action(mentions)
 }

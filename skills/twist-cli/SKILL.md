@@ -1,6 +1,6 @@
 ---
 name: twist-cli
-description: "Twist messaging CLI. View and respond to inbox threads, channel threads, direct messages, and group conversations; search, react, archive, mute, and manage workspaces. Use when the user mentions Twist, asks about their inbox, threads, DMs, channels, or wants to read or send Twist messages."
+description: "Twist messaging CLI. View and respond to inbox threads, channel threads, direct messages, mentions, and group conversations; search, react, archive, mute, and manage workspaces. Use when the user mentions Twist, asks about their inbox, mentions, threads, DMs, channels, or wants to read or send Twist messages."
 license: MIT
 metadata:
   author: Doist
@@ -168,6 +168,9 @@ Alias: `tw message` works the same as `tw msg`.
 ## Search
 
 ```bash
+tw mentions                      # Show content mentioning current user
+tw mentions --since 2026-04-01 --all # Fetch every mention since a date
+tw mentions --type threads --json # Limit mentions to threads
 tw search "query"                # Search content
 tw search "query" --type threads # Filter: threads, messages, or all
 tw search "query" --author <ref> # Filter by author
@@ -180,6 +183,7 @@ tw search "query" --until <date> # Content until date
 tw search "query" --channel <refs> # Filter by channel refs (comma-separated)
 tw search "query" --limit <n>    # Max results (default: 50)
 tw search "query" --cursor <cur> # Pagination cursor
+tw search "query" --all          # Fetch all result pages
 ```
 
 ## Users, Channels & Groups
@@ -351,6 +355,7 @@ tw thread done <id>
 
 **Search and review:**
 ```bash
+tw mentions --since 2026-04-01 --all --json
 tw search "deployment" --type threads --json
 tw thread view <thread-id>
 ```

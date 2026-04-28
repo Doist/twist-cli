@@ -21,6 +21,8 @@ const loadMsgCommand = async () => (await import('./commands/msg/index.js')).reg
 const loadCommentCommand = async () =>
     (await import('./commands/comment/index.js')).registerCommentCommand
 const loadSearchCommand = async () => (await import('./commands/search.js')).registerSearchCommand
+const loadMentionsCommand = async () =>
+    (await import('./commands/mentions.js')).registerMentionsCommand
 const loadReactCommand = async () => (await import('./commands/react.js')).registerReactCommand
 const loadAuthCommand = async () => (await import('./commands/auth/index.js')).registerAuthCommand
 const loadSkillCommand = async () =>
@@ -50,6 +52,7 @@ const commands: Record<string, [string, () => Promise<(p: Command) => void>]> = 
     msg: ['Conversation message operations (view, update, delete)', loadMsgCommand],
     comment: ['Thread comment operations (view, update, delete)', loadCommentCommand],
     search: ['Search content across a workspace', loadSearchCommand],
+    mentions: ['Show content mentioning the current user', loadMentionsCommand],
     away: ['Manage away status', loadAwayCommand],
     react: ['Add an emoji reaction (target-type: thread, comment, message)', loadReactCommand],
     unreact: ['Remove an emoji reaction (target-type: thread, comment, message)', loadReactCommand],
