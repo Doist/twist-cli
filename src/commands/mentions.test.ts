@@ -113,4 +113,34 @@ describe('mentions', () => {
 
         logSpy.mockRestore()
     })
+
+    it('emits an empty JSON payload when no mentions match', async () => {
+        const program = createProgram()
+        const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+        await program.parseAsync(['node', 'tw', 'mentions', '--json'])
+
+        expect(logSpy).toHaveBeenCalledTimes(1)
+        expect(JSON.parse(logSpy.mock.calls[0][0])).toEqual({
+            results: [],
+            nextCursor: null,
+        })
+
+        logSpy.mockRestore()
+    })
+
+    it('emits NDJSON metadata when no mentions match', async () => {
+        const program = createProgram()
+        const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+        await program.parseAsync(['node', 'tw', 'mentions', '--ndjson'])
+
+        expect(logSpy).toHaveBeenCalledTimes(1)
+        expect(JSON.parse(logSpy.mock.calls[0][0])).toEqual({
+            _meta: true,
+            nextCursor: null,
+        })
+
+        logSpy.mockRestore()
+    })
 })

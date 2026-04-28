@@ -1,6 +1,6 @@
-import { Command, Option } from 'commander'
-import { withCaseInsensitiveChoices } from '../lib/completion.js'
+import { Command } from 'commander'
 import {
+    addSharedSearchOptions,
     printSearchCommandResults,
     runSearchCommand,
     type SearchCommandOptions,
@@ -26,30 +26,20 @@ async function search(
 }
 
 export function registerSearchCommand(program: Command): void {
-    program
-        .command('search <query> [workspace-ref]')
-        .description('Search content across a workspace')
-        .option('--workspace <ref>', 'Workspace ID or name')
-        .option('--channel <channel-refs>', 'Filter by channels (comma-separated refs)')
-        .option('--author <user-refs>', 'Filter by author (comma-separated refs)')
-        .option('--to <user-refs>', 'Messages sent TO user (comma-separated refs)')
-        .addOption(
-            withCaseInsensitiveChoices(
-                new Option('--type <type>', 'Filter: threads, messages, or all'),
-                ['threads', 'messages', 'all'],
-            ),
-        )
-        .option('--title-only', 'Search in thread titles only')
-        .option('--conversation <refs>', 'Limit to conversations (comma-separated refs)')
-        .option('--mention-me', 'Only results mentioning current user')
-        .option('--since <date>', 'Content from date')
-        .option('--until <date>', 'Content until date')
-        .option('--limit <n>', 'Max results (default: 50)')
-        .option('--cursor <cursor>', 'Pagination cursor')
-        .option('--all', 'Fetch all pages of results')
-        .option('--json', 'Output as JSON')
-        .option('--ndjson', 'Output as newline-delimited JSON')
-        .option('--full', 'Include all fields in JSON output')
+    const command = addSharedSearchOptions(
+        program
+            .command('search <query> [workspace-ref]')
+            .description('Search content across a workspace'),
+        {
+            addUniqueFilters: (command) => {
+                command
+                    .option('--title-only', 'Search in thread titles only')
+                    .option('--mention-me', 'Only results mentioning current user')
+            },
+        },
+    )
+
+    command
         .addHelpText(
             'after',
             `

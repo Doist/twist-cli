@@ -1,6 +1,6 @@
-import { Command, Option } from 'commander'
-import { withCaseInsensitiveChoices } from '../lib/completion.js'
+import { Command } from 'commander'
 import {
+    addSharedSearchOptions,
     printSearchCommandResults,
     runSearchCommand,
     type SearchCommandOptions,
@@ -19,28 +19,16 @@ async function mentions(
 }
 
 export function registerMentionsCommand(program: Command): void {
-    program
-        .command('mentions [workspace-ref]')
-        .description('Show content mentioning the current user')
-        .option('--workspace <ref>', 'Workspace ID or name')
-        .option('--channel <channel-refs>', 'Filter by channels (comma-separated refs)')
-        .option('--author <user-refs>', 'Filter by author (comma-separated refs)')
-        .option('--to <user-refs>', 'Messages sent to user (comma-separated refs)')
-        .addOption(
-            withCaseInsensitiveChoices(
-                new Option('--type <type>', 'Filter: threads, messages, or all'),
-                ['threads', 'messages', 'all'],
-            ),
-        )
-        .option('--conversation <refs>', 'Limit to conversations (comma-separated refs)')
-        .option('--since <date>', 'Content from date')
-        .option('--until <date>', 'Content until date')
-        .option('--limit <n>', 'Max results per page (default: 50)')
-        .option('--cursor <cursor>', 'Pagination cursor')
-        .option('--all', 'Fetch all pages of results')
-        .option('--json', 'Output as JSON')
-        .option('--ndjson', 'Output as newline-delimited JSON')
-        .option('--full', 'Include all fields in JSON output')
+    const command = addSharedSearchOptions(
+        program
+            .command('mentions [workspace-ref]')
+            .description('Show content mentioning the current user'),
+        {
+            limitDescription: 'Max results per page (default: 50)',
+        },
+    )
+
+    command
         .addHelpText(
             'after',
             `

@@ -1,5 +1,7 @@
 import { getFullTwistURL, type SearchResult } from '@doist/twist-sdk'
+import { Command, Option } from 'commander'
 import { getCurrentWorkspaceId } from './api.js'
+import { withCaseInsensitiveChoices } from './completion.js'
 import { formatRelativeDate } from './dates.js'
 import { CliError } from './errors.js'
 import { includePrivateChannels } from './global-args.js'
@@ -57,6 +59,43 @@ type SearchRequestOptions = SearchCommandOptions & {
 export interface SearchCommandResult {
     workspaceId: number
     response: ExtendedSearchResponse
+}
+
+type SharedSearchOptionConfig = {
+    addUniqueFilters?: (command: Command) => void
+    limitDescription?: string
+}
+
+export function addSharedSearchOptions<T extends Command>(
+    command: T,
+    config: SharedSearchOptionConfig = {},
+): T {
+    const limitDescription = config.limitDescription ?? 'Max results (default: 50)'
+
+    command
+        .option('--workspace <ref>', 'Workspace ID or name')
+        .option('--channel <channel-refs>', 'Filter by channels (comma-separated refs)')
+        .option('--author <user-refs>', 'Filter by author (comma-separated refs)')
+        .option('--to <user-refs>', 'Messages sent to user (comma-separated refs)')
+        .addOption(
+            withCaseInsensitiveChoices(
+                new Option('--type <type>', 'Filter: threads, messages, or all'),
+                ['threads', 'messages', 'all'],
+            ),
+        )
+
+    config.addUniqueFilters?.(command)
+
+    return command
+        .option('--conversation <refs>', 'Limit to conversations (comma-separated refs)')
+        .option('--since <date>', 'Content from date')
+        .option('--until <date>', 'Content until date')
+        .option('--limit <n>', limitDescription)
+        .option('--cursor <cursor>', 'Pagination cursor')
+        .option('--all', 'Fetch all pages of results')
+        .option('--json', 'Output as JSON')
+        .option('--ndjson', 'Output as newline-delimited JSON')
+        .option('--full', 'Include all fields in JSON output')
 }
 
 async function resolveWorkspaceId(
@@ -207,18 +246,6 @@ export function printSearchCommandResults(
     response: ExtendedSearchResponse,
     options: SearchOutputOptions,
 ): void {
-    if (response.items.length === 0) {
-        if (!options.all && response.hasMore && response.nextCursorMark) {
-            console.log('No public results on this page.')
-            console.log(
-                colors.timestamp(`More results available. Use --cursor ${response.nextCursorMark}`),
-            )
-        } else {
-            console.log('No results found.')
-        }
-        return
-    }
-
     const resultsWithUrls = response.items.map((result) => ({
         ...result,
         url: buildSearchResultUrl(workspaceId, result),
@@ -242,8 +269,22 @@ export function printSearchCommandResults(
         for (const result of resultsWithUrls) {
             console.log(JSON.stringify(result))
         }
-        if (response.nextCursorMark) {
-            console.log(JSON.stringify({ _meta: true, nextCursor: response.nextCursorMark }))
+        if (resultsWithUrls.length === 0 || response.nextCursorMark) {
+            console.log(
+                JSON.stringify({ _meta: true, nextCursor: response.nextCursorMark || null }),
+            )
+        }
+        return
+    }
+
+    if (resultsWithUrls.length === 0) {
+        if (!options.all && response.hasMore && response.nextCursorMark) {
+            console.log('No public results on this page.')
+            console.log(
+                colors.timestamp(`More results available. Use --cursor ${response.nextCursorMark}`),
+            )
+        } else {
+            console.log('No results found.')
         }
         return
     }
