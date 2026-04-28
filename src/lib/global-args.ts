@@ -19,6 +19,8 @@ export interface GlobalArgs {
     accessible: boolean
     nonInteractive: boolean
     interactive: boolean
+    /** --user <ref> — selects which stored Twist account to use. */
+    user: string | undefined
 }
 
 /**
@@ -33,9 +35,8 @@ export function parseGlobalArgs(argv?: string[]): GlobalArgs {
     const has = (flag: string) =>
         args.includes(flag) || args.some((arg) => arg.startsWith(`${flag}=`))
 
-    // Parse --progress-jsonl with optional path value.
-    // Supports: --progress-jsonl, --progress-jsonl=path, --progress-jsonl path
-    // "Last one wins" when specified multiple times.
+    // --progress-jsonl supports --progress-jsonl, --progress-jsonl=path, and
+    // --progress-jsonl path. "Last one wins" when specified multiple times.
     const progressIndices = args
         .map((arg, index) => ({ arg, index }))
         .filter(({ arg }) => arg === '--progress-jsonl' || arg.startsWith('--progress-jsonl='))
@@ -50,6 +51,24 @@ export function parseGlobalArgs(argv?: string[]): GlobalArgs {
         }
     }
 
+    // --user <ref> | --user=<ref> | --user (no value — left undefined so
+    // index.ts can surface a clear usage error before commander runs).
+    let user: string | undefined
+    const userIndices = args
+        .map((arg, index) => ({ arg, index }))
+        .filter(({ arg }) => arg === '--user' || arg.startsWith('--user='))
+    if (userIndices.length > 0) {
+        const { arg, index } = userIndices[userIndices.length - 1]
+        if (arg.includes('=')) {
+            user = arg.slice(arg.indexOf('=') + 1)
+        } else if (index + 1 < args.length && !args[index + 1].startsWith('-')) {
+            // Only consume the next arg as the value when it doesn't look
+            // like another flag — keeps `tw --user --json …` from silently
+            // swallowing `--json`.
+            user = args[index + 1]
+        }
+    }
+
     return {
         json: has('--json'),
         ndjson: has('--ndjson'),
@@ -60,6 +79,7 @@ export function parseGlobalArgs(argv?: string[]): GlobalArgs {
         accessible: has('--accessible'),
         nonInteractive: has('--non-interactive'),
         interactive: has('--interactive'),
+        user,
     }
 }
 
@@ -122,4 +142,44 @@ export function isProgressJsonlEnabled(): boolean {
 
 export function getProgressJsonlPath(): string | undefined {
     return getGlobalArgs().progressJsonlPath
+}
+
+export function getRequestedUserRef(): string | undefined {
+    return getGlobalArgs().user
+}
+
+/**
+ * Remove `--user <ref>` / `--user=<ref>` from an argv array so commander —
+ * which has no global-option attachment — never sees the flag at subcommand
+ * level. Returns a new array; the original is not mutated. Stops at the `--`
+ * terminator so positional args after it are preserved verbatim.
+ *
+ * Mirrors `parseGlobalArgs`: refuses to consume the next arg as the value
+ * when it looks like another flag, so commander gets a chance to surface a
+ * usage error on a malformed `--user`.
+ */
+export function stripUserFlag(argv: string[]): string[] {
+    const out: string[] = []
+    let stopped = false
+    for (let i = 0; i < argv.length; i++) {
+        const arg = argv[i]
+        if (stopped) {
+            out.push(arg)
+            continue
+        }
+        if (arg === '--') {
+            stopped = true
+            out.push(arg)
+            continue
+        }
+        if (arg === '--user') {
+            if (i + 1 < argv.length && !argv[i + 1].startsWith('-')) i++
+            continue
+        }
+        if (arg.startsWith('--user=')) {
+            continue
+        }
+        out.push(arg)
+    }
+    return out
 }

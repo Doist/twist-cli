@@ -1,5 +1,6 @@
 import chalk from 'chalk'
-import { saveApiToken } from '../../lib/auth.js'
+import { createWrappedTwistClient } from '../../lib/api.js'
+import { upsertAccount } from '../../lib/auth.js'
 import { CliError } from '../../lib/errors.js'
 import { startCallbackServer } from '../../lib/oauth-server.js'
 import {
@@ -54,11 +55,22 @@ export async function loginWithOAuth(options: { readOnly?: boolean }): Promise<v
             console.log(chalk.dim('Exchanging authorization code for token...'))
             const accessToken = await exchangeCodeForToken(result.code, codeVerifier, client)
 
-            const saveResult = await saveApiToken(accessToken, {
+            // Identify the Twist user behind the new token before persisting.
+            const probeApi = createWrappedTwistClient(accessToken)
+            const sessionUser = await probeApi.users.getSessionUser()
+            const userId = String(sessionUser.id)
+
+            const saveResult = await upsertAccount({
+                id: userId,
+                email: sessionUser.email,
+                name: sessionUser.name,
+                token: accessToken,
                 authMode: options.readOnly ? 'read-only' : 'read-write',
                 authScope: options.readOnly ? READ_ONLY_SCOPES : READ_WRITE_SCOPES,
             })
-            console.log(chalk.green('✓'), 'OAuth authentication successful!')
+
+            const verb = saveResult.replaced ? 'Updated credentials for' : 'Logged in as'
+            console.log(chalk.green('✓'), `${verb} ${sessionUser.email}`)
             logTokenStorageResult(
                 saveResult,
                 'Token stored securely in the system credential manager',

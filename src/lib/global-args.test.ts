@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import {
+    getRequestedUserRef,
     includePrivateChannels,
     isAccessible,
     isNonInteractive,
@@ -7,6 +8,7 @@ import {
     parseGlobalArgs,
     resetGlobalArgs,
     shouldDisableSpinner,
+    stripUserFlag,
 } from './global-args.js'
 
 describe('parseGlobalArgs', () => {
@@ -53,7 +55,55 @@ describe('parseGlobalArgs', () => {
                 accessible: false,
                 nonInteractive: false,
                 interactive: false,
+                user: undefined,
             })
+        })
+    })
+
+    describe('--user', () => {
+        it('parses --user <ref>', () => {
+            expect(parseGlobalArgs(['--user', 'me@example.com']).user).toBe('me@example.com')
+        })
+        it('parses --user=<ref>', () => {
+            expect(parseGlobalArgs(['--user=12345']).user).toBe('12345')
+        })
+        it('handles --user mid-argv', () => {
+            const result = parseGlobalArgs(['inbox', '--user', 'a@b.c', '--json'])
+            expect(result.user).toBe('a@b.c')
+            expect(result.json).toBe(true)
+        })
+        it('does not consume the next arg as a value when it looks like a flag', () => {
+            // `tw --user --json …` should leave `result.user` undefined and
+            // keep --json intact, so commander surfaces a usage error.
+            const result = parseGlobalArgs(['--user', '--json', 'inbox'])
+            expect(result.user).toBeUndefined()
+            expect(result.json).toBe(true)
+        })
+        it('leaves --user at end of argv as undefined', () => {
+            expect(parseGlobalArgs(['inbox', '--user']).user).toBeUndefined()
+        })
+    })
+
+    describe('stripUserFlag', () => {
+        it('removes --user <value>', () => {
+            expect(stripUserFlag(['inbox', '--user', 'a@b.c', '--json'])).toEqual([
+                'inbox',
+                '--json',
+            ])
+        })
+        it('removes --user=<value>', () => {
+            expect(stripUserFlag(['--user=12345', 'inbox'])).toEqual(['inbox'])
+        })
+        it('does not strip the next arg when it looks like a flag', () => {
+            expect(stripUserFlag(['--user', '--json', 'inbox'])).toEqual(['--json', 'inbox'])
+        })
+        it('preserves args after --', () => {
+            expect(stripUserFlag(['inbox', '--', '--user', 'x'])).toEqual([
+                'inbox',
+                '--',
+                '--user',
+                'x',
+            ])
         })
     })
 
@@ -122,6 +172,12 @@ describe('cached singleton', () => {
         resetGlobalArgs()
         process.argv = ['node', 'tw', '--progress-jsonl']
         expect(isProgressJsonlEnabled()).toBe(true)
+    })
+
+    it('getRequestedUserRef returns the parsed --user value', () => {
+        resetGlobalArgs()
+        process.argv = ['node', 'tw', 'inbox', '--user', 'me@example.com']
+        expect(getRequestedUserRef()).toBe('me@example.com')
     })
 })
 

@@ -3,7 +3,7 @@
 import { type Command, program } from 'commander'
 import pkg from '../package.json' with { type: 'json' }
 import { CliError } from './lib/errors.js'
-import { isJsonMode } from './lib/global-args.js'
+import { getRequestedUserRef, isJsonMode, stripUserFlag } from './lib/global-args.js'
 import { formatError, formatErrorJson } from './lib/output.js'
 import { startEarlySpinner, stopEarlySpinner } from './lib/spinner.js'
 
@@ -25,6 +25,8 @@ const loadMentionsCommand = async () =>
     (await import('./commands/mentions.js')).registerMentionsCommand
 const loadReactCommand = async () => (await import('./commands/react.js')).registerReactCommand
 const loadAuthCommand = async () => (await import('./commands/auth/index.js')).registerAuthCommand
+const loadAccountCommand = async () =>
+    (await import('./commands/account/index.js')).registerAccountCommand
 const loadSkillCommand = async () =>
     (await import('./commands/skill/index.js')).registerSkillCommand
 const loadViewCommand = async () => (await import('./commands/view.js')).registerViewCommand
@@ -58,6 +60,7 @@ const commands: Record<string, [string, () => Promise<(p: Command) => void>]> = 
     react: ['Add an emoji reaction (target-type: thread, comment, message)', loadReactCommand],
     unreact: ['Remove an emoji reaction (target-type: thread, comment, message)', loadReactCommand],
     auth: ['Manage authentication', loadAuthCommand],
+    account: ['Manage stored Twist accounts (multi-user)', loadAccountCommand],
     skill: ['Manage agent skill integrations', loadSkillCommand],
     view: ['View a Twist entity by URL', loadViewCommand],
     completion: ['Manage shell completions', loadCompletionCommand],
@@ -93,12 +96,17 @@ program
         'Disable interactive prompts (auto-detected when stdin is not a TTY)',
     )
     .option('--interactive', 'Force interactive mode even when stdin is not a TTY')
+    .option(
+        '--user <ref>',
+        'Run as a specific stored Twist account (id or email). See `tw account list`.',
+    )
     .addHelpText(
         'after',
         `
 Note for AI/LLM agents:
   Use --json or --ndjson flags for unambiguous, parseable output.
-  Default JSON shows essential fields; use --full for all fields.`,
+  Default JSON shows essential fields; use --full for all fields.
+  Use --user <id|email> on any command to act as a specific stored account.`,
     )
 
 // Register lightweight placeholders so --help lists all commands
@@ -109,6 +117,38 @@ for (const [name, [description]] of Object.entries(commands)) {
     if (alias) {
         cmd.alias(alias)
     }
+}
+
+// Validate `--user` and strip it from argv before commander parses.
+//
+// Commander has no global-option attachment, so leaving `--user` in argv
+// would make every subcommand error on it. We capture the value via
+// `parseGlobalArgs` first and remove it here. Before stripping we surface
+// usage errors that the parser can detect now but commander never will
+// because it never sees the flag — bare `--user`, `--user=` (empty), and
+// `--user <known-subcommand>` (almost always a forgotten value).
+{
+    const originalArgs = process.argv.slice(2)
+    const sawUserFlag = originalArgs.some((a) => a === '--user' || a.startsWith('--user='))
+    if (sawUserFlag) {
+        const ref = getRequestedUserRef()
+        const reportUserFlagError = (message: string, hints: string[]): never => {
+            const err = new CliError('USER_FLAG_INVALID', message, hints)
+            console.error(isJsonMode() ? formatErrorJson(err) : formatError(err))
+            process.exit(1)
+        }
+        if (!ref) {
+            reportUserFlagError('--user requires a value: <id|email>.', [
+                'Example: tw --user me@example.com inbox',
+            ])
+        } else if (Object.hasOwn(commands, ref) || Object.hasOwn(commandAliases, ref)) {
+            reportUserFlagError(
+                `--user requires a value: <id|email>. Got "${ref}", which looks like a subcommand — did you forget the value?`,
+                [`Example: tw --user me@example.com ${ref}`],
+            )
+        }
+    }
+    process.argv = [process.argv[0], process.argv[1], ...stripUserFlag(originalArgs)]
 }
 
 // completion-server needs the command tree to walk for completions.

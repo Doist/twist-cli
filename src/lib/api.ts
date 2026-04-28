@@ -5,7 +5,7 @@ import {
     type Workspace,
     type WorkspaceUser,
 } from '@doist/twist-sdk'
-import { getApiToken } from './auth.js'
+import { resolveActiveAccount } from './auth.js'
 import { getConfig, updateConfig } from './config.js'
 import { CliError, isInsufficientScope } from './errors.js'
 import { ensureWriteAllowed, isMutatingMethod } from './permissions.js'
@@ -237,8 +237,8 @@ export function createWrappedTwistClient(token: string): TwistApi {
 
 export async function getTwistClient(): Promise<TwistApi> {
     if (!apiClient) {
-        const token = await getApiToken()
-        apiClient = createWrappedTwistClient(token)
+        const resolved = await resolveActiveAccount()
+        apiClient = createWrappedTwistClient(resolved.token)
     }
     return apiClient
 }

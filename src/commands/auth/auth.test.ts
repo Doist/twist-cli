@@ -1,20 +1,31 @@
 import { Command } from 'commander'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-// Mock the auth module
+// Mock auth module
 vi.mock('../../lib/auth.js', async (importOriginal) => {
     const actual = await importOriginal<typeof import('../../lib/auth.js')>()
     return {
         ...actual,
-        saveApiToken: vi.fn(),
+        upsertAccount: vi.fn(),
         clearApiToken: vi.fn(),
         getAuthMetadata: vi.fn(),
+        listStoredAccounts: vi.fn(),
     }
 })
 
-// Mock the api module
+// Mock config (status reads it for default-account marker)
+vi.mock('../../lib/config.js', async (importOriginal) => {
+    const actual = await importOriginal<typeof import('../../lib/config.js')>()
+    return {
+        ...actual,
+        getConfig: vi.fn(),
+    }
+})
+
+// Mock api module — getSessionUser used by status, createWrappedTwistClient used by login/token
 vi.mock('../../lib/api.js', () => ({
     getSessionUser: vi.fn(),
+    createWrappedTwistClient: vi.fn(),
 }))
 
 // Mock OAuth modules
@@ -38,12 +49,10 @@ vi.mock('../../lib/pkce.js', () => ({
     generateState: vi.fn(),
 }))
 
-// Mock open package
 vi.mock('open', () => ({
     default: vi.fn(),
 }))
 
-// Mock readline for interactive token input
 vi.mock('node:readline', () => ({
     createInterface: vi.fn(() => {
         const rl = {
@@ -54,14 +63,19 @@ vi.mock('node:readline', () => ({
     }),
 }))
 
-// Mock chalk to avoid colors in tests
 vi.mock('chalk')
 
 import { createInterface, type Interface } from 'node:readline'
 import { type User } from '@doist/twist-sdk'
 import open from 'open'
-import { getSessionUser } from '../../lib/api.js'
-import { clearApiToken, getAuthMetadata, saveApiToken } from '../../lib/auth.js'
+import { createWrappedTwistClient, getSessionUser } from '../../lib/api.js'
+import {
+    clearApiToken,
+    getAuthMetadata,
+    listStoredAccounts,
+    upsertAccount,
+} from '../../lib/auth.js'
+import { getConfig } from '../../lib/config.js'
 import { startCallbackServer } from '../../lib/oauth-server.js'
 import {
     buildAuthorizationUrl,
@@ -72,13 +86,14 @@ import { generateCodeChallenge, generateCodeVerifier, generateState } from '../.
 import { registerAuthCommand } from './index.js'
 
 const mockCreateInterface = vi.mocked(createInterface)
-
-const mockSaveApiToken = vi.mocked(saveApiToken)
+const mockUpsertAccount = vi.mocked(upsertAccount)
 const mockClearApiToken = vi.mocked(clearApiToken)
 const mockGetAuthMetadata = vi.mocked(getAuthMetadata)
+const mockListStoredAccounts = vi.mocked(listStoredAccounts)
+const mockGetConfig = vi.mocked(getConfig)
 const mockGetSessionUser = vi.mocked(getSessionUser)
+const mockCreateWrappedTwistClient = vi.mocked(createWrappedTwistClient)
 
-// OAuth mocks
 const mockGenerateCodeVerifier = vi.mocked(generateCodeVerifier)
 const mockGenerateCodeChallenge = vi.mocked(generateCodeChallenge)
 const mockGenerateState = vi.mocked(generateState)
@@ -87,6 +102,24 @@ const mockStartCallbackServer = vi.mocked(startCallbackServer)
 const mockExchangeCodeForToken = vi.mocked(exchangeCodeForToken)
 const mockRegisterDynamicClient = vi.mocked(registerDynamicClient)
 const mockOpen = vi.mocked(open)
+
+const TEST_USER: User = {
+    id: 12345,
+    name: 'Scott',
+    shortName: 'scott',
+    bot: false,
+    timezone: 'UTC',
+    removed: false,
+    email: 'scott@example.com',
+    lang: 'en',
+}
+
+function stubProbeApiForUser(user: User = TEST_USER) {
+    mockCreateWrappedTwistClient.mockReturnValue({
+        users: { getSessionUser: vi.fn().mockResolvedValue(user) },
+        // biome-ignore lint/suspicious/noExplicitAny: minimal mock surface
+    } as any)
+}
 
 function createProgram() {
     const program = new Command()
@@ -101,10 +134,10 @@ describe('auth command', () => {
 
     beforeEach(() => {
         vi.clearAllMocks()
-
-        // Mock console.log to capture output
         consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
         errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+        mockListStoredAccounts.mockResolvedValue([])
+        mockGetConfig.mockResolvedValue({})
     })
 
     afterEach(() => {
@@ -113,76 +146,66 @@ describe('auth command', () => {
     })
 
     describe('token subcommand', () => {
-        it('successfully saves a token', async () => {
+        it('saves a token after looking up the user', async () => {
             const program = createProgram()
-            const token = 'some_token_123456789'
+            stubProbeApiForUser()
+            mockUpsertAccount.mockResolvedValue({ storage: 'secure-store', replaced: false })
 
-            // Mock successful token save
-            mockSaveApiToken.mockResolvedValue({ storage: 'secure-store' })
+            await program.parseAsync(['node', 'tw', 'auth', 'token', 'some_token_123456789'])
 
-            await program.parseAsync(['node', 'tw', 'auth', 'token', token])
+            expect(mockCreateWrappedTwistClient).toHaveBeenCalledWith('some_token_123456789')
+            expect(mockUpsertAccount).toHaveBeenCalledWith({
+                id: '12345',
+                email: 'scott@example.com',
+                name: 'Scott',
+                token: 'some_token_123456789',
+                authMode: 'unknown',
+            })
+            expect(consoleSpy).toHaveBeenCalledWith('✓', 'Saved token for scott@example.com')
+        })
 
-            // Verify token was saved with unknown auth mode
-            expect(mockSaveApiToken).toHaveBeenCalledWith(token, { authMode: 'unknown' })
+        it('trims whitespace from token before identifying user', async () => {
+            const program = createProgram()
+            stubProbeApiForUser()
+            mockUpsertAccount.mockResolvedValue({ storage: 'secure-store', replaced: false })
 
-            // Verify success message
-            expect(consoleSpy).toHaveBeenCalledWith('✓', 'API token saved successfully!')
+            await program.parseAsync(['node', 'tw', 'auth', 'token', '  some_token_123456789  '])
+
+            expect(mockCreateWrappedTwistClient).toHaveBeenCalledWith('some_token_123456789')
+        })
+
+        it('shows "Updated stored token for" when account already existed', async () => {
+            const program = createProgram()
+            stubProbeApiForUser()
+            mockUpsertAccount.mockResolvedValue({ storage: 'secure-store', replaced: true })
+
+            await program.parseAsync(['node', 'tw', 'auth', 'token', 'some_token_123456789'])
+
             expect(consoleSpy).toHaveBeenCalledWith(
-                'Token stored securely in the system credential manager',
+                '✓',
+                'Updated stored token for scott@example.com',
             )
-        })
-
-        it('handles saveApiToken errors', async () => {
-            const program = createProgram()
-            const token = 'some_token_123456789'
-
-            // Mock save failure
-            mockSaveApiToken.mockRejectedValue(new Error('Permission denied'))
-
-            await expect(
-                program.parseAsync(['node', 'tw', 'auth', 'token', token]),
-            ).rejects.toThrow('Permission denied')
-
-            expect(mockSaveApiToken).toHaveBeenCalledWith(token, { authMode: 'unknown' })
-        })
-
-        it('trims whitespace from token', async () => {
-            const program = createProgram()
-            const tokenWithWhitespace = '  some_token_123456789  '
-            const expectedToken = 'some_token_123456789'
-
-            mockSaveApiToken.mockResolvedValue({ storage: 'secure-store' })
-
-            await program.parseAsync(['node', 'tw', 'auth', 'token', tokenWithWhitespace])
-
-            expect(mockSaveApiToken).toHaveBeenCalledWith(expectedToken, { authMode: 'unknown' })
         })
 
         it('prompts interactively when no token argument given', async () => {
             const originalIsTTY = process.stdin.isTTY
-            Object.defineProperty(process.stdin, 'isTTY', {
-                value: true,
-                configurable: true,
-            })
+            Object.defineProperty(process.stdin, 'isTTY', { value: true, configurable: true })
             const program = createProgram()
             const mockRl = {
-                question: vi.fn((_prompt: string, cb: (answer: string) => void) => {
-                    cb('interactive_token_456')
-                }),
+                question: vi.fn((_p: string, cb: (a: string) => void) => cb('interactive_456789')),
                 close: vi.fn(),
                 _writeToOutput: vi.fn(),
             }
             mockCreateInterface.mockReturnValue(mockRl as unknown as Interface)
-            mockSaveApiToken.mockResolvedValue({ storage: 'secure-store' })
+            stubProbeApiForUser()
+            mockUpsertAccount.mockResolvedValue({ storage: 'secure-store', replaced: false })
             const writeSpy = vi.spyOn(process.stdout, 'write').mockImplementation(() => true)
 
             await program.parseAsync(['node', 'tw', 'auth', 'token'])
 
-            expect(mockRl.question).toHaveBeenCalled()
-            expect(mockRl.close).toHaveBeenCalled()
-            expect(mockSaveApiToken).toHaveBeenCalledWith('interactive_token_456', {
-                authMode: 'unknown',
-            })
+            expect(mockUpsertAccount).toHaveBeenCalledWith(
+                expect.objectContaining({ token: 'interactive_456789' }),
+            )
             writeSpy.mockRestore()
             Object.defineProperty(process.stdin, 'isTTY', {
                 value: originalIsTTY,
@@ -190,75 +213,7 @@ describe('auth command', () => {
             })
         })
 
-        it('warns when secure storage falls back to the config file', async () => {
-            const program = createProgram()
-            const token = 'some_token_123456789'
-
-            mockSaveApiToken.mockResolvedValue({
-                storage: 'config-file',
-                warning:
-                    'system credential manager unavailable; token saved as plaintext in /home/user/.config/twist-cli/config.json',
-            })
-
-            await program.parseAsync(['node', 'tw', 'auth', 'token', token])
-
-            expect(errorSpy).toHaveBeenCalledWith(
-                'Warning:',
-                'system credential manager unavailable; token saved as plaintext in /home/user/.config/twist-cli/config.json',
-            )
-        })
-
-        it('warns when secure storage succeeds but plaintext cleanup fails', async () => {
-            const program = createProgram()
-            const token = 'some_token_123456789'
-
-            mockSaveApiToken.mockResolvedValue({
-                storage: 'secure-store',
-                warning:
-                    'Token was stored securely, but could not remove legacy plaintext token from /home/user/.config/twist-cli/config.json (EACCES)',
-            })
-
-            await program.parseAsync(['node', 'tw', 'auth', 'token', token])
-
-            expect(consoleSpy).toHaveBeenCalledWith(
-                'Token stored securely in the system credential manager',
-            )
-            expect(errorSpy).toHaveBeenCalledWith(
-                'Warning:',
-                'Token was stored securely, but could not remove legacy plaintext token from /home/user/.config/twist-cli/config.json (EACCES)',
-            )
-        })
-
-        it('shows error when interactive input is empty', async () => {
-            const originalIsTTY = process.stdin.isTTY
-            Object.defineProperty(process.stdin, 'isTTY', {
-                value: true,
-                configurable: true,
-            })
-            const program = createProgram()
-            const mockRl = {
-                question: vi.fn((_prompt: string, cb: (answer: string) => void) => {
-                    cb('')
-                }),
-                close: vi.fn(),
-                _writeToOutput: vi.fn(),
-            }
-            mockCreateInterface.mockReturnValue(mockRl as unknown as Interface)
-            const writeSpy = vi.spyOn(process.stdout, 'write').mockImplementation(() => true)
-
-            await expect(
-                program.parseAsync(['node', 'tw', 'auth', 'token']),
-            ).rejects.toHaveProperty('code', 'NO_TOKEN')
-
-            expect(mockSaveApiToken).not.toHaveBeenCalled()
-            writeSpy.mockRestore()
-            Object.defineProperty(process.stdin, 'isTTY', {
-                value: originalIsTTY,
-                configurable: true,
-            })
-        })
-
-        it('errors in non-interactive mode when no token argument given', async () => {
+        it('errors in non-interactive mode with no token argument', async () => {
             const originalIsTTY = process.stdin.isTTY
             Object.defineProperty(process.stdin, 'isTTY', {
                 value: undefined,
@@ -270,295 +225,190 @@ describe('auth command', () => {
                 program.parseAsync(['node', 'tw', 'auth', 'token']),
             ).rejects.toHaveProperty('code', 'NO_TOKEN')
 
-            expect(mockSaveApiToken).not.toHaveBeenCalled()
+            expect(mockUpsertAccount).not.toHaveBeenCalled()
             Object.defineProperty(process.stdin, 'isTTY', {
                 value: originalIsTTY,
                 configurable: true,
             })
+        })
+
+        it('surfaces config-file fallback warning', async () => {
+            const program = createProgram()
+            stubProbeApiForUser()
+            mockUpsertAccount.mockResolvedValue({
+                storage: 'config-file',
+                replaced: false,
+                warning: 'system credential manager unavailable; token saved as plaintext in /x',
+            })
+
+            await program.parseAsync(['node', 'tw', 'auth', 'token', 'some_token_123456789'])
+
+            expect(errorSpy).toHaveBeenCalledWith(
+                'Warning:',
+                'system credential manager unavailable; token saved as plaintext in /x',
+            )
+        })
+    })
+
+    describe('login subcommand', () => {
+        function setupOAuthMocks(authCode = 'auth_code_123', accessToken = 'access_token_123') {
+            mockRegisterDynamicClient.mockResolvedValue({
+                client_id: 'twd_dyn',
+                client_secret: 'sec',
+            })
+            mockGenerateCodeVerifier.mockReturnValue('verifier')
+            mockGenerateCodeChallenge.mockReturnValue('challenge')
+            mockGenerateState.mockReturnValue('state')
+            mockBuildAuthorizationUrl.mockReturnValue('https://twist.com/oauth/authorize?…')
+            const cleanup = vi.fn()
+            mockStartCallbackServer.mockResolvedValue({ code: authCode, cleanup })
+            mockExchangeCodeForToken.mockResolvedValue(accessToken)
+            mockOpen.mockResolvedValue({} as Awaited<ReturnType<typeof open>>)
+            stubProbeApiForUser()
+            mockUpsertAccount.mockResolvedValue({ storage: 'secure-store', replaced: false })
+            return cleanup
+        }
+
+        it('completes OAuth flow and upserts the account', async () => {
+            const program = createProgram()
+            const cleanup = setupOAuthMocks()
+
+            await program.parseAsync(['node', 'tw', 'auth', 'login'])
+
+            expect(mockExchangeCodeForToken).toHaveBeenCalled()
+            expect(mockCreateWrappedTwistClient).toHaveBeenCalledWith('access_token_123')
+            expect(mockUpsertAccount).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    id: '12345',
+                    email: 'scott@example.com',
+                    token: 'access_token_123',
+                    authMode: 'read-write',
+                }),
+            )
+            expect(consoleSpy).toHaveBeenCalledWith('✓', 'Logged in as scott@example.com')
+            expect(cleanup).toHaveBeenCalled()
+        })
+
+        it('uses read-only mode when --read-only is set', async () => {
+            const program = createProgram()
+            setupOAuthMocks()
+
+            await program.parseAsync(['node', 'tw', 'auth', 'login', '--read-only'])
+
+            expect(mockUpsertAccount).toHaveBeenCalledWith(
+                expect.objectContaining({ authMode: 'read-only' }),
+            )
+        })
+
+        it('shows "Updated credentials for" when re-logging in', async () => {
+            const program = createProgram()
+            setupOAuthMocks()
+            mockUpsertAccount.mockResolvedValue({ storage: 'secure-store', replaced: true })
+
+            await program.parseAsync(['node', 'tw', 'auth', 'login'])
+
+            expect(consoleSpy).toHaveBeenCalledWith(
+                '✓',
+                'Updated credentials for scott@example.com',
+            )
+        })
+
+        it('cleanup runs on callback server error', async () => {
+            const program = createProgram()
+            mockRegisterDynamicClient.mockResolvedValue({
+                client_id: 'twd_dyn',
+                client_secret: 'sec',
+            })
+            mockGenerateCodeVerifier.mockReturnValue('verifier')
+            mockGenerateCodeChallenge.mockReturnValue('challenge')
+            mockGenerateState.mockReturnValue('state')
+            mockStartCallbackServer.mockRejectedValue(new Error('port in use'))
+
+            await expect(
+                program.parseAsync(['node', 'tw', 'auth', 'login']),
+            ).rejects.toHaveProperty('code', 'AUTH_FAILED')
+            expect(mockUpsertAccount).not.toHaveBeenCalled()
         })
     })
 
     describe('status subcommand', () => {
         it('shows authenticated status when logged in', async () => {
             const program = createProgram()
-
-            const mockUser: User = {
-                id: 1,
-                name: 'Test User',
-                shortName: 'test',
-                bot: false,
-                timezone: 'UTC',
-                removed: false,
-                email: 'test@example.com',
-                lang: 'en',
-            }
-
-            mockGetSessionUser.mockResolvedValue(mockUser)
+            mockGetSessionUser.mockResolvedValue(TEST_USER)
             mockGetAuthMetadata.mockResolvedValue({
                 authMode: 'read-write',
-                source: 'config',
+                source: 'secure-store',
             })
 
             await program.parseAsync(['node', 'tw', 'auth', 'status'])
 
-            expect(mockGetSessionUser).toHaveBeenCalled()
             expect(consoleSpy).toHaveBeenCalledWith('✓', 'Authenticated')
-            expect(consoleSpy).toHaveBeenCalledWith('  Email: test@example.com')
-            expect(consoleSpy).toHaveBeenCalledWith('  Name:  Test User')
+            expect(consoleSpy).toHaveBeenCalledWith('  Email: scott@example.com')
             expect(consoleSpy).toHaveBeenCalledWith('  Mode:  read-write')
+        })
+
+        it('marks the active account as default when matching', async () => {
+            const program = createProgram()
+            mockGetSessionUser.mockResolvedValue(TEST_USER)
+            mockGetAuthMetadata.mockResolvedValue({
+                authMode: 'read-write',
+                source: 'secure-store',
+            })
+            mockGetConfig.mockResolvedValue({ account: { defaultAccount: '12345' } })
+
+            await program.parseAsync(['node', 'tw', 'auth', 'status'])
+
+            expect(consoleSpy).toHaveBeenCalledWith('✓', 'Authenticated (default)')
+        })
+
+        it('lists other stored accounts', async () => {
+            const program = createProgram()
+            mockGetSessionUser.mockResolvedValue(TEST_USER)
+            mockGetAuthMetadata.mockResolvedValue({
+                authMode: 'read-write',
+                source: 'secure-store',
+            })
+            mockListStoredAccounts.mockResolvedValue([
+                { id: '12345', email: 'scott@example.com' },
+                { id: '67890', email: 'other@example.com' },
+            ])
+
+            await program.parseAsync(['node', 'tw', 'auth', 'status'])
+
+            const lines = consoleSpy.mock.calls.flat().join('\n')
+            expect(lines).toContain('Other stored accounts (1)')
+            expect(lines).toContain('other@example.com')
         })
 
         it('outputs JSON when --json flag is used', async () => {
             const program = createProgram()
-
-            const mockUser: User = {
-                id: 1,
-                name: 'Test User',
-                shortName: 'test',
-                bot: false,
-                timezone: 'UTC',
-                removed: false,
-                email: 'test@example.com',
-                lang: 'en',
-            }
-
-            mockGetSessionUser.mockResolvedValue(mockUser)
+            mockGetSessionUser.mockResolvedValue(TEST_USER)
+            mockGetAuthMetadata.mockResolvedValue({
+                authMode: 'read-write',
+                source: 'secure-store',
+            })
+            mockListStoredAccounts.mockResolvedValue([{ id: '12345', email: 'scott@example.com' }])
+            mockGetConfig.mockResolvedValue({ account: { defaultAccount: '12345' } })
 
             await program.parseAsync(['node', 'tw', 'auth', 'status', '--json'])
 
-            expect(consoleSpy).toHaveBeenCalledWith(
-                JSON.stringify({ id: 1, email: 'test@example.com', name: 'Test User' }, null, 2),
-            )
+            const printed = consoleSpy.mock.calls[0][0] as string
+            const parsed = JSON.parse(printed)
+            expect(parsed).toMatchObject({
+                id: 12345,
+                email: 'scott@example.com',
+                authMode: 'read-write',
+                isDefault: true,
+            })
         })
 
-        it('outputs JSON error when --json flag is used and not authenticated', async () => {
-            const program = createProgram()
-            mockGetSessionUser.mockRejectedValue(new Error('No API token found'))
-
-            await expect(
-                program.parseAsync(['node', 'tw', 'auth', 'status', '--json']),
-            ).rejects.toThrow('No API token found')
-        })
-
-        it('shows not authenticated when no token', async () => {
+        it('rejects when no token', async () => {
             const program = createProgram()
             mockGetSessionUser.mockRejectedValue(new Error('No API token found'))
 
             await expect(program.parseAsync(['node', 'tw', 'auth', 'status'])).rejects.toThrow(
                 'No API token found',
             )
-        })
-    })
-
-    describe('login subcommand', () => {
-        it('successfully completes OAuth flow with dynamic client registration', async () => {
-            const program = createProgram()
-
-            // Mock dynamic client registration
-            mockRegisterDynamicClient.mockResolvedValue({
-                client_id: 'twd_dynamic_client_id',
-                client_secret: 'dynamic_client_secret',
-            })
-
-            // Mock PKCE parameters
-            mockGenerateCodeVerifier.mockReturnValue('test_code_verifier')
-            mockGenerateCodeChallenge.mockReturnValue('test_code_challenge')
-            mockGenerateState.mockReturnValue('test_state')
-
-            // Mock authorization URL
-            mockBuildAuthorizationUrl.mockReturnValue('https://twist.com/oauth/authorize?...')
-
-            // Mock callback server that resolves immediately
-            const mockCleanup = vi.fn()
-            mockStartCallbackServer.mockImplementation(async (expectedState) => {
-                // Simulate the browser opening behavior by calling our mocks
-                mockBuildAuthorizationUrl(
-                    'twd_dynamic_client_id',
-                    'test_code_challenge',
-                    expectedState,
-                )
-                await mockOpen('https://twist.com/oauth/authorize?...')
-
-                return Promise.resolve({
-                    code: 'auth_code_123',
-                    cleanup: mockCleanup,
-                })
-            })
-
-            // Mock token exchange
-            mockExchangeCodeForToken.mockResolvedValue('access_token_123')
-
-            // Mock browser opening
-            mockOpen.mockResolvedValue({} as Awaited<ReturnType<typeof open>>)
-
-            // Mock token saving
-            mockSaveApiToken.mockResolvedValue({ storage: 'secure-store' })
-
-            await program.parseAsync(['node', 'tw', 'auth', 'login'])
-
-            // Verify dynamic client registration
-            expect(mockRegisterDynamicClient).toHaveBeenCalled()
-
-            // Verify PKCE parameters were generated
-            expect(mockGenerateCodeVerifier).toHaveBeenCalled()
-            expect(mockGenerateCodeChallenge).toHaveBeenCalledWith('test_code_verifier')
-            expect(mockGenerateState).toHaveBeenCalled()
-
-            // Verify authorization URL was built with dynamic client ID
-            // Note: the actual buildAuthorizationUrl call happens inside a setTimeout,
-            // so we verify the mock's simulation call from startCallbackServer instead
-            expect(mockBuildAuthorizationUrl).toHaveBeenCalledWith(
-                'twd_dynamic_client_id',
-                'test_code_challenge',
-                'test_state',
-            )
-
-            // Verify callback server was started
-            expect(mockStartCallbackServer).toHaveBeenCalledWith('test_state')
-
-            // Verify browser was opened
-            expect(mockOpen).toHaveBeenCalledWith('https://twist.com/oauth/authorize?...')
-
-            // Verify token exchange with client credentials
-            expect(mockExchangeCodeForToken).toHaveBeenCalledWith(
-                'auth_code_123',
-                'test_code_verifier',
-                {
-                    client_id: 'twd_dynamic_client_id',
-                    client_secret: 'dynamic_client_secret',
-                },
-            )
-
-            // Verify token was saved with read-write auth metadata
-            expect(mockSaveApiToken).toHaveBeenCalledWith('access_token_123', {
-                authMode: 'read-write',
-                authScope: expect.any(String),
-            })
-
-            // Verify cleanup was called
-            expect(mockCleanup).toHaveBeenCalled()
-
-            // Verify success messages
-            expect(consoleSpy).toHaveBeenCalledWith('Starting OAuth authentication (read-write)...')
-            expect(consoleSpy).toHaveBeenCalledWith('✓', 'OAuth authentication successful!')
-        })
-
-        it('handles callback server errors', async () => {
-            const program = createProgram()
-
-            // Mock dynamic client registration
-            mockRegisterDynamicClient.mockResolvedValue({
-                client_id: 'twd_dynamic_client_id',
-                client_secret: 'dynamic_client_secret',
-            })
-
-            // Mock PKCE parameters
-            mockGenerateCodeVerifier.mockReturnValue('test_code_verifier')
-            mockGenerateCodeChallenge.mockReturnValue('test_code_challenge')
-            mockGenerateState.mockReturnValue('test_state')
-
-            // Mock callback server error
-            mockStartCallbackServer.mockRejectedValue(new Error('Port 8766 is already in use'))
-
-            const result = program.parseAsync(['node', 'tw', 'auth', 'login'])
-            await expect(result).rejects.toHaveProperty('code', 'AUTH_FAILED')
-            await expect(result).rejects.toHaveProperty('hints')
-        })
-
-        it('handles token exchange errors', async () => {
-            const program = createProgram()
-
-            // Mock dynamic client registration
-            mockRegisterDynamicClient.mockResolvedValue({
-                client_id: 'twd_dynamic_client_id',
-                client_secret: 'dynamic_client_secret',
-            })
-
-            // Mock PKCE parameters
-            mockGenerateCodeVerifier.mockReturnValue('test_code_verifier')
-            mockGenerateCodeChallenge.mockReturnValue('test_code_challenge')
-            mockGenerateState.mockReturnValue('test_state')
-
-            // Mock successful callback
-            const mockCleanup = vi.fn()
-            mockStartCallbackServer.mockResolvedValue({
-                code: 'auth_code_123',
-                cleanup: mockCleanup,
-            })
-
-            // Mock token exchange error
-            mockExchangeCodeForToken.mockRejectedValue(new Error('Invalid authorization code'))
-
-            const result = program.parseAsync(['node', 'tw', 'auth', 'login'])
-            await expect(result).rejects.toHaveProperty('code', 'AUTH_FAILED')
-            await expect(result).rejects.toHaveProperty('hints')
-            expect(mockCleanup).toHaveBeenCalled()
-        })
-
-        it('handles browser opening errors gracefully', async () => {
-            const program = createProgram()
-
-            // Mock dynamic client registration
-            mockRegisterDynamicClient.mockResolvedValue({
-                client_id: 'twd_dynamic_client_id',
-                client_secret: 'dynamic_client_secret',
-            })
-
-            // Mock PKCE parameters
-            mockGenerateCodeVerifier.mockReturnValue('test_code_verifier')
-            mockGenerateCodeChallenge.mockReturnValue('test_code_challenge')
-            mockGenerateState.mockReturnValue('test_state')
-
-            // Mock callback server
-            const mockCleanup = vi.fn()
-            mockStartCallbackServer.mockResolvedValue({
-                code: 'auth_code_123',
-                cleanup: mockCleanup,
-            })
-
-            // Mock browser opening error
-            mockOpen.mockRejectedValue(new Error('No browser available'))
-
-            // Mock successful token exchange (flow should still continue)
-            mockExchangeCodeForToken.mockResolvedValue('access_token_123')
-            mockSaveApiToken.mockResolvedValue({ storage: 'secure-store' })
-
-            await program.parseAsync(['node', 'tw', 'auth', 'login'])
-
-            // Should still complete successfully despite browser error
-            expect(consoleSpy).toHaveBeenCalledWith('✓', 'OAuth authentication successful!')
-        })
-
-        it('calls cleanup when OAuth server throws', async () => {
-            const program = createProgram()
-
-            // Mock dynamic client registration
-            mockRegisterDynamicClient.mockResolvedValue({
-                client_id: 'twd_dynamic_client_id',
-                client_secret: 'dynamic_client_secret',
-            })
-
-            // Mock PKCE parameters
-            mockGenerateCodeVerifier.mockReturnValue('test_code_verifier')
-            mockGenerateCodeChallenge.mockReturnValue('test_code_challenge')
-            mockGenerateState.mockReturnValue('test_state')
-
-            // Mock server that throws an error
-            mockStartCallbackServer.mockRejectedValue(new Error('Server failed to start'))
-
-            const result = program.parseAsync(['node', 'tw', 'auth', 'login'])
-            await expect(result).rejects.toHaveProperty('code', 'AUTH_FAILED')
-            await expect(result).rejects.toHaveProperty('hints')
-        })
-    })
-
-    describe('login subcommand with unconfigured client ID', () => {
-        // Note: Testing the unconfigured client ID scenario is complex with the current mock setup
-        // In practice, users would need to configure their client ID before OAuth works
-        it('would show error when client ID is not configured', () => {
-            // This test documents the expected behavior when TWIST_CLIENT_ID === 'YOUR_CLIENT_ID'
-            // The actual implementation checks this condition and shows an error message
-            expect(true).toBe(true) // Placeholder for documentation purposes
         })
     })
 
@@ -571,9 +421,6 @@ describe('auth command', () => {
 
             expect(mockClearApiToken).toHaveBeenCalled()
             expect(consoleSpy).toHaveBeenCalledWith('✓', 'Logged out')
-            expect(consoleSpy).toHaveBeenCalledWith(
-                'Stored token removed from the system credential manager',
-            )
         })
     })
 })

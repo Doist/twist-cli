@@ -8,17 +8,33 @@ export const CONFIG_PATH = join(homedir(), '.config', 'twist-cli', 'config.json'
 export type AuthMode = 'read-only' | 'read-write' | 'unknown'
 export type UpdateChannel = 'stable' | 'pre-release'
 
+export const CONFIG_VERSION = 2 as const
+
 const KNOWN_CONFIG_KEYS: ReadonlySet<string> = new Set([
-    'token',
-    'pendingSecureStoreClear',
+    'configVersion',
+    'account',
+    'accounts',
     'currentWorkspace',
-    'authMode',
-    'authScope',
     'updateChannel',
     'userSettings',
+    // Legacy v1 keys — tolerated until migration runs (postinstall + lazy fallback).
+    'token',
+    'pendingSecureStoreClear',
+    'authMode',
+    'authScope',
 ])
 
 const KNOWN_USER_SETTINGS_KEYS: ReadonlySet<string> = new Set(['unarchiveNewThreads'])
+const KNOWN_ACCOUNT_CONFIG_KEYS: ReadonlySet<string> = new Set(['defaultAccount'])
+const KNOWN_STORED_ACCOUNT_KEYS: ReadonlySet<string> = new Set([
+    'id',
+    'email',
+    'name',
+    'authMode',
+    'authScope',
+    'token',
+    'pendingSecureStoreClear',
+])
 
 const AUTH_MODES: ReadonlySet<AuthMode> = new Set(['read-only', 'read-write', 'unknown'])
 const UPDATE_CHANNELS: ReadonlySet<UpdateChannel> = new Set(['stable', 'pre-release'])
@@ -27,17 +43,44 @@ export interface UserSettings {
     unarchiveNewThreads?: boolean
 }
 
-export interface Config {
-    // Legacy plaintext token storage retained for migration and secure-store fallback only.
-    token?: string
-    // Non-secret state used to finish logout after transient secure-store failures.
-    pendingSecureStoreClear?: boolean
-    currentWorkspace?: number
-    // Auth metadata persisted alongside the token to track OAuth scope.
+export interface AccountConfig {
+    /** Twist user id of the default account, used when --user is not given. */
+    defaultAccount?: string
+}
+
+/**
+ * Per-account record stored in `config.accounts`. Each entry represents one
+ * authenticated Twist user identity. The token itself lives in the OS
+ * credential manager under account `user-<id>`; `token` only appears here
+ * when the credential manager was unavailable at save time (plaintext fallback).
+ */
+export interface StoredAccount {
+    id: string
+    email: string
+    name?: string
     authMode?: AuthMode
     authScope?: string
+    token?: string
+    pendingSecureStoreClear?: boolean
+}
+
+export interface Config {
+    /** Schema marker — present on v2+ configs. Absent on legacy v1 installs. */
+    configVersion?: number
+    /** Selection state — which stored account is the default. */
+    account?: AccountConfig
+    /** All authenticated Twist accounts. */
+    accounts?: StoredAccount[]
+
+    currentWorkspace?: number
     updateChannel?: UpdateChannel
     userSettings?: UserSettings
+
+    // ---- Legacy v1 fields, read for one-time migration ----
+    token?: string
+    pendingSecureStoreClear?: boolean
+    authMode?: AuthMode
+    authScope?: string
 }
 
 export async function getConfig(): Promise<Config> {
@@ -122,6 +165,77 @@ export function validateConfigForDoctor(config: Record<string, unknown>): string
         }
     }
 
+    if (
+        config.configVersion !== undefined &&
+        (typeof config.configVersion !== 'number' || config.configVersion < 1)
+    ) {
+        issues.push('configVersion must be a positive number')
+    }
+
+    if (config.account !== undefined) {
+        if (!isObject(config.account)) {
+            issues.push('account must be an object')
+        } else {
+            for (const key of Object.keys(config.account)) {
+                if (!KNOWN_ACCOUNT_CONFIG_KEYS.has(key)) {
+                    issues.push(`account contains unrecognized key "${key}"`)
+                }
+            }
+            const defaultAccount = (config.account as Record<string, unknown>).defaultAccount
+            if (defaultAccount !== undefined && typeof defaultAccount !== 'string') {
+                issues.push('account.defaultAccount must be a string')
+            }
+        }
+    }
+
+    if (config.accounts !== undefined) {
+        if (!Array.isArray(config.accounts)) {
+            issues.push('accounts must be an array')
+        } else {
+            for (const [i, entry] of config.accounts.entries()) {
+                if (!isObject(entry)) {
+                    issues.push(`accounts[${i}] must be an object`)
+                    continue
+                }
+                for (const key of Object.keys(entry)) {
+                    if (!KNOWN_STORED_ACCOUNT_KEYS.has(key)) {
+                        issues.push(`accounts[${i}] contains unrecognized key "${key}"`)
+                    }
+                }
+                if (typeof entry.id !== 'string' || !entry.id) {
+                    issues.push(`accounts[${i}].id must be a non-empty string`)
+                }
+                if (typeof entry.email !== 'string' || !entry.email) {
+                    issues.push(`accounts[${i}].email must be a non-empty string`)
+                }
+                if (entry.name !== undefined && typeof entry.name !== 'string') {
+                    issues.push(`accounts[${i}].name must be a string`)
+                }
+                if (
+                    entry.authMode !== undefined &&
+                    (typeof entry.authMode !== 'string' ||
+                        !AUTH_MODES.has(entry.authMode as AuthMode))
+                ) {
+                    issues.push(
+                        `accounts[${i}].authMode must be one of: read-only, read-write, unknown`,
+                    )
+                }
+                if (entry.authScope !== undefined && typeof entry.authScope !== 'string') {
+                    issues.push(`accounts[${i}].authScope must be a string`)
+                }
+                if (entry.token !== undefined && typeof entry.token !== 'string') {
+                    issues.push(`accounts[${i}].token must be a string`)
+                }
+                if (
+                    entry.pendingSecureStoreClear !== undefined &&
+                    typeof entry.pendingSecureStoreClear !== 'boolean'
+                ) {
+                    issues.push(`accounts[${i}].pendingSecureStoreClear must be a boolean`)
+                }
+            }
+        }
+    }
+
     if (config.token !== undefined && typeof config.token !== 'string') {
         issues.push('token must be a string')
     }
@@ -161,11 +275,7 @@ export function validateConfigForDoctor(config: Record<string, unknown>): string
 
     if (config.userSettings !== undefined) {
         const userSettings = config.userSettings
-        if (
-            userSettings === null ||
-            typeof userSettings !== 'object' ||
-            Array.isArray(userSettings)
-        ) {
+        if (!isObject(userSettings)) {
             issues.push('userSettings must be an object')
         } else {
             const settingsRecord = userSettings as Record<string, unknown>
@@ -184,6 +294,10 @@ export function validateConfigForDoctor(config: Record<string, unknown>): string
     }
 
     return issues
+}
+
+function isObject(value: unknown): value is Record<string, unknown> {
+    return value !== null && typeof value === 'object' && !Array.isArray(value)
 }
 
 export function getConfigPath(): string {

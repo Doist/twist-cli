@@ -14,7 +14,7 @@ describe('permissions', () => {
         mockGetAuthMetadata.mockResolvedValue({
             authMode: 'read-only',
             authScope: 'user:read workspaces:read',
-            source: 'config',
+            source: 'config-file',
         })
 
         await expect(ensureWriteAllowed()).rejects.toThrow(READ_ONLY_ERROR_MESSAGE)
@@ -23,7 +23,7 @@ describe('permissions', () => {
     it('allows writes in read-write mode', async () => {
         mockGetAuthMetadata.mockResolvedValue({
             authMode: 'read-write',
-            source: 'config',
+            source: 'config-file',
         })
 
         await expect(ensureWriteAllowed()).resolves.toBeUndefined()

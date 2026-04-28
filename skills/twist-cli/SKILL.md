@@ -34,6 +34,20 @@ Stored auth uses the system credential manager when available. If secure storage
 
 In read-only mode (`tw auth login --read-only`), commands that modify Twist data (reply, archive, react, delete, etc.) are blocked by the CLI. Externally provided tokens (`TWIST_API_TOKEN` or `tw auth token`) are treated as unknown scope and assumed write-capable.
 
+## Multi-account
+
+The CLI can hold credentials for multiple Twist accounts at once.
+
+```bash
+tw auth login                       # adds the account; first one becomes default
+tw account list                     # all stored accounts (with default marker)
+tw account use <id|email>           # set the default account
+tw --user <id|email> inbox          # one-off override for any command
+tw auth logout --user <id|email>    # log out a specific account
+```
+
+Resolution order: `--user <ref>` > `account.defaultAccount` from config > the only stored account. With multiple accounts and no default, commands error and ask for `--user` (or `tw account use`). `<ref>` matches an exact id or email (case-insensitive on email). `TWIST_API_TOKEN` still bypasses the resolver entirely.
+
 ## View by URL
 
 ```bash
