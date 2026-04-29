@@ -100,6 +100,8 @@ tw auth logout   # remove saved token
 ```bash
 tw inbox                           # inbox threads
 tw inbox --unread                  # unread threads only
+tw mentions                        # content mentioning you
+tw mentions --since 2026-04-01 --all --json
 tw thread view <ref>               # view thread with comments
 tw thread view <ref> --comment 123 # view a specific comment
 tw thread reply <ref>              # reply to a thread
@@ -109,6 +111,7 @@ tw conversation unread             # list unread conversations
 tw conversation view <ref>         # view conversation messages
 tw msg view <ref>                  # view a conversation message
 tw search "keyword"                # search across workspace
+tw search "keyword" --all          # fetch all result pages
 tw react thread <ref> 👍          # add reaction
 tw away                            # show away status
 tw away set vacation 2026-03-20    # set away until date

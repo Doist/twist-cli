@@ -31,16 +31,16 @@ vi.mock('../lib/search-api.js', () => searchApiMocks)
 
 vi.mock('chalk')
 
-import { registerSearchCommand } from './search.js'
+import { registerMentionsCommand } from './mentions.js'
 
 function createProgram() {
     const program = new Command()
     program.exitOverride()
-    registerSearchCommand(program)
+    registerMentionsCommand(program)
     return program
 }
 
-describe('search --workspace conflict', () => {
+describe('mentions', () => {
     beforeEach(() => {
         vi.clearAllMocks()
         refsMocks.resolveWorkspaceRef.mockResolvedValue({ id: 1, name: 'Doist' })
@@ -55,39 +55,22 @@ describe('search --workspace conflict', () => {
         const program = createProgram()
 
         await expect(
-            program.parseAsync(['node', 'tw', 'search', 'query', 'Doist', '--workspace', 'Other']),
+            program.parseAsync(['node', 'tw', 'mentions', 'Doist', '--workspace', 'Other']),
         ).rejects.toThrow('Cannot specify workspace both as argument and --workspace flag')
     })
 
-    it('parses channel and conversation refs using resolvers', async () => {
-        refsMocks.resolveChannelId.mockImplementation((ref: string) => {
-            if (ref === 'id:10') return 10
-            if (ref === 'https://twist.com/a/1/ch/20') return 20
-            throw new Error('Unexpected channel ref')
-        })
-        refsMocks.resolveConversationId.mockImplementation((ref: string) => {
-            if (ref === 'id:30') return 30
-            if (ref === 'https://twist.com/a/1/msg/40') return 40
-            throw new Error('Unexpected conversation ref')
-        })
-
+    it('searches using mentionSelf without a query', async () => {
         const program = createProgram()
         const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
-        await program.parseAsync([
-            'node',
-            'tw',
-            'search',
-            'query',
-            '--channel',
-            'id:10,https://twist.com/a/1/ch/20',
-            '--conversation',
-            'id:30,https://twist.com/a/1/msg/40',
-        ])
+
+        await program.parseAsync(['node', 'tw', 'mentions'])
 
         expect(searchApiMocks.extendedSearch).toHaveBeenCalledWith(
             expect.objectContaining({
-                channelIds: [10, 20],
-                conversationIds: [30, 40],
+                workspaceId: 1,
+                mentionSelf: true,
+                query: undefined,
+                title: undefined,
             }),
         )
 
@@ -111,22 +94,52 @@ describe('search --workspace conflict', () => {
         const program = createProgram()
         const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
 
-        await program.parseAsync(['node', 'tw', 'search', 'query', '--all'])
+        await program.parseAsync(['node', 'tw', 'mentions', '--all'])
 
         expect(searchApiMocks.extendedSearch).toHaveBeenNthCalledWith(
             1,
             expect.objectContaining({
-                query: 'query',
+                mentionSelf: true,
                 cursor: undefined,
             }),
         )
         expect(searchApiMocks.extendedSearch).toHaveBeenNthCalledWith(
             2,
             expect.objectContaining({
-                query: 'query',
+                mentionSelf: true,
                 cursor: 'cursor-1',
             }),
         )
+
+        logSpy.mockRestore()
+    })
+
+    it('emits an empty JSON payload when no mentions match', async () => {
+        const program = createProgram()
+        const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+        await program.parseAsync(['node', 'tw', 'mentions', '--json'])
+
+        expect(logSpy).toHaveBeenCalledTimes(1)
+        expect(JSON.parse(logSpy.mock.calls[0][0])).toEqual({
+            results: [],
+            nextCursor: null,
+        })
+
+        logSpy.mockRestore()
+    })
+
+    it('emits NDJSON metadata when no mentions match', async () => {
+        const program = createProgram()
+        const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+        await program.parseAsync(['node', 'tw', 'mentions', '--ndjson'])
+
+        expect(logSpy).toHaveBeenCalledTimes(1)
+        expect(JSON.parse(logSpy.mock.calls[0][0])).toEqual({
+            _meta: true,
+            nextCursor: null,
+        })
 
         logSpy.mockRestore()
     })
