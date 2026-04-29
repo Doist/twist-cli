@@ -39,7 +39,7 @@ function resolveNumericRefs(
     })
 }
 
-export type SearchCommandOptions = PaginatedViewOptions & {
+export type SharedSearchOptions = PaginatedViewOptions & {
     workspace?: string
     channel?: string
     author?: string
@@ -50,13 +50,13 @@ export type SearchCommandOptions = PaginatedViewOptions & {
     all?: boolean
 }
 
-type SearchRequestOptions = SearchCommandOptions & {
+type SearchRequestOptions = SharedSearchOptions & {
     query?: string
     title?: string
     mentionSelf?: boolean
 }
 
-export interface SearchCommandResult {
+interface SearchRunResult {
     workspaceId: number
     response: ExtendedSearchResponse
 }
@@ -195,10 +195,10 @@ async function filterVisibleSearchResults(
     }
 }
 
-export async function runSearchCommand(
+export async function runSearch(
     workspaceRef: string | undefined,
     options: SearchRequestOptions,
-): Promise<SearchCommandResult> {
+): Promise<SearchRunResult> {
     const workspaceId = await resolveWorkspaceId(workspaceRef, options.workspace)
     const params = await buildSearchParams(workspaceId, options)
     const response = await fetchSearchPages(params, options.all)
@@ -239,9 +239,9 @@ function buildSearchResultUrl(
     return `https://twist.com/a/${workspaceId}`
 }
 
-type SearchOutputOptions = Pick<SearchCommandOptions, 'all' | 'json' | 'ndjson' | 'full'>
+type SearchOutputOptions = Pick<SharedSearchOptions, 'all' | 'json' | 'ndjson' | 'full'>
 
-export function printSearchCommandResults(
+export function printSearchResults(
     workspaceId: number,
     response: ExtendedSearchResponse,
     options: SearchOutputOptions,

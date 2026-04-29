@@ -1,12 +1,12 @@
 import { Command } from 'commander'
 import {
     addSharedSearchOptions,
-    printSearchCommandResults,
-    runSearchCommand,
-    type SearchCommandOptions,
-} from '../lib/search-command.js'
+    printSearchResults,
+    runSearch,
+    type SharedSearchOptions,
+} from '../lib/search-helpers.js'
 
-type SearchOptions = SearchCommandOptions & {
+type SearchOptions = SharedSearchOptions & {
     titleOnly?: boolean
     mentionMe?: boolean
 }
@@ -16,13 +16,13 @@ async function search(
     workspaceRef: string | undefined,
     options: SearchOptions,
 ): Promise<void> {
-    const { workspaceId, response } = await runSearchCommand(workspaceRef, {
+    const { workspaceId, response } = await runSearch(workspaceRef, {
         ...options,
         query: options.titleOnly ? undefined : query,
         title: options.titleOnly ? query : undefined,
         mentionSelf: options.mentionMe,
     })
-    printSearchCommandResults(workspaceId, response, options)
+    printSearchResults(workspaceId, response, options)
 }
 
 export function registerSearchCommand(program: Command): void {

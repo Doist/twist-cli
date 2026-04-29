@@ -1,21 +1,21 @@
 import { Command } from 'commander'
 import {
     addSharedSearchOptions,
-    printSearchCommandResults,
-    runSearchCommand,
-    type SearchCommandOptions,
-} from '../lib/search-command.js'
+    printSearchResults,
+    runSearch,
+    type SharedSearchOptions,
+} from '../lib/search-helpers.js'
 
 async function mentions(
     workspaceRef: string | undefined,
-    options: SearchCommandOptions,
+    options: SharedSearchOptions,
 ): Promise<void> {
-    const { workspaceId, response } = await runSearchCommand(workspaceRef, {
+    const { workspaceId, response } = await runSearch(workspaceRef, {
         ...options,
         mentionSelf: true,
     })
 
-    printSearchCommandResults(workspaceId, response, options)
+    printSearchResults(workspaceId, response, options)
 }
 
 export function registerMentionsCommand(program: Command): void {
