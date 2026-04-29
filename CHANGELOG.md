@@ -1,3 +1,9 @@
+## [2.35.0](https://github.com/Doist/twist-cli/compare/v2.34.0...v2.35.0) (2026-04-29)
+
+### Features
+
+- add mentions command and search pagination ([#197](https://github.com/Doist/twist-cli/issues/197)) ([0fe72bf](https://github.com/Doist/twist-cli/commit/0fe72bf7bf80bf4627df29f6c1ba9d1df61fb6c1))
+
 ## [2.34.0](https://github.com/Doist/twist-cli/compare/v2.33.0...v2.34.0) (2026-04-27)
 
 ### Features
