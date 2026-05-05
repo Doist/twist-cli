@@ -1,3 +1,9 @@
+## [2.35.1](https://github.com/Doist/twist-cli/compare/v2.35.0...v2.35.1) (2026-05-05)
+
+### Bug Fixes
+
+- **deps:** update dependency @doist/twist-sdk to v2.5.0 ([#200](https://github.com/Doist/twist-cli/issues/200)) ([639f200](https://github.com/Doist/twist-cli/commit/639f200ff329cc6eda22696dcbc41cecc8c41f42))
+
 ## [2.35.0](https://github.com/Doist/twist-cli/compare/v2.34.0...v2.35.0) (2026-04-29)
 
 ### Features
