@@ -213,6 +213,21 @@ tw groups                        # List workspace groups
 tw groups --search "frontend"    # Filter groups by name (case-insensitive)
 tw groups --json                 # JSON output
 tw groups --json --full          # Include all fields in JSON output
+tw groups view <group-ref>       # Show group with member details
+tw groups view <ref> --json      # JSON output with id, name, workspaceId, members
+tw groups view <ref> --json --full  # Include all fields in JSON output
+tw groups create "Name"          # Create a new group
+tw groups create "Name" --users alice@doist.com,bob@doist.com  # Create with members
+tw groups create "Name" --json   # Output created group as JSON
+tw groups rename <group-ref> "New name"  # Rename a group
+tw groups rename <ref> "Name" --json     # Output renamed group as JSON
+tw groups delete <group-ref> --yes       # Delete a group (requires --yes)
+tw groups delete <ref> --dry-run         # Preview deletion
+tw groups add-user <group-ref> user1 user2   # Add users to a group
+tw groups add-user <ref> a@d.com,b@d.com     # Comma-separated refs
+tw groups add-user <ref> id:123 --json       # Output result as JSON
+tw groups remove-user <group-ref> user1 user2  # Remove users from a group
+tw groups remove-user <ref> id:123,id:456      # Comma-separated ID refs
 \`\`\`
 
 If a channel is not found in \`tw channels\`, widen with broader listings such as \`tw channels --scope public\`, then \`tw channels --scope public --state all\`. Check \`tw channels --help\` for other available filters.

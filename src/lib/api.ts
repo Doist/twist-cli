@@ -77,6 +77,12 @@ const API_SPINNER_MESSAGES: Record<string, { text: string; color?: 'blue' | 'gre
 
         // Group operations
         'groups.getGroups': { text: 'Loading groups...', color: 'blue' },
+        'groups.getGroup': { text: 'Loading group...', color: 'blue' },
+        'groups.createGroup': { text: 'Creating group...', color: 'green' },
+        'groups.updateGroup': { text: 'Updating group...', color: 'yellow' },
+        'groups.deleteGroup': { text: 'Deleting group...', color: 'yellow' },
+        'groups.addUsers': { text: 'Adding users to group...', color: 'green' },
+        'groups.removeUsers': { text: 'Removing users from group...', color: 'yellow' },
 
         // Inbox operations
         'inbox.getInbox': { text: 'Loading inbox...', color: 'blue' },
@@ -298,6 +304,40 @@ export async function getWorkspaceUsers(workspaceId: number): Promise<WorkspaceU
 export async function getWorkspaceGroups(workspaceId: number): Promise<Group[]> {
     const client = await getTwistClient()
     return client.groups.getGroups(workspaceId)
+}
+
+export async function getGroup(id: number): Promise<Group> {
+    const client = await getTwistClient()
+    return client.groups.getGroup(id)
+}
+
+export async function createGroup(args: {
+    workspaceId: number
+    name: string
+    userIds?: number[]
+}): Promise<Group> {
+    const client = await getTwistClient()
+    return client.groups.createGroup(args)
+}
+
+export async function updateGroup(args: { id: number; name?: string }): Promise<Group> {
+    const client = await getTwistClient()
+    return client.groups.updateGroup(args)
+}
+
+export async function deleteGroup(id: number): Promise<void> {
+    const client = await getTwistClient()
+    await client.groups.deleteGroup(id)
+}
+
+export async function addUsersToGroup(id: number, userIds: number[]): Promise<void> {
+    const client = await getTwistClient()
+    await client.groups.addUsers({ id, userIds })
+}
+
+export async function removeUsersFromGroup(id: number, userIds: number[]): Promise<void> {
+    const client = await getTwistClient()
+    await client.groups.removeUsers({ id, userIds })
 }
 
 export function clearUserCache(): void {

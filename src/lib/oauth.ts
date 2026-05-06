@@ -27,6 +27,8 @@ export const READ_WRITE_SCOPES = [
     'reactions:read', // Read reactions
     'reactions:write', // Add reactions
     'groups:read', // Read group information
+    'groups:write', // Create and update groups; add users
+    'groups:remove', // Delete groups; remove users from groups
     'search:read', // Search functionality
     'notifications:read', // Read notifications
 ].join(' ')
