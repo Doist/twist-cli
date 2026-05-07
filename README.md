@@ -116,6 +116,14 @@ tw react thread <ref> 👍          # add reaction
 tw away                            # show away status
 tw away set vacation 2026-03-20    # set away until date
 tw away clear                      # clear away status
+tw groups                          # list groups in a workspace
+tw groups view <ref>               # show a group with members
+tw groups create "Frontend"        # create a group
+tw groups create "FE" --users alice@doist.com,bob@doist.com
+tw groups rename <ref> "New name"  # rename a group
+tw groups delete <ref> --yes       # delete a group
+tw groups add-user <ref> alice@doist.com bob@doist.com
+tw groups remove-user <ref> id:123,id:456
 ```
 
 References accept IDs (`123` or `id:123`), Twist URLs, or fuzzy names (for workspaces/users).

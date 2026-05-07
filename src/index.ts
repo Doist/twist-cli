@@ -35,7 +35,8 @@ const loadUpdateCommand = async () =>
     (await import('./commands/update/index.js')).registerUpdateCommand
 const loadChangelogCommand = async () =>
     (await import('./commands/changelog.js')).registerChangelogCommand
-const loadGroupsCommand = async () => (await import('./commands/groups.js')).registerGroupsCommand
+const loadGroupsCommand = async () =>
+    (await import('./commands/groups/index.js')).registerGroupsCommand
 const loadDoctorCommand = async () => (await import('./commands/doctor.js')).registerDoctorCommand
 const loadConfigCommand = async () =>
     (await import('./commands/config/index.js')).registerConfigCommand
@@ -63,7 +64,10 @@ const commands: Record<string, [string, () => Promise<(p: Command) => void>]> = 
     update: ['Update the CLI to the latest version for the configured channel', loadUpdateCommand],
     changelog: ['Show recent changelog entries', loadChangelogCommand],
     doctor: ['Diagnose common CLI setup and environment issues', loadDoctorCommand],
-    groups: ['List groups in a workspace', loadGroupsCommand],
+    groups: [
+        'Group operations (list, view, create, rename, delete, add-user, remove-user)',
+        loadGroupsCommand,
+    ],
     config: ['Manage CLI configuration', loadConfigCommand],
 }
 

@@ -1,13 +1,15 @@
-import { Command } from 'commander'
-import { getCurrentWorkspaceId, getWorkspaceGroups } from '../lib/api.js'
-import { CliError } from '../lib/errors.js'
-import type { ViewOptions } from '../lib/options.js'
-import { colors, formatJson, formatNdjson, pluralize } from '../lib/output.js'
-import { resolveWorkspaceRef } from '../lib/refs.js'
+import { getCurrentWorkspaceId, getWorkspaceGroups } from '../../lib/api.js'
+import { CliError } from '../../lib/errors.js'
+import type { ViewOptions } from '../../lib/options.js'
+import { colors, formatJson, formatNdjson, pluralize } from '../../lib/output.js'
+import { resolveWorkspaceRef } from '../../lib/refs.js'
 
-type GroupsOptions = ViewOptions & { workspace?: string; search?: string }
+export type ListGroupsOptions = ViewOptions & { workspace?: string; search?: string }
 
-async function listGroups(workspaceRef: string | undefined, options: GroupsOptions): Promise<void> {
+export async function listGroups(
+    workspaceRef: string | undefined,
+    options: ListGroupsOptions,
+): Promise<void> {
     if (workspaceRef && options.workspace) {
         throw new CliError(
             'CONFLICTING_OPTIONS',
@@ -55,16 +57,4 @@ async function listGroups(workspaceRef: string | undefined, options: GroupsOptio
         )
         console.log(`${id}  ${name}  ${members}`)
     }
-}
-
-export function registerGroupsCommand(program: Command): void {
-    program
-        .command('groups [workspace-ref]')
-        .description('List groups in a workspace')
-        .option('--workspace <ref>', 'Workspace ID or name')
-        .option('--search <text>', 'Filter by name')
-        .option('--json', 'Output as JSON')
-        .option('--ndjson', 'Output as newline-delimited JSON')
-        .option('--full', 'Include all fields in JSON output')
-        .action(listGroups)
 }

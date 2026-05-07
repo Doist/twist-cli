@@ -4,12 +4,16 @@ const apiMocks = vi.hoisted(() => ({
     getTwistClient: vi.fn(),
     fetchWorkspaces: vi.fn(),
     getWorkspaceUsers: vi.fn(),
+    getWorkspaceGroups: vi.fn(),
+    getGroup: vi.fn(),
 }))
 
 vi.mock('./api.js', () => ({
     getTwistClient: apiMocks.getTwistClient,
     fetchWorkspaces: apiMocks.fetchWorkspaces,
     getWorkspaceUsers: apiMocks.getWorkspaceUsers,
+    getWorkspaceGroups: apiMocks.getWorkspaceGroups,
+    getGroup: apiMocks.getGroup,
 }))
 
 import {
@@ -24,8 +28,10 @@ import {
     resolveChannelRef,
     resolveCommentId,
     resolveConversationId,
+    resolveGroupRef,
     resolveMessageId,
     resolveThreadId,
+    resolveUserRefs,
 } from './refs.js'
 
 describe('isIdRef', () => {
@@ -392,5 +398,116 @@ describe('classifyTwistUrl', () => {
 
     it('returns null for invalid string', () => {
         expect(classifyTwistUrl('not-a-url')).toBeNull()
+    })
+})
+
+describe('resolveGroupRef', () => {
+    const sampleGroups = [
+        { id: 100, name: 'Frontend', workspaceId: 1, userIds: [1, 2], description: '', version: 1 },
+        { id: 200, name: 'Backend', workspaceId: 1, userIds: [3], description: '', version: 1 },
+        {
+            id: 300,
+            name: 'Frontend Leads',
+            workspaceId: 1,
+            userIds: [1],
+            description: '',
+            version: 1,
+        },
+    ]
+
+    beforeEach(() => {
+        vi.clearAllMocks()
+        apiMocks.getWorkspaceGroups.mockResolvedValue(sampleGroups)
+        apiMocks.getGroup.mockImplementation(async (id: number) => {
+            const group = sampleGroups.find((g) => g.id === id)
+            if (!group) throw new Error(`Group ${id} not found`)
+            return group
+        })
+    })
+
+    it('resolves by numeric ID via getGroup', async () => {
+        const group = await resolveGroupRef('100', 1)
+        expect(group.id).toBe(100)
+        expect(group.name).toBe('Frontend')
+        // Should use getGroup, not getWorkspaceGroups
+        expect(apiMocks.getGroup).toHaveBeenCalledWith(100)
+        expect(apiMocks.getWorkspaceGroups).not.toHaveBeenCalled()
+    })
+
+    it('resolves by id: prefix via getGroup', async () => {
+        const group = await resolveGroupRef('id:200', 1)
+        expect(group.id).toBe(200)
+        expect(apiMocks.getGroup).toHaveBeenCalledWith(200)
+    })
+
+    it('throws GROUP_NOT_FOUND for missing ID', async () => {
+        apiMocks.getGroup.mockRejectedValue(new Error('Not found'))
+        await expect(resolveGroupRef('id:999', 1)).rejects.toMatchObject({
+            code: 'GROUP_NOT_FOUND',
+        })
+    })
+
+    it('throws GROUP_NOT_FOUND when group belongs to different workspace', async () => {
+        apiMocks.getGroup.mockResolvedValue({ ...sampleGroups[0], workspaceId: 999 })
+        await expect(resolveGroupRef('id:100', 1)).rejects.toMatchObject({
+            code: 'GROUP_NOT_FOUND',
+        })
+    })
+
+    it('resolves by exact name (case-insensitive)', async () => {
+        const group = await resolveGroupRef('frontend', 1)
+        expect(group.id).toBe(100)
+    })
+
+    it('resolves by unique name substring', async () => {
+        const group = await resolveGroupRef('Back', 1)
+        expect(group.id).toBe(200)
+    })
+
+    it('throws AMBIGUOUS_GROUP when name matches multiple groups', async () => {
+        await expect(resolveGroupRef('Front', 1)).rejects.toMatchObject({
+            code: 'AMBIGUOUS_GROUP',
+        })
+    })
+
+    it('throws GROUP_NOT_FOUND when name matches nothing', async () => {
+        await expect(resolveGroupRef('Marketing', 1)).rejects.toMatchObject({
+            code: 'GROUP_NOT_FOUND',
+        })
+    })
+})
+
+describe('resolveUserRefs', () => {
+    const sampleUsers = [
+        { id: 1, name: 'Alice Smith', email: 'alice@doist.com' },
+        { id: 2, name: 'Bob Jones', email: 'bob@doist.com' },
+        { id: 3, name: 'Carol Smith', email: 'carol@doist.com' },
+    ]
+
+    beforeEach(() => {
+        vi.clearAllMocks()
+        apiMocks.getWorkspaceUsers.mockResolvedValue(sampleUsers)
+    })
+
+    it('resolves a single id: ref', async () => {
+        const ids = await resolveUserRefs('id:42', 1)
+        expect(ids).toEqual([42])
+    })
+
+    it('resolves comma-separated mixed refs', async () => {
+        const ids = await resolveUserRefs('id:1, bob@doist.com', 1)
+        expect(ids).toEqual([1, 2])
+    })
+
+    it('throws AMBIGUOUS_USER when name matches multiple', async () => {
+        await expect(resolveUserRefs('Smith', 1)).rejects.toMatchObject({
+            code: 'AMBIGUOUS_USER',
+        })
+    })
+
+    it('throws USER_NOT_FOUND for unknown name', async () => {
+        await expect(resolveUserRefs('nobody', 1)).rejects.toMatchObject({
+            code: 'USER_NOT_FOUND',
+        })
     })
 })

@@ -25,13 +25,17 @@ export type ErrorCode =
     | 'MISSING_CONTENT'
     | 'MISSING_YES_FLAG'
     | 'UNKNOWN_KEY'
+    | 'INVALID_NAME'
+    | 'MISSING_USERS'
     // Not found
     | 'CHANNEL_NOT_FOUND'
+    | 'GROUP_NOT_FOUND'
     | 'NOT_FOUND'
     | 'USER_NOT_FOUND'
     | 'WORKSPACE_NOT_FOUND'
     // Ambiguous matches
     | 'AMBIGUOUS_CHANNEL'
+    | 'AMBIGUOUS_GROUP'
     | 'AMBIGUOUS_USER'
     | 'AMBIGUOUS_WORKSPACE'
     // State errors

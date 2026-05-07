@@ -1,6 +1,6 @@
-import type { Channel, Workspace } from '@doist/twist-sdk'
-import { fetchWorkspaces, getTwistClient } from './api.js'
-import { CliError } from './errors.js'
+import type { Channel, Group, Workspace } from '@doist/twist-sdk'
+import { fetchWorkspaces, getGroup, getWorkspaceGroups, getTwistClient } from './api.js'
+import { CliError, type ErrorCode } from './errors.js'
 
 function normalizeRef(ref: string): string {
     return ref.trim()
@@ -108,6 +108,38 @@ export function parseRef(
     return { type: 'name', name: normalized }
 }
 
+/**
+ * Match an entity by name: exact (case-insensitive) → unique substring → ambiguous/not-found.
+ */
+function matchByName<T extends { id: number; name: string }>(
+    items: T[],
+    query: string,
+    opts: {
+        ambiguousCode: ErrorCode
+        notFoundCode: ErrorCode
+        ref: string
+        listHint: string
+    },
+): T {
+    const lower = query.toLowerCase()
+    const exact = items.find((item) => item.name.toLowerCase() === lower)
+    if (exact) return exact
+
+    const partial = items.filter((item) => item.name.toLowerCase().includes(lower))
+    if (partial.length === 1) return partial[0]
+    if (partial.length > 1) {
+        const matches = partial
+            .slice(0, 5)
+            .map((item) => `"${item.name}" (id:${item.id})`)
+            .join(', ')
+        throw new CliError(opts.ambiguousCode, `Multiple matches for "${opts.ref}": ${matches}`, [
+            'Use the numeric ID (e.g. id:123) to specify exactly which one.',
+        ])
+    }
+
+    throw new CliError(opts.notFoundCode, `"${opts.ref}" not found`, [opts.listHint])
+}
+
 export async function resolveWorkspaceRef(ref: string): Promise<Workspace> {
     const workspaces = await fetchWorkspaces()
     const parsed = parseRef(ref)
@@ -135,22 +167,12 @@ export async function resolveWorkspaceRef(ref: string): Promise<Workspace> {
     }
 
     if (parsed.type === 'name') {
-        const lower = parsed.name.toLowerCase()
-        const exact = workspaces.find((w) => w.name.toLowerCase() === lower)
-        if (exact) return exact
-
-        const partial = workspaces.filter((w) => w.name.toLowerCase().includes(lower))
-        if (partial.length === 1) return partial[0]
-        if (partial.length > 1) {
-            const matches = partial
-                .slice(0, 5)
-                .map((w) => `"${w.name}" (id:${w.id})`)
-                .join(', ')
-            throw new CliError(
-                'AMBIGUOUS_WORKSPACE',
-                `Multiple workspaces match "${ref}": ${matches}`,
-            )
-        }
+        return matchByName(workspaces, parsed.name, {
+            ambiguousCode: 'AMBIGUOUS_WORKSPACE',
+            notFoundCode: 'WORKSPACE_NOT_FOUND',
+            ref,
+            listHint: 'Run: tw workspaces to list available workspaces',
+        })
     }
 
     throw new CliError('WORKSPACE_NOT_FOUND', `Workspace "${ref}" not found`, [
@@ -209,19 +231,12 @@ export async function resolveChannelRef(ref: string, workspaceId: number): Promi
 
     if (parsed.type === 'name') {
         const channels = await client.channels.getChannels({ workspaceId })
-        const lower = parsed.name.toLowerCase()
-        const exact = channels.find((c) => c.name.toLowerCase() === lower)
-        if (exact) return exact
-
-        const partial = channels.filter((c) => c.name.toLowerCase().includes(lower))
-        if (partial.length === 1) return partial[0]
-        if (partial.length > 1) {
-            const matches = partial
-                .slice(0, 5)
-                .map((c) => `"${c.name}" (id:${c.id})`)
-                .join(', ')
-            throw new CliError('AMBIGUOUS_CHANNEL', `Multiple channels match "${ref}": ${matches}`)
-        }
+        return matchByName(channels, parsed.name, {
+            ambiguousCode: 'AMBIGUOUS_CHANNEL',
+            notFoundCode: 'CHANNEL_NOT_FOUND',
+            ref,
+            listHint: 'Run: tw channels to list available channels',
+        })
     }
 
     throw new CliError('CHANNEL_NOT_FOUND', `Channel "${ref}" not found`, [
@@ -345,6 +360,42 @@ export function parseUserIdRefs(refs: string): number[] {
             )
         }
     })
+}
+
+export async function resolveGroupRef(ref: string, workspaceId: number): Promise<Group> {
+    const parsed = parseRef(ref)
+
+    if (parsed.type === 'id') {
+        try {
+            const group = await getGroup(parsed.id)
+            if (group.workspaceId !== workspaceId) {
+                throw new CliError(
+                    'GROUP_NOT_FOUND',
+                    `Group ${parsed.id} does not belong to workspace ${workspaceId}`,
+                )
+            }
+            return group
+        } catch (error) {
+            if (error instanceof CliError) throw error
+            throw new CliError('GROUP_NOT_FOUND', `Group with ID ${parsed.id} not found`, [
+                'Run: tw groups to list available groups',
+            ])
+        }
+    }
+
+    if (parsed.type === 'name') {
+        const groups = await getWorkspaceGroups(workspaceId)
+        return matchByName(groups, parsed.name, {
+            ambiguousCode: 'AMBIGUOUS_GROUP',
+            notFoundCode: 'GROUP_NOT_FOUND',
+            ref,
+            listHint: 'Run: tw groups to list available groups',
+        })
+    }
+
+    throw new CliError('GROUP_NOT_FOUND', `Group "${ref}" not found`, [
+        'Run: tw groups to list available groups',
+    ])
 }
 
 export async function resolveUserRefs(refs: string, workspaceId: number): Promise<number[]> {
