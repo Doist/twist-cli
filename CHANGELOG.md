@@ -1,3 +1,9 @@
+## [2.36.0](https://github.com/Doist/twist-cli/compare/v2.35.2...v2.36.0) (2026-05-07)
+
+### Features
+
+- **groups:** add membership and CRUD subcommands ([#202](https://github.com/Doist/twist-cli/issues/202)) ([a8e56f0](https://github.com/Doist/twist-cli/commit/a8e56f0d6e691a37d6b50f2489d8303d2de29247))
+
 ## [2.35.2](https://github.com/Doist/twist-cli/compare/v2.35.1...v2.35.2) (2026-05-06)
 
 ### Bug Fixes
