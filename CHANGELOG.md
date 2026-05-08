@@ -1,3 +1,9 @@
+## [2.36.2](https://github.com/Doist/twist-cli/compare/v2.36.1...v2.36.2) (2026-05-08)
+
+### Bug Fixes
+
+- emit empty JSON/NDJSON when inbox/unread results empty ([#205](https://github.com/Doist/twist-cli/issues/205)) ([bde7cdc](https://github.com/Doist/twist-cli/commit/bde7cdc48b1701814e5a555ea91e73680f8be6c6))
+
 ## [2.36.1](https://github.com/Doist/twist-cli/compare/v2.36.0...v2.36.1) (2026-05-08)
 
 ### Bug Fixes
