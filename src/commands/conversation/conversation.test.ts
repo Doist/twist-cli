@@ -1,6 +1,7 @@
 import { Command } from 'commander'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { CliError } from '../../lib/errors.js'
+import { describeEmptyMachineOutput } from '../../test-helpers/empty-output.js'
 
 const apiMocks = vi.hoisted(() => ({
     getTwistClient: vi.fn(),
@@ -228,42 +229,18 @@ describe('conversation unread --workspace conflict', () => {
     })
 })
 
-describe('conversation unread empty output', () => {
-    let logSpy: ReturnType<typeof vi.spyOn>
-
-    beforeEach(() => {
+describeEmptyMachineOutput('conversation unread empty output', {
+    setup: () => {
         vi.clearAllMocks()
         const client = createClient({})
         client.conversations.getUnread = vi.fn().mockResolvedValue([])
         apiMocks.getTwistClient.mockResolvedValue(client)
-        logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
-    })
-
-    it('outputs [] for --json when there are no unread conversations', async () => {
+    },
+    run: async (extraArgs) => {
         const program = createProgram()
-        await program.parseAsync(['node', 'tw', 'conversation', 'unread', '--json'])
-
-        const output = logSpy.mock.calls.map((c: unknown[]) => c[0]).join('\n')
-        expect(output.trim()).toBe('[]')
-        expect(output).not.toContain('No unread conversations')
-    })
-
-    it('outputs nothing for --ndjson when there are no unread conversations', async () => {
-        const program = createProgram()
-        await program.parseAsync(['node', 'tw', 'conversation', 'unread', '--ndjson'])
-
-        // Must not call console.log at all — `console.log('')` still emits a
-        // stray newline and would break strict NDJSON consumers.
-        expect(logSpy).not.toHaveBeenCalled()
-    })
-
-    it('still prints human message when --json/--ndjson not set', async () => {
-        const program = createProgram()
-        await program.parseAsync(['node', 'tw', 'conversation', 'unread'])
-
-        const output = logSpy.mock.calls.map((c: unknown[]) => c[0]).join('\n')
-        expect(output).toContain('No unread conversations.')
-    })
+        await program.parseAsync(['node', 'tw', 'conversation', 'unread', ...extraArgs])
+    },
+    humanMessage: 'No unread conversations.',
 })
 
 describe('conversation with', () => {
