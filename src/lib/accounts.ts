@@ -115,3 +115,15 @@ export function removeStoredAccount(config: Config, id: string): Config {
 export function setDefaultAccount(config: Config, id: string): Config {
     return { ...config, account: { ...config.account, defaultAccount: id } }
 }
+
+/**
+ * Patch a single stored account in-place. No-op if no account matches `id`.
+ */
+export function updateStoredAccount(
+    config: Config,
+    id: string,
+    patch: Partial<StoredAccount>,
+): Config {
+    const accounts = getStoredAccounts(config).map((a) => (a.id === id ? { ...a, ...patch } : a))
+    return { ...config, accounts }
+}

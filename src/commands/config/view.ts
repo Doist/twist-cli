@@ -1,4 +1,5 @@
 import chalk from 'chalk'
+import { getDefaultAccount, getStoredAccounts } from '../../lib/accounts.js'
 import {
     type AuthProbeMetadata,
     NoTokenError,
@@ -104,7 +105,13 @@ function formatConfigView(
     lines.push('')
 
     lines.push(chalk.bold('Workspace'))
-    lines.push(`  Current:       ${formatValue(config.currentWorkspace)}`)
+    const accounts = getStoredAccounts(config)
+    const activeAccount = getDefaultAccount(config) ?? (accounts.length === 1 ? accounts[0] : null)
+    // currentWorkspace lives per-account on v2+ configs; fall back to the
+    // legacy top-level field so the view stays useful during the lazy
+    // migration window (cleared on the next workspace lookup).
+    const currentWorkspace = activeAccount?.currentWorkspace ?? config.currentWorkspace
+    lines.push(`  Current:       ${formatValue(currentWorkspace)}`)
     lines.push('')
 
     lines.push(chalk.bold('Updates'))

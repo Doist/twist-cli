@@ -5,8 +5,9 @@ import {
     type Workspace,
     type WorkspaceUser,
 } from '@doist/twist-sdk'
+import { getStoredAccounts, updateStoredAccount } from './accounts.js'
 import { resolveActiveAccount } from './auth.js'
-import { getConfig, updateConfig } from './config.js'
+import { type Config, getConfig, setConfig } from './config.js'
 import { CliError, isInsufficientScope } from './errors.js'
 import { ensureWriteAllowed, isMutatingMethod } from './permissions.js'
 import { getProgressTracker } from './progress.js'
@@ -264,27 +265,92 @@ export async function getCurrentWorkspaceId(flagValue?: number): Promise<number>
         return flagValue
     }
 
-    const config = await getConfig()
-    if (config.currentWorkspace) {
-        return config.currentWorkspace
+    const resolved = await resolveActiveAccount()
+
+    // Env-token flow has no persistent slot to write into; resolve the
+    // workspace freshly from the API each call.
+    if (resolved.id === 'env') {
+        const sessionUser = await getSessionUser()
+        if (sessionUser.defaultWorkspace) return sessionUser.defaultWorkspace
+        return firstWorkspaceId()
+    }
+
+    let config = await getConfig()
+
+    // One-shot migration: legacy installs stored a single `currentWorkspace`
+    // at the top level. Move it onto the default-or-only account so that
+    // `tw --user <other>` doesn't try to use someone else's workspace.
+    const migrated = migrateLegacyCurrentWorkspace(config)
+    if (migrated !== config) {
+        await setConfig(migrated)
+        config = migrated
+    }
+
+    const account = getStoredAccounts(config).find((a) => a.id === resolved.id)
+    if (account?.currentWorkspace) {
+        return account.currentWorkspace
     }
 
     const sessionUser = await getSessionUser()
     if (sessionUser.defaultWorkspace) {
-        await updateConfig({ currentWorkspace: sessionUser.defaultWorkspace })
+        await persistAccountWorkspace(resolved.id, sessionUser.defaultWorkspace)
         return sessionUser.defaultWorkspace
     }
 
+    const id = await firstWorkspaceId()
+    await persistAccountWorkspace(resolved.id, id)
+    return id
+}
+
+async function firstWorkspaceId(): Promise<number> {
     const workspaces = await fetchWorkspaces()
     if (workspaces.length === 0) {
         throw new CliError('NOT_FOUND', 'No workspaces found for this user', [
             'Ensure your account has been added to a workspace',
         ])
     }
+    return workspaces[0].id
+}
 
-    const defaultWorkspace = workspaces[0]
-    await updateConfig({ currentWorkspace: defaultWorkspace.id })
-    return defaultWorkspace.id
+async function persistAccountWorkspace(accountId: string, workspaceId: number): Promise<void> {
+    const config = await getConfig()
+    await setConfig(updateStoredAccount(config, accountId, { currentWorkspace: workspaceId }))
+}
+
+function migrateLegacyCurrentWorkspace(config: Config): Config {
+    if (typeof config.currentWorkspace !== 'number') return config
+    const accounts = getStoredAccounts(config)
+    if (accounts.length === 0) {
+        // No accounts to attach to yet — strip the orphan so it stops being
+        // surfaced by `tw doctor` and friends.
+        const { currentWorkspace: _drop, ...rest } = config
+        return rest
+    }
+    const targetId =
+        config.account?.defaultAccount ?? (accounts.length === 1 ? accounts[0].id : undefined)
+    if (!targetId) {
+        // Multiple accounts and no default — we can't guess whose workspace
+        // this was. Drop it; `getCurrentWorkspaceId` will re-derive per
+        // account on next call.
+        const { currentWorkspace: _drop, ...rest } = config
+        return rest
+    }
+    const next = accounts.map((a) =>
+        a.id === targetId && a.currentWorkspace === undefined
+            ? { ...a, currentWorkspace: config.currentWorkspace }
+            : a,
+    )
+    const { currentWorkspace: _drop, ...rest } = config
+    return { ...rest, accounts: next }
+}
+
+/**
+ * Persist the active account's workspace selection. Used by `tw workspace use`.
+ */
+export async function setActiveAccountWorkspace(workspaceId: number): Promise<void> {
+    const resolved = await resolveActiveAccount()
+    if (resolved.id === 'env') return
+    await persistAccountWorkspace(resolved.id, workspaceId)
 }
 
 export async function getSessionUser(): Promise<User> {

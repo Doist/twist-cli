@@ -14,7 +14,6 @@ const KNOWN_CONFIG_KEYS: ReadonlySet<string> = new Set([
     'configVersion',
     'account',
     'accounts',
-    'currentWorkspace',
     'updateChannel',
     'userSettings',
     // Legacy v1 keys — tolerated until migration runs (postinstall + lazy fallback).
@@ -22,6 +21,7 @@ const KNOWN_CONFIG_KEYS: ReadonlySet<string> = new Set([
     'pendingSecureStoreClear',
     'authMode',
     'authScope',
+    'currentWorkspace',
 ])
 
 const KNOWN_USER_SETTINGS_KEYS: ReadonlySet<string> = new Set(['unarchiveNewThreads'])
@@ -34,6 +34,7 @@ const KNOWN_STORED_ACCOUNT_KEYS: ReadonlySet<string> = new Set([
     'authScope',
     'token',
     'pendingSecureStoreClear',
+    'currentWorkspace',
 ])
 
 const AUTH_MODES: ReadonlySet<AuthMode> = new Set(['read-only', 'read-write', 'unknown'])
@@ -62,6 +63,12 @@ export interface StoredAccount {
     authScope?: string
     token?: string
     pendingSecureStoreClear?: boolean
+    /**
+     * Twist workspace id this account is currently scoped to. Per-account so
+     * that `tw --user <other> ...` doesn't try to use the previous account's
+     * workspace (which the other account may not be a member of).
+     */
+    currentWorkspace?: number
 }
 
 export interface Config {
@@ -72,7 +79,6 @@ export interface Config {
     /** All authenticated Twist accounts. */
     accounts?: StoredAccount[]
 
-    currentWorkspace?: number
     updateChannel?: UpdateChannel
     userSettings?: UserSettings
 
@@ -81,6 +87,12 @@ export interface Config {
     pendingSecureStoreClear?: boolean
     authMode?: AuthMode
     authScope?: string
+    /**
+     * Legacy: pre-multi-account installs stored a single workspace id at the
+     * top level. Migrated onto the default account on first read; never
+     * written by current code.
+     */
+    currentWorkspace?: number
 }
 
 export async function getConfig(): Promise<Config> {
@@ -231,6 +243,13 @@ export function validateConfigForDoctor(config: Record<string, unknown>): string
                     typeof entry.pendingSecureStoreClear !== 'boolean'
                 ) {
                     issues.push(`accounts[${i}].pendingSecureStoreClear must be a boolean`)
+                }
+                if (
+                    entry.currentWorkspace !== undefined &&
+                    (!Number.isInteger(entry.currentWorkspace) ||
+                        Number(entry.currentWorkspace) <= 0)
+                ) {
+                    issues.push(`accounts[${i}].currentWorkspace must be a positive integer`)
                 }
             }
         }

@@ -7,7 +7,8 @@ const apiMocks = vi.hoisted(() => ({
     getCurrentWorkspaceId: vi.fn(),
 }))
 
-vi.mock('../lib/api.js', () => ({
+vi.mock('../lib/api.js', async (importOriginal) => ({
+    ...(await importOriginal<typeof import('../lib/api.js')>()),
     getTwistClient: apiMocks.getTwistClient,
     getCurrentWorkspaceId: apiMocks.getCurrentWorkspaceId,
 }))

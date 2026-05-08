@@ -1,7 +1,6 @@
 import chalk from 'chalk'
 import { Command } from 'commander'
-import { fetchWorkspaces, getCurrentWorkspaceId } from '../lib/api.js'
-import { updateConfig } from '../lib/config.js'
+import { fetchWorkspaces, getCurrentWorkspaceId, setActiveAccountWorkspace } from '../lib/api.js'
 import type { ViewOptions } from '../lib/options.js'
 import { colors, formatJson, formatNdjson, printEmpty } from '../lib/output.js'
 import { resolveWorkspaceRef } from '../lib/refs.js'
@@ -39,7 +38,7 @@ async function listWorkspaces(options: ListOptions): Promise<void> {
 
 async function useWorkspace(ref: string): Promise<void> {
     const workspace = await resolveWorkspaceRef(ref)
-    await updateConfig({ currentWorkspace: workspace.id })
+    await setActiveAccountWorkspace(workspace.id)
     console.log(`Switched to workspace: ${workspace.name}`)
 }
 
