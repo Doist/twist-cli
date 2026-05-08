@@ -2,7 +2,7 @@ import chalk from 'chalk'
 import { getCurrentWorkspaceId, getTwistClient } from '../../lib/api.js'
 import { CliError } from '../../lib/errors.js'
 import { isAccessible } from '../../lib/global-args.js'
-import { colors, formatJson, formatNdjson } from '../../lib/output.js'
+import { colors, formatJson, formatNdjson, printEmpty } from '../../lib/output.js'
 import { resolveWorkspaceRef } from '../../lib/refs.js'
 import type { UnreadOptions } from './helpers.js'
 
@@ -31,15 +31,7 @@ export async function showUnread(
     const unreadConversations = await client.conversations.getUnread(workspaceId)
 
     if (unreadConversations.length === 0) {
-        if (options.json) {
-            console.log(formatJson([], 'conversation', options.full))
-            return
-        }
-        if (options.ndjson) {
-            console.log(formatNdjson([], 'conversation', options.full))
-            return
-        }
-        console.log('No unread conversations.')
+        printEmpty(options, 'conversation', 'No unread conversations.')
         return
     }
 

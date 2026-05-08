@@ -1,7 +1,7 @@
 import { getCurrentWorkspaceId, getWorkspaceGroups } from '../../lib/api.js'
 import { CliError } from '../../lib/errors.js'
 import type { ViewOptions } from '../../lib/options.js'
-import { colors, formatJson, formatNdjson, pluralize } from '../../lib/output.js'
+import { colors, formatJson, formatNdjson, pluralize, printEmpty } from '../../lib/output.js'
 import { resolveWorkspaceRef } from '../../lib/refs.js'
 
 export type ListGroupsOptions = ViewOptions & { workspace?: string; search?: string }
@@ -34,6 +34,11 @@ export async function listGroups(
         groups = groups.filter((g) => g.name.toLowerCase().includes(query))
     }
 
+    if (groups.length === 0) {
+        printEmpty(options, 'group', 'No groups found.')
+        return
+    }
+
     if (options.json) {
         console.log(formatJson(groups, 'group', options.full))
         return
@@ -41,11 +46,6 @@ export async function listGroups(
 
     if (options.ndjson) {
         console.log(formatNdjson(groups, 'group', options.full))
-        return
-    }
-
-    if (groups.length === 0) {
-        console.log('No groups found.')
         return
     }
 

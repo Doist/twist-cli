@@ -252,9 +252,9 @@ describe('conversation unread empty output', () => {
         const program = createProgram()
         await program.parseAsync(['node', 'tw', 'conversation', 'unread', '--ndjson'])
 
-        const output = logSpy.mock.calls.map((c: unknown[]) => c[0]).join('\n')
-        expect(output.trim()).toBe('')
-        expect(output).not.toContain('No unread conversations')
+        // Must not call console.log at all — `console.log('')` still emits a
+        // stray newline and would break strict NDJSON consumers.
+        expect(logSpy).not.toHaveBeenCalled()
     })
 
     it('still prints human message when --json/--ndjson not set', async () => {
