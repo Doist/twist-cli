@@ -31,6 +31,14 @@ export async function showUnread(
     const unreadConversations = await client.conversations.getUnread(workspaceId)
 
     if (unreadConversations.length === 0) {
+        if (options.json) {
+            console.log(formatJson([], 'conversation', options.full))
+            return
+        }
+        if (options.ndjson) {
+            console.log(formatNdjson([], 'conversation', options.full))
+            return
+        }
         console.log('No unread conversations.')
         return
     }

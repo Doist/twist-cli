@@ -228,6 +228,44 @@ describe('conversation unread --workspace conflict', () => {
     })
 })
 
+describe('conversation unread empty output', () => {
+    let logSpy: ReturnType<typeof vi.spyOn>
+
+    beforeEach(() => {
+        vi.clearAllMocks()
+        const client = createClient({})
+        client.conversations.getUnread = vi.fn().mockResolvedValue([])
+        apiMocks.getTwistClient.mockResolvedValue(client)
+        logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+    })
+
+    it('outputs [] for --json when there are no unread conversations', async () => {
+        const program = createProgram()
+        await program.parseAsync(['node', 'tw', 'conversation', 'unread', '--json'])
+
+        const output = logSpy.mock.calls.map((c: unknown[]) => c[0]).join('\n')
+        expect(output.trim()).toBe('[]')
+        expect(output).not.toContain('No unread conversations')
+    })
+
+    it('outputs nothing for --ndjson when there are no unread conversations', async () => {
+        const program = createProgram()
+        await program.parseAsync(['node', 'tw', 'conversation', 'unread', '--ndjson'])
+
+        const output = logSpy.mock.calls.map((c: unknown[]) => c[0]).join('\n')
+        expect(output.trim()).toBe('')
+        expect(output).not.toContain('No unread conversations')
+    })
+
+    it('still prints human message when --json/--ndjson not set', async () => {
+        const program = createProgram()
+        await program.parseAsync(['node', 'tw', 'conversation', 'unread'])
+
+        const output = logSpy.mock.calls.map((c: unknown[]) => c[0]).join('\n')
+        expect(output).toContain('No unread conversations.')
+    })
+})
+
 describe('conversation with', () => {
     beforeEach(() => {
         vi.clearAllMocks()

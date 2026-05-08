@@ -64,6 +64,14 @@ async function showInbox(workspaceRef: string | undefined, options: InboxOptions
     }
 
     if (inboxThreads.length === 0) {
+        if (options.json) {
+            console.log(formatJson([], 'thread', options.full))
+            return
+        }
+        if (options.ndjson) {
+            console.log(formatNdjson([], 'thread', options.full))
+            return
+        }
         console.log('No threads in inbox.')
         return
     }
@@ -78,6 +86,14 @@ async function showInbox(workspaceRef: string | undefined, options: InboxOptions
         inboxThreads = inboxThreads.filter((t) => publicIds.has(t.channelId))
 
         if (inboxThreads.length === 0) {
+            if (options.json) {
+                console.log(formatJson([], 'thread', options.full))
+                return
+            }
+            if (options.ndjson) {
+                console.log(formatNdjson([], 'thread', options.full))
+                return
+            }
             console.log('No threads in public channels.')
             return
         }
@@ -93,6 +109,14 @@ async function showInbox(workspaceRef: string | undefined, options: InboxOptions
         inboxThreads = inboxThreads.filter((t) => matchingChannelIds.has(t.channelId))
 
         if (inboxThreads.length === 0) {
+            if (options.json) {
+                console.log(formatJson([], 'thread', options.full))
+                return
+            }
+            if (options.ndjson) {
+                console.log(formatNdjson([], 'thread', options.full))
+                return
+            }
             console.log(`No threads in channels matching "${options.channel}".`)
             return
         }

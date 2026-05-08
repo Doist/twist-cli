@@ -87,3 +87,74 @@ describe('inbox --archive-filter', () => {
         )
     })
 })
+
+describe('inbox empty output', () => {
+    const mockGetInbox = vi.fn()
+    const mockGetUnread = vi.fn()
+    const mockGetChannel = vi.fn()
+    const mockBatch = vi.fn()
+    let logSpy: ReturnType<typeof vi.spyOn>
+
+    beforeEach(() => {
+        vi.clearAllMocks()
+        apiMocks.getCurrentWorkspaceId.mockResolvedValue(1)
+        mockGetInbox.mockReturnValue({ data: [] })
+        mockGetUnread.mockReturnValue({ data: [] })
+        mockBatch.mockImplementation((..._calls: unknown[]) =>
+            Promise.resolve([{ data: [] }, { data: [] }]),
+        )
+        apiMocks.getTwistClient.mockResolvedValue({
+            inbox: { getInbox: mockGetInbox },
+            threads: { getUnread: mockGetUnread },
+            channels: { getChannel: mockGetChannel },
+            batch: mockBatch,
+        })
+        logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+    })
+
+    it('outputs [] for --json when inbox is empty', async () => {
+        const program = createProgram()
+        await program.parseAsync(['node', 'tw', 'inbox', '--json'])
+
+        const output = logSpy.mock.calls.map((c: unknown[]) => c[0]).join('\n')
+        expect(output.trim()).toBe('[]')
+        expect(output).not.toContain('No threads')
+    })
+
+    it('outputs nothing for --ndjson when inbox is empty', async () => {
+        const program = createProgram()
+        await program.parseAsync(['node', 'tw', 'inbox', '--ndjson'])
+
+        const output = logSpy.mock.calls.map((c: unknown[]) => c[0]).join('\n')
+        expect(output.trim()).toBe('')
+        expect(output).not.toContain('No threads')
+    })
+
+    it('still prints human message when --json/--ndjson not set', async () => {
+        const program = createProgram()
+        await program.parseAsync(['node', 'tw', 'inbox'])
+
+        const output = logSpy.mock.calls.map((c: unknown[]) => c[0]).join('\n')
+        expect(output).toContain('No threads in inbox.')
+    })
+
+    it('outputs [] for --json when --channel filter matches nothing', async () => {
+        const thread = {
+            id: 1,
+            channelId: 10,
+            title: 't',
+            posted: '2026-05-01T00:00:00Z',
+            url: 'http://example/t',
+        }
+        mockBatch.mockReset()
+        mockBatch
+            .mockResolvedValueOnce([{ data: [thread] }, { data: [] }])
+            .mockResolvedValueOnce([{ data: { id: 10, name: 'engineering' } }])
+
+        const program = createProgram()
+        await program.parseAsync(['node', 'tw', 'inbox', '--channel', 'nonexistent', '--json'])
+
+        const output = logSpy.mock.calls.map((c: unknown[]) => c[0]).join('\n')
+        expect(output.trim()).toBe('[]')
+    })
+})
