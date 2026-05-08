@@ -7,7 +7,7 @@ import { formatRelativeDate } from '../lib/dates.js'
 import { CliError } from '../lib/errors.js'
 import { includePrivateChannels, isAccessible } from '../lib/global-args.js'
 import type { PaginatedViewOptions } from '../lib/options.js'
-import { colors, formatJson, formatNdjson } from '../lib/output.js'
+import { colors, formatJson, formatNdjson, printEmpty } from '../lib/output.js'
 import { getPublicChannelIds } from '../lib/public-channels.js'
 import { resolveWorkspaceRef } from '../lib/refs.js'
 
@@ -64,7 +64,7 @@ async function showInbox(workspaceRef: string | undefined, options: InboxOptions
     }
 
     if (inboxThreads.length === 0) {
-        console.log('No threads in inbox.')
+        printEmpty({ options, type: 'thread', message: 'No threads in inbox.' })
         return
     }
 
@@ -78,7 +78,7 @@ async function showInbox(workspaceRef: string | undefined, options: InboxOptions
         inboxThreads = inboxThreads.filter((t) => publicIds.has(t.channelId))
 
         if (inboxThreads.length === 0) {
-            console.log('No threads in public channels.')
+            printEmpty({ options, type: 'thread', message: 'No threads in public channels.' })
             return
         }
     }
@@ -93,7 +93,11 @@ async function showInbox(workspaceRef: string | undefined, options: InboxOptions
         inboxThreads = inboxThreads.filter((t) => matchingChannelIds.has(t.channelId))
 
         if (inboxThreads.length === 0) {
-            console.log(`No threads in channels matching "${options.channel}".`)
+            printEmpty({
+                options,
+                type: 'thread',
+                message: `No threads in channels matching "${options.channel}".`,
+            })
             return
         }
     }

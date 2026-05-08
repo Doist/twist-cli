@@ -1,5 +1,6 @@
 import { Command } from 'commander'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { describeEmptyMachineOutput } from '../test-helpers/empty-output.js'
 
 const apiMocks = vi.hoisted(() => ({
     getCurrentWorkspaceId: vi.fn().mockResolvedValue(1),
@@ -40,6 +41,19 @@ describe('users --workspace conflict', () => {
             program.parseAsync(['node', 'tw', 'users', 'Doist', '--workspace', 'Other']),
         ).rejects.toThrow('Cannot specify workspace both as argument and --workspace flag')
     })
+})
+
+describeEmptyMachineOutput('tw users empty output', {
+    setup: () => {
+        vi.clearAllMocks()
+        apiMocks.getCurrentWorkspaceId.mockResolvedValue(1)
+        apiMocks.getWorkspaceUsers.mockResolvedValue([])
+    },
+    run: async (extraArgs) => {
+        const program = createProgram()
+        await program.parseAsync(['node', 'tw', 'users', ...extraArgs])
+    },
+    humanMessage: 'No users found.',
 })
 
 describe('user --json', () => {

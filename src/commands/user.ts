@@ -3,7 +3,7 @@ import { Command } from 'commander'
 import { getCurrentWorkspaceId, getSessionUser, getWorkspaceUsers } from '../lib/api.js'
 import { CliError } from '../lib/errors.js'
 import type { ViewOptions } from '../lib/options.js'
-import { colors, formatJson, formatNdjson } from '../lib/output.js'
+import { colors, formatJson, formatNdjson, printEmpty } from '../lib/output.js'
 import { resolveWorkspaceRef } from '../lib/refs.js'
 
 type UsersOptions = ViewOptions & { workspace?: string; search?: string }
@@ -53,6 +53,11 @@ async function listUsers(workspaceRef: string | undefined, options: UsersOptions
         )
     }
 
+    if (users.length === 0) {
+        printEmpty({ options, type: 'user', message: 'No users found.' })
+        return
+    }
+
     if (options.json) {
         console.log(formatJson(users, 'user', options.full))
         return
@@ -60,11 +65,6 @@ async function listUsers(workspaceRef: string | undefined, options: UsersOptions
 
     if (options.ndjson) {
         console.log(formatNdjson(users, 'user', options.full))
-        return
-    }
-
-    if (users.length === 0) {
-        console.log('No users found.')
         return
     }
 

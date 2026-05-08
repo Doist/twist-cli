@@ -1,5 +1,6 @@
 import { Command } from 'commander'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { describeEmptyMachineOutput } from '../test-helpers/empty-output.js'
 
 const apiMocks = vi.hoisted(() => ({
     getTwistClient: vi.fn(),
@@ -85,5 +86,63 @@ describe('inbox --archive-filter', () => {
             expect.objectContaining({ archiveFilter: 'active' }),
             { batch: true },
         )
+    })
+})
+
+const emptyInboxMockBatch = vi.fn()
+
+describeEmptyMachineOutput('inbox empty output', {
+    setup: () => {
+        vi.clearAllMocks()
+        apiMocks.getCurrentWorkspaceId.mockResolvedValue(1)
+        emptyInboxMockBatch.mockImplementation((..._calls: unknown[]) =>
+            Promise.resolve([{ data: [] }, { data: [] }]),
+        )
+        apiMocks.getTwistClient.mockResolvedValue({
+            inbox: { getInbox: vi.fn().mockReturnValue({ data: [] }) },
+            threads: { getUnread: vi.fn().mockReturnValue({ data: [] }) },
+            channels: { getChannel: vi.fn() },
+            batch: emptyInboxMockBatch,
+        })
+    },
+    run: async (extraArgs) => {
+        const program = createProgram()
+        await program.parseAsync(['node', 'tw', 'inbox', ...extraArgs])
+    },
+    humanMessage: 'No threads in inbox.',
+})
+
+describe('inbox empty output (channel filter)', () => {
+    const mockBatch = vi.fn()
+    let logSpy: ReturnType<typeof vi.spyOn>
+
+    beforeEach(() => {
+        vi.clearAllMocks()
+        apiMocks.getCurrentWorkspaceId.mockResolvedValue(1)
+        const thread = {
+            id: 1,
+            channelId: 10,
+            title: 't',
+            posted: '2026-05-01T00:00:00Z',
+            url: 'http://example/t',
+        }
+        mockBatch
+            .mockResolvedValueOnce([{ data: [thread] }, { data: [] }])
+            .mockResolvedValueOnce([{ data: { id: 10, name: 'engineering' } }])
+        apiMocks.getTwistClient.mockResolvedValue({
+            inbox: { getInbox: vi.fn() },
+            threads: { getUnread: vi.fn() },
+            channels: { getChannel: vi.fn() },
+            batch: mockBatch,
+        })
+        logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+    })
+
+    it('outputs [] for --json when --channel filter matches nothing', async () => {
+        const program = createProgram()
+        await program.parseAsync(['node', 'tw', 'inbox', '--channel', 'nonexistent', '--json'])
+
+        expect(logSpy).toHaveBeenCalledTimes(1)
+        expect(logSpy).toHaveBeenCalledWith('[]')
     })
 })

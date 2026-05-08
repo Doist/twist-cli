@@ -1,5 +1,6 @@
 import { Command } from 'commander'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { describeEmptyMachineOutput } from '../../test-helpers/empty-output.js'
 
 const mockBatch = vi.fn()
 const mockGetUserById = vi.fn()
@@ -69,6 +70,19 @@ beforeEach(() => {
         workspaceUsers: { getUserById: mockGetUserById },
         batch: mockBatch,
     })
+})
+
+describeEmptyMachineOutput('tw groups list empty output', {
+    setup: () => {
+        vi.clearAllMocks()
+        apiMocks.getCurrentWorkspaceId.mockResolvedValue(1)
+        apiMocks.getWorkspaceGroups.mockResolvedValue([])
+    },
+    run: async (extraArgs) => {
+        const program = createProgram()
+        await program.parseAsync(['node', 'tw', 'groups', ...extraArgs])
+    },
+    humanMessage: 'No groups found.',
 })
 
 describe('tw groups list (default)', () => {

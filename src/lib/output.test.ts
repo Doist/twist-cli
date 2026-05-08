@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { isAccessible, resetGlobalArgs } from './global-args.js'
-import { printDryRun } from './output.js'
+import { printDryRun, printEmpty } from './output.js'
 
 vi.mock('chalk')
 
@@ -96,5 +96,43 @@ describe('printDryRun', () => {
         expect(logSpy).toHaveBeenCalledWith('Run without --dry-run to execute.')
 
         logSpy.mockRestore()
+    })
+})
+
+describe('printEmpty', () => {
+    let logSpy: ReturnType<typeof vi.spyOn>
+
+    beforeEach(() => {
+        logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+    })
+
+    afterEach(() => {
+        logSpy.mockRestore()
+    })
+
+    it('prints "[]" for --json', () => {
+        printEmpty({ options: { json: true }, type: 'thread', message: 'No threads in inbox.' })
+        expect(logSpy).toHaveBeenCalledTimes(1)
+        expect(logSpy).toHaveBeenCalledWith('[]')
+    })
+
+    it('does not call console.log at all for --ndjson (no stray newline)', () => {
+        printEmpty({ options: { ndjson: true }, type: 'thread', message: 'No threads in inbox.' })
+        expect(logSpy).not.toHaveBeenCalled()
+    })
+
+    it('prints the human message when neither --json nor --ndjson is set', () => {
+        printEmpty({ options: {}, type: 'thread', message: 'No threads in inbox.' })
+        expect(logSpy).toHaveBeenCalledWith('No threads in inbox.')
+    })
+
+    it('--json takes precedence over --ndjson when both are set', () => {
+        printEmpty({
+            options: { json: true, ndjson: true },
+            type: 'conversation',
+            message: 'unused',
+        })
+        expect(logSpy).toHaveBeenCalledTimes(1)
+        expect(logSpy).toHaveBeenCalledWith('[]')
     })
 })

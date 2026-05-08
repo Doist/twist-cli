@@ -3,13 +3,18 @@ import { Command } from 'commander'
 import { fetchWorkspaces, getCurrentWorkspaceId } from '../lib/api.js'
 import { updateConfig } from '../lib/config.js'
 import type { ViewOptions } from '../lib/options.js'
-import { colors, formatJson, formatNdjson } from '../lib/output.js'
+import { colors, formatJson, formatNdjson, printEmpty } from '../lib/output.js'
 import { resolveWorkspaceRef } from '../lib/refs.js'
 
 type ListOptions = ViewOptions
 
 async function listWorkspaces(options: ListOptions): Promise<void> {
     const workspaces = await fetchWorkspaces()
+
+    if (workspaces.length === 0) {
+        printEmpty({ options, type: 'workspace', message: 'No workspaces found.' })
+        return
+    }
 
     if (options.json) {
         console.log(formatJson(workspaces, 'workspace', options.full))
@@ -18,11 +23,6 @@ async function listWorkspaces(options: ListOptions): Promise<void> {
 
     if (options.ndjson) {
         console.log(formatNdjson(workspaces, 'workspace', options.full))
-        return
-    }
-
-    if (workspaces.length === 0) {
-        console.log('No workspaces found.')
         return
     }
 

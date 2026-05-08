@@ -1,6 +1,7 @@
 import { Command } from 'commander'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { CliError } from '../../lib/errors.js'
+import { describeEmptyMachineOutput } from '../../test-helpers/empty-output.js'
 
 const apiMocks = vi.hoisted(() => ({
     getTwistClient: vi.fn(),
@@ -226,6 +227,20 @@ describe('conversation unread --workspace conflict', () => {
             ]),
         ).rejects.toThrow('Cannot specify workspace both as argument and --workspace flag')
     })
+})
+
+describeEmptyMachineOutput('conversation unread empty output', {
+    setup: () => {
+        vi.clearAllMocks()
+        const client = createClient({})
+        client.conversations.getUnread = vi.fn().mockResolvedValue([])
+        apiMocks.getTwistClient.mockResolvedValue(client)
+    },
+    run: async (extraArgs) => {
+        const program = createProgram()
+        await program.parseAsync(['node', 'tw', 'conversation', 'unread', ...extraArgs])
+    },
+    humanMessage: 'No unread conversations.',
 })
 
 describe('conversation with', () => {
