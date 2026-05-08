@@ -35,7 +35,7 @@ export async function listGroups(
     }
 
     if (groups.length === 0) {
-        printEmpty(options, 'group', 'No groups found.')
+        printEmpty({ options, type: 'group', message: 'No groups found.' })
         return
     }
 

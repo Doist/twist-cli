@@ -163,7 +163,11 @@ export async function listConversationsWithUser(
     options: ConversationWithOptions,
 ): Promise<void> {
     if (conversations.length === 0) {
-        printEmpty(options, 'conversation', 'No matching conversations found.')
+        printEmpty({
+            options,
+            type: 'conversation',
+            message: 'No matching conversations found.',
+        })
         return
     }
 

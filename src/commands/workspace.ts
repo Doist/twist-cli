@@ -12,7 +12,7 @@ async function listWorkspaces(options: ListOptions): Promise<void> {
     const workspaces = await fetchWorkspaces()
 
     if (workspaces.length === 0) {
-        printEmpty(options, 'workspace', 'No workspaces found.')
+        printEmpty({ options, type: 'workspace', message: 'No workspaces found.' })
         return
     }
 

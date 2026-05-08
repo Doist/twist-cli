@@ -64,7 +64,7 @@ async function showInbox(workspaceRef: string | undefined, options: InboxOptions
     }
 
     if (inboxThreads.length === 0) {
-        printEmpty(options, 'thread', 'No threads in inbox.')
+        printEmpty({ options, type: 'thread', message: 'No threads in inbox.' })
         return
     }
 
@@ -78,7 +78,7 @@ async function showInbox(workspaceRef: string | undefined, options: InboxOptions
         inboxThreads = inboxThreads.filter((t) => publicIds.has(t.channelId))
 
         if (inboxThreads.length === 0) {
-            printEmpty(options, 'thread', 'No threads in public channels.')
+            printEmpty({ options, type: 'thread', message: 'No threads in public channels.' })
             return
         }
     }
@@ -93,7 +93,11 @@ async function showInbox(workspaceRef: string | undefined, options: InboxOptions
         inboxThreads = inboxThreads.filter((t) => matchingChannelIds.has(t.channelId))
 
         if (inboxThreads.length === 0) {
-            printEmpty(options, 'thread', `No threads in channels matching "${options.channel}".`)
+            printEmpty({
+                options,
+                type: 'thread',
+                message: `No threads in channels matching "${options.channel}".`,
+            })
             return
         }
     }

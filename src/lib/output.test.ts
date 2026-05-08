@@ -111,23 +111,27 @@ describe('printEmpty', () => {
     })
 
     it('prints "[]" for --json', () => {
-        printEmpty({ json: true }, 'thread', 'No threads in inbox.')
+        printEmpty({ options: { json: true }, type: 'thread', message: 'No threads in inbox.' })
         expect(logSpy).toHaveBeenCalledTimes(1)
         expect(logSpy).toHaveBeenCalledWith('[]')
     })
 
     it('does not call console.log at all for --ndjson (no stray newline)', () => {
-        printEmpty({ ndjson: true }, 'thread', 'No threads in inbox.')
+        printEmpty({ options: { ndjson: true }, type: 'thread', message: 'No threads in inbox.' })
         expect(logSpy).not.toHaveBeenCalled()
     })
 
     it('prints the human message when neither --json nor --ndjson is set', () => {
-        printEmpty({}, 'thread', 'No threads in inbox.')
+        printEmpty({ options: {}, type: 'thread', message: 'No threads in inbox.' })
         expect(logSpy).toHaveBeenCalledWith('No threads in inbox.')
     })
 
     it('--json takes precedence over --ndjson when both are set', () => {
-        printEmpty({ json: true, ndjson: true }, 'conversation', 'unused')
+        printEmpty({
+            options: { json: true, ndjson: true },
+            type: 'conversation',
+            message: 'unused',
+        })
         expect(logSpy).toHaveBeenCalledTimes(1)
         expect(logSpy).toHaveBeenCalledWith('[]')
     })

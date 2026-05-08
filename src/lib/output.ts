@@ -227,11 +227,15 @@ export function printNdjson<T extends object>(items: T[], type?: EntityType, ful
     console.log(formatNdjson(items, type, full))
 }
 
-export function printEmpty(
-    options: { json?: boolean; ndjson?: boolean; full?: boolean },
-    type: EntityType,
-    message: string,
-): void {
+export function printEmpty({
+    options,
+    type,
+    message,
+}: {
+    options: { json?: boolean; ndjson?: boolean; full?: boolean }
+    type: EntityType
+    message: string
+}): void {
     if (options.json) {
         console.log(formatJson([], type, options.full))
         return

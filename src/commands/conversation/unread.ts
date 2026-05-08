@@ -31,7 +31,7 @@ export async function showUnread(
     const unreadConversations = await client.conversations.getUnread(workspaceId)
 
     if (unreadConversations.length === 0) {
-        printEmpty(options, 'conversation', 'No unread conversations.')
+        printEmpty({ options, type: 'conversation', message: 'No unread conversations.' })
         return
     }
 

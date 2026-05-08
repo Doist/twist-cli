@@ -54,7 +54,7 @@ async function listUsers(workspaceRef: string | undefined, options: UsersOptions
     }
 
     if (users.length === 0) {
-        printEmpty(options, 'user', 'No users found.')
+        printEmpty({ options, type: 'user', message: 'No users found.' })
         return
     }
 
