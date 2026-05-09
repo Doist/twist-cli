@@ -1,7 +1,7 @@
+import { describeEmptyMachineOutput } from '@doist/cli-core/testing'
 import { Command } from 'commander'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { CliError } from '../../lib/errors.js'
-import { describeEmptyMachineOutput } from '../../test-helpers/empty-output.js'
 
 const apiMocks = vi.hoisted(() => ({
     getTwistClient: vi.fn(),

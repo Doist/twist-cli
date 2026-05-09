@@ -3,7 +3,7 @@ import { getCurrentWorkspaceId, getTwistClient } from '../../lib/api.js'
 import { CliError } from '../../lib/errors.js'
 import { includePrivateChannels } from '../../lib/global-args.js'
 import type { ViewOptions } from '../../lib/options.js'
-import { colors, formatJson, formatNdjson } from '../../lib/output.js'
+import { colors, formatJson, formatNdjson, printEmpty } from '../../lib/output.js'
 import { resolveWorkspaceRef } from '../../lib/refs.js'
 
 const CHANNEL_SCOPES = ['joined', 'public', 'discoverable'] as const
@@ -189,6 +189,11 @@ export async function listChannels(
             }))
     }
 
+    if (channels.length === 0) {
+        printEmpty({ options, type: 'channel', message: getEmptyStateMessage(scope, state) })
+        return
+    }
+
     if (options.json) {
         console.log(formatListedChannelsJson(channels, scope, options.full))
         return
@@ -196,11 +201,6 @@ export async function listChannels(
 
     if (options.ndjson) {
         console.log(formatListedChannelsNdjson(channels, scope, options.full))
-        return
-    }
-
-    if (channels.length === 0) {
-        console.log(getEmptyStateMessage(scope, state))
         return
     }
 

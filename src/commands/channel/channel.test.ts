@@ -1,3 +1,4 @@
+import { describeEmptyMachineOutput } from '@doist/cli-core/testing'
 import { Command } from 'commander'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -347,6 +348,18 @@ describe('channels list', () => {
         })
 
         consoleSpy.mockRestore()
+    })
+
+    describeEmptyMachineOutput('empty machine output contract', {
+        setup: () => {
+            const client = createClient({ joinedChannels: [] })
+            apiMocks.getTwistClient.mockResolvedValue(client)
+        },
+        run: async (extraArgs) => {
+            const program = createProgram()
+            await program.parseAsync(['node', 'tw', 'channels', ...extraArgs])
+        },
+        humanMessage: 'No active channels found.',
     })
 
     it('shows a specific empty state when no active discoverable channels remain', async () => {

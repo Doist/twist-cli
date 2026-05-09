@@ -307,11 +307,13 @@ tw changelog --count 10          # Show last 10 versions
 ## Global Options
 
 \`\`\`bash
---no-spinner       # Disable loading animations
---progress-jsonl   # Machine-readable progress events (JSONL to stderr)
---accessible       # Add text labels to color-coded output (also: TW_ACCESSIBLE=1)
---non-interactive  # Disable interactive prompts (auto-detected when stdin is not a TTY)
---interactive      # Force interactive mode even when stdin is not a TTY
+--no-spinner               # Disable loading animations
+--progress-jsonl           # Machine-readable progress events (JSONL to stderr)
+--progress-jsonl=<path>    # Same, but write events to <path> instead of stderr
+--progress-jsonl <path>    # Same as above (space-separated form also accepted)
+--accessible               # Add text labels to color-coded output (also: TW_ACCESSIBLE=1)
+--non-interactive          # Disable interactive prompts (auto-detected when stdin is not a TTY)
+--interactive              # Force interactive mode even when stdin is not a TTY
 \`\`\`
 
 ## Output Formats
