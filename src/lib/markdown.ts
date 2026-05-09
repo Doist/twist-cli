@@ -1,23 +1,20 @@
-import { Marked } from 'marked'
-import { createTerminalRenderer, darkTheme } from 'marked-terminal-renderer'
+import {
+    preloadMarkdown as corePreloadMarkdown,
+    renderMarkdown as coreRenderMarkdown,
+} from '@doist/cli-core/markdown'
 
-let markedInstance: Marked | null = null
-
-function getMarkedInstance(): Marked {
-    if (!markedInstance) {
-        const instance = new Marked()
-        instance.use(createTerminalRenderer(darkTheme()))
-        markedInstance = instance
-    }
-    return markedInstance
-}
+let preloadPromise: Promise<void> | null = null
 
 function preprocessMentions(content: string): string {
     return content.replace(/\[([^\]]+)\]\((twist-mention:\/\/\d+)\)/g, '[@$1]($2)')
 }
 
+export async function preloadMarkdown(): Promise<void> {
+    if (!preloadPromise) preloadPromise = corePreloadMarkdown()
+    return preloadPromise
+}
+
 export async function renderMarkdown(content: string): Promise<string> {
-    const processed = preprocessMentions(content)
-    const rendered = await getMarkedInstance().parse(processed)
-    return rendered.trimEnd()
+    await preloadMarkdown()
+    return coreRenderMarkdown(preprocessMentions(content))
 }

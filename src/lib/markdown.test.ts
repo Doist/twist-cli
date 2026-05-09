@@ -2,15 +2,12 @@ import { describe, expect, it } from 'vitest'
 import { renderMarkdown } from './markdown.js'
 
 describe('markdown', () => {
-    it('renders markdown via marked-terminal-renderer', async () => {
+    it('renders markdown via cli-core/markdown', async () => {
         const result = await renderMarkdown('# Heading\n\n**bold** and *italic*')
-        // Pretty-printed output should differ from the raw input — proves the
-        // marked-terminal-renderer extension is wired up and parsing.
         expect(result).not.toBe('# Heading\n\n**bold** and *italic*')
         expect(result).toContain('Heading')
         expect(result).toContain('bold')
         expect(result).toContain('italic')
-        // Markdown syntax characters should be consumed by the renderer.
         expect(result).not.toContain('#')
         expect(result).not.toContain('**')
     })
@@ -20,15 +17,11 @@ describe('markdown', () => {
         expect(result).toContain('one')
         expect(result).toContain('two')
         expect(result).toContain('three')
-        // marked-terminal-renderer's default dark-theme list character.
         expect(result).toContain('•')
     })
 
     it('preprocesses twist-mention links into @mentions', async () => {
         const result = await renderMarkdown('hello [Alice](twist-mention://12345)')
-        // The preprocessor turns [Name](twist-mention://N) into
-        // [@Name](twist-mention://N), and the renderer keeps the @ in the
-        // visible link text.
         expect(result).toContain('@Alice')
     })
 

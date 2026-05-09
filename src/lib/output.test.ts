@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { BaseCliError } from './errors.js'
 import { isAccessible, resetGlobalArgs } from './global-args.js'
-import { printDryRun, printEmpty } from './output.js'
+import { formatError, formatErrorJson, printDryRun, printEmpty } from './output.js'
 
 vi.mock('chalk')
 
@@ -134,5 +135,31 @@ describe('printEmpty', () => {
         })
         expect(logSpy).toHaveBeenCalledTimes(1)
         expect(logSpy).toHaveBeenCalledWith('[]')
+    })
+})
+
+describe('formatError with BaseCliError', () => {
+    it('formats a cli-core CliError instance (code, message, hints)', () => {
+        const err = new BaseCliError('FILE_READ_ERROR', 'Could not read changelog file', {
+            hints: ['Check the file path'],
+        })
+        const result = formatError(err)
+        expect(result).toContain('Error: FILE_READ_ERROR')
+        expect(result).toContain('Could not read changelog file')
+        expect(result).toContain('Check the file path')
+    })
+})
+
+describe('formatErrorJson with BaseCliError', () => {
+    it('serializes a cli-core CliError instance', () => {
+        const err = new BaseCliError('INVALID_TYPE', 'Count must be a positive integer')
+        const parsed = JSON.parse(formatErrorJson(err))
+        expect(parsed).toEqual({
+            error: {
+                code: 'INVALID_TYPE',
+                message: 'Count must be a positive integer',
+                hints: undefined,
+            },
+        })
     })
 })

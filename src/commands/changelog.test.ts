@@ -2,54 +2,34 @@ import { Command } from 'commander'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('node:fs/promises')
-vi.mock('chalk')
 
 import { readFile } from 'node:fs/promises'
+import packageJson from '../../package.json' with { type: 'json' }
 import { registerChangelogCommand } from './changelog.js'
 
 const mockReadFile = vi.mocked(readFile)
 
-const SAMPLE_CHANGELOG = `# [1.5.0](https://example.com) (2026-03-15)
+// Fixture exercises the three twist-specific options:
+//   - headingLevel: 'flexible' — accepts both `# 1.x` and `## 1.x`
+//   - continuationIndent: true — wrapped-bullet line is indented under bullet
+//   - filterEmptyVersions: true — deps-only release is dropped from output
+const SAMPLE_CHANGELOG = `# Changelog
 
-
-### Features
-
-* feature five
-
-# [1.4.0](https://example.com) (2026-03-14)
-
+# [9.9.0](https://example.com) (2026-05-09)
 
 ### Features
+* delegated changelog rendering to cli-core
+  with a wrapped continuation line that should stay indented under the bullet
 
-* feature four
-
-## [1.3.1](https://example.com) (2026-03-13)
-
+# [9.8.5](https://example.com) (2026-05-08)
 
 ### Bug Fixes
+* **deps:** bump @doist/cli-core from 0.8.0 to 0.9.0
 
-* fix three
-
-# [1.3.0](https://example.com) (2026-03-12)
-
+## [9.8.0](https://example.com) (2026-05-07)
 
 ### Features
-
-* feature three
-
-# [1.2.0](https://example.com) (2026-03-11)
-
-
-### Features
-
-* feature two
-
-# [1.1.0](https://example.com) (2026-03-10)
-
-
-### Features
-
-* feature one
+* prior release with a level-2 heading
 `
 
 function createProgram() {
@@ -59,111 +39,71 @@ function createProgram() {
     return program
 }
 
-describe('changelog command', () => {
-    let consoleSpy: ReturnType<typeof vi.spyOn>
+describe('changelog wrapper', () => {
+    let logSpy: ReturnType<typeof vi.spyOn>
+
     beforeEach(() => {
-        consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
-        vi.spyOn(console, 'error').mockImplementation(() => {})
-        process.exitCode = undefined
+        logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
     })
 
     afterEach(() => {
         vi.restoreAllMocks()
-        process.exitCode = undefined
+        mockReadFile.mockReset()
     })
 
-    it('shows last 5 versions by default', async () => {
+    it('passes the twist CHANGELOG.md path through to cli-core', async () => {
         mockReadFile.mockResolvedValue(SAMPLE_CHANGELOG)
 
-        const program = createProgram()
-        await program.parseAsync(['node', 'tw', 'changelog'])
+        await createProgram().parseAsync(['node', 'tw', 'changelog', '-n', '1'])
 
-        expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('1.5.0'))
-        expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('1.2.0'))
-        // Should show "view full changelog" link since there are 6 versions but only 5 shown
-        expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('View full changelog'))
+        expect(mockReadFile).toHaveBeenCalledTimes(1)
+        const [path] = mockReadFile.mock.calls[0]
+        expect(String(path)).toMatch(/\/CHANGELOG\.md$/)
     })
 
-    it('respects --count option', async () => {
+    it('emits a footer link pointing at the twist repo and current version', async () => {
         mockReadFile.mockResolvedValue(SAMPLE_CHANGELOG)
 
-        const program = createProgram()
-        await program.parseAsync(['node', 'tw', 'changelog', '-n', '2'])
+        await createProgram().parseAsync(['node', 'tw', 'changelog', '-n', '1'])
 
-        const output = consoleSpy.mock.calls[0][0] as string
-        expect(output).toContain('1.5.0')
-        expect(output).toContain('1.4.0')
-        expect(output).not.toContain('1.3.0')
-    })
-
-    it('handles fewer entries than requested', async () => {
-        const shortChangelog = `# Changelog
-
-# [1.1.0](https://example.com) (2026-03-11)
-
-
-### Features
-
-* only version
-`
-        mockReadFile.mockResolvedValue(shortChangelog)
-
-        const program = createProgram()
-        await program.parseAsync(['node', 'tw', 'changelog'])
-
-        expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('1.1.0'))
-        // Should NOT show "view full changelog" link since all versions are shown
-        expect(consoleSpy).not.toHaveBeenCalledWith(expect.stringContaining('View full changelog'))
-    })
-
-    it('handles missing changelog file', async () => {
-        mockReadFile.mockRejectedValue(new Error('ENOENT'))
-
-        const program = createProgram()
-        await expect(program.parseAsync(['node', 'tw', 'changelog'])).rejects.toHaveProperty(
-            'code',
-            'FILE_READ_ERROR',
+        const all = logSpy.mock.calls.map((c: unknown[]) => c[0]).join('\n')
+        expect(all).toContain(
+            `View full changelog: https://github.com/Doist/twist-cli/blob/v${packageJson.version}/CHANGELOG.md`,
         )
     })
 
-    it('skips dependency-only versions', async () => {
-        const depsChangelog = `# [1.3.0](https://example.com) (2026-03-15)
+    it('renders both # and ## version headings (headingLevel: flexible)', async () => {
+        mockReadFile.mockResolvedValue(SAMPLE_CHANGELOG)
 
+        await createProgram().parseAsync(['node', 'tw', 'changelog', '-n', '5'])
 
-### Features
-
-* real feature
-
-## [1.2.1](https://example.com) (2026-03-14)
-
-
-### Bug Fixes
-
-* **deps:** update dependency foo to v2
-
-# [1.2.0](https://example.com) (2026-03-13)
-
-
-### Features
-
-* another feature
-`
-        mockReadFile.mockResolvedValue(depsChangelog)
-
-        const program = createProgram()
-        await program.parseAsync(['node', 'tw', 'changelog'])
-
-        const output = consoleSpy.mock.calls[0][0] as string
-        expect(output).toContain('1.3.0')
-        expect(output).toContain('1.2.0')
-        // The deps-only version should be filtered out
-        expect(output).not.toContain('1.2.1')
+        const all = logSpy.mock.calls.map((c: unknown[]) => c[0]).join('\n')
+        expect(all).toContain('9.9.0')
+        expect(all).toContain('9.8.0')
+        // Heading prefix should be consumed by the formatter — neither `# `
+        // nor `## ` should leak into rendered output.
+        expect(all).not.toMatch(/^# 9\.9\.0/m)
+        expect(all).not.toMatch(/^## 9\.8\.0/m)
     })
 
-    it('handles invalid count', async () => {
-        const program = createProgram()
-        await expect(
-            program.parseAsync(['node', 'tw', 'changelog', '-n', 'abc']),
-        ).rejects.toHaveProperty('code', 'INVALID_TYPE')
+    it('drops deps-only versions (filterEmptyVersions: true)', async () => {
+        mockReadFile.mockResolvedValue(SAMPLE_CHANGELOG)
+
+        await createProgram().parseAsync(['node', 'tw', 'changelog', '-n', '5'])
+
+        const all = logSpy.mock.calls.map((c: unknown[]) => c[0]).join('\n')
+        expect(all).not.toContain('9.8.5')
+        expect(all).not.toContain('@doist/cli-core from 0.8.0 to 0.9.0')
+    })
+
+    it('indents continuation lines under bullets (continuationIndent: true)', async () => {
+        mockReadFile.mockResolvedValue(SAMPLE_CHANGELOG)
+
+        await createProgram().parseAsync(['node', 'tw', 'changelog', '-n', '1'])
+
+        const all = logSpy.mock.calls.map((c: unknown[]) => c[0]).join('\n')
+        // Continuation line should be indented under the bullet (more
+        // leading whitespace than `  • `, the rendered bullet prefix).
+        expect(all).toMatch(/^ {4,}with a wrapped continuation line/m)
     })
 })

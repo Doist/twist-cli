@@ -47,8 +47,6 @@ describe('parseGlobalArgs', () => {
             expect(result).toEqual({
                 json: false,
                 ndjson: false,
-                quiet: false,
-                verbose: 0,
                 accessible: false,
                 noSpinner: false,
                 progressJsonl: false,
