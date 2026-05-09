@@ -4,15 +4,35 @@ vi.mock('@doist/cli-core', async () => {
     const actual = await vi.importActual<typeof import('@doist/cli-core')>('@doist/cli-core')
     return {
         ...actual,
-        getConfigPath: vi.fn(() => '/tmp/cli-core-test/config.json'),
+        getConfigPath: vi.fn((appName: string) => `/tmp/cli-core-test/${appName}/config.json`),
+        readConfig: vi.fn(),
         readConfigStrict: vi.fn(),
+        writeConfig: vi.fn(),
+        updateConfig: vi.fn(),
     }
 })
 
-import { readConfigStrict as readConfigStrictCore } from '@doist/cli-core'
-import { readConfigStrict, validateConfigForDoctor } from './config.js'
+import {
+    getConfigPath as getConfigPathCore,
+    readConfig as readConfigCore,
+    readConfigStrict as readConfigStrictCore,
+    updateConfig as updateConfigCore,
+    writeConfig as writeConfigCore,
+} from '@doist/cli-core'
+import {
+    getConfig,
+    getConfigPath,
+    readConfigStrict,
+    setConfig,
+    updateConfig,
+    validateConfigForDoctor,
+} from './config.js'
 
+const mockGetConfigPathCore = vi.mocked(getConfigPathCore)
+const mockReadConfigCore = vi.mocked(readConfigCore)
 const mockReadConfigStrictCore = vi.mocked(readConfigStrictCore)
+const mockWriteConfigCore = vi.mocked(writeConfigCore)
+const mockUpdateConfigCore = vi.mocked(updateConfigCore)
 
 describe('validateConfigForDoctor', () => {
     it('accepts an empty config', () => {
@@ -109,5 +129,40 @@ describe('readConfigStrict wrapper', () => {
                 'Fix the JSON by hand, or delete the file and re-authenticate with `tw auth login`',
             ],
         })
+    })
+})
+
+// Smoke tests proving the thin wrappers forward to cli-core with the
+// 'twist-cli' app name. A wrong app name would silently redirect every
+// config read/write — these tests are the tripwire.
+
+describe('thin config wrappers', () => {
+    it('getConfigPath resolves under the twist-cli app name', () => {
+        expect(getConfigPath()).toBe('/tmp/cli-core-test/twist-cli/config.json')
+        expect(mockGetConfigPathCore).toHaveBeenCalledWith('twist-cli')
+    })
+
+    it('getConfig forwards the resolved path to cli-core readConfig', async () => {
+        mockReadConfigCore.mockResolvedValueOnce({ currentWorkspace: 99 })
+        await expect(getConfig()).resolves.toEqual({ currentWorkspace: 99 })
+        expect(mockReadConfigCore).toHaveBeenCalledWith('/tmp/cli-core-test/twist-cli/config.json')
+    })
+
+    it('setConfig forwards the resolved path and config to cli-core writeConfig', async () => {
+        mockWriteConfigCore.mockResolvedValueOnce(undefined)
+        await setConfig({ currentWorkspace: 7, authMode: 'read-write' })
+        expect(mockWriteConfigCore).toHaveBeenCalledWith(
+            '/tmp/cli-core-test/twist-cli/config.json',
+            { currentWorkspace: 7, authMode: 'read-write' },
+        )
+    })
+
+    it('updateConfig forwards path and updates to cli-core updateConfig', async () => {
+        mockUpdateConfigCore.mockResolvedValueOnce(undefined)
+        await updateConfig({ currentWorkspace: 12 })
+        expect(mockUpdateConfigCore).toHaveBeenCalledWith(
+            '/tmp/cli-core-test/twist-cli/config.json',
+            { currentWorkspace: 12 },
+        )
     })
 })

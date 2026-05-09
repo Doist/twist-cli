@@ -2,6 +2,7 @@ import {
     getConfigPath as getConfigPathCore,
     readConfig as readConfigCore,
     readConfigStrict as readConfigStrictCore,
+    updateConfig as updateConfigCore,
     writeConfig as writeConfigCore,
 } from '@doist/cli-core'
 import { CliError } from './errors.js'
@@ -108,9 +109,9 @@ export async function setConfig(config: Config): Promise<void> {
     await writeConfigCore(getConfigPath(), config)
 }
 
+/** Thin wrapper around cli-core's `updateConfig`. */
 export async function updateConfig(updates: Partial<Config>): Promise<void> {
-    const config = await getConfig()
-    await setConfig({ ...config, ...updates })
+    await updateConfigCore<Config>(getConfigPath(), updates)
 }
 
 export function validateConfigForDoctor(config: Record<string, unknown>): string[] {

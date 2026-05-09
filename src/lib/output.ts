@@ -159,7 +159,7 @@ export function formatPaginatedJson<T extends object>(
     full = false,
 ): string {
     const results = type ? filterEntityFields(data.results, type, full) : data.results
-    return formatJsonCore({ results, nextCursor: data.nextCursor })
+    return formatJson({ results, nextCursor: data.nextCursor })
 }
 
 export function formatPaginatedNdjson<T extends object>(
@@ -167,9 +167,12 @@ export function formatPaginatedNdjson<T extends object>(
     type?: EntityType,
     full = false,
 ): string {
-    const results = type ? filterEntityFields(data.results, type, full) : data.results
-    if (!data.nextCursor) return formatNdjsonCore(results)
-    return formatNdjsonCore([...results, { _meta: true, nextCursor: data.nextCursor }])
+    if (!data.nextCursor) return formatNdjson(data.results, type, full)
+    // Build the trailer with a string concat (not an array spread) so a
+    // 10k-row page doesn't pay an O(n) copy just to add one meta line.
+    const body = formatNdjson(data.results, type, full)
+    const trailer = JSON.stringify({ _meta: true, nextCursor: data.nextCursor })
+    return body ? `${body}\n${trailer}` : trailer
 }
 
 export function formatError(error: CliError): string
