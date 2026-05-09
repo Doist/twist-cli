@@ -1,5 +1,5 @@
 import chalk from 'chalk'
-import { getConfig, setConfig, type UpdateChannel } from '../../lib/config.js'
+import { getConfig, type UpdateChannel, setConfig } from '../../lib/config.js'
 import { CliError } from '../../lib/errors.js'
 
 export async function switchChannel(options: {

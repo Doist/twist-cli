@@ -257,6 +257,12 @@ async function saveAuthMetadata(options: SaveApiTokenOptions): Promise<void> {
     await setConfig(config)
 }
 
+/**
+ * Auth-local cousin of `setConfig` that deletes the file when the resulting
+ * config has no own keys. The public `setConfig` always serializes (even
+ * `{}`) — this wrapper exists for the auth flows that strip the legacy
+ * plaintext token and want to leave nothing behind.
+ */
 async function writeConfig(config: Config): Promise<void> {
     if (Object.keys(config).length === 0) {
         try {

@@ -7,7 +7,7 @@ vi.mock('../../lib/config.js', async (importOriginal) => {
     const actual = await importOriginal<typeof import('../../lib/config.js')>()
     return {
         ...actual,
-        CONFIG_PATH: '/tmp/fake-twist-cli/config.json',
+        getConfigPath: () => '/tmp/fake-twist-cli/config.json',
         readConfigStrict: vi.fn(),
         setConfig: vi.fn(),
     }

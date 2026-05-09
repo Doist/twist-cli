@@ -1,3 +1,4 @@
+import { formatJson as formatJsonCore, formatNdjson as formatNdjsonCore } from '@doist/cli-core'
 import chalk from 'chalk'
 import type { CliError } from './errors.js'
 
@@ -134,10 +135,8 @@ export function formatJson<T extends object>(
     type?: EntityType,
     full = false,
 ): string {
-    if (full || !type) {
-        return JSON.stringify(data, null, 2)
-    }
-    return JSON.stringify(filterEntityFields(data, type), null, 2)
+    if (full || !type) return formatJsonCore(data)
+    return formatJsonCore(filterEntityFields(data, type))
 }
 
 export function formatNdjson<T extends object>(
@@ -145,12 +144,8 @@ export function formatNdjson<T extends object>(
     type?: EntityType,
     full = false,
 ): string {
-    if (full || !type) {
-        return items.map((item) => JSON.stringify(item)).join('\n')
-    }
-    return filterEntityFields(items, type)
-        .map((item) => JSON.stringify(item))
-        .join('\n')
+    if (full || !type) return formatNdjsonCore(items)
+    return formatNdjsonCore(filterEntityFields(items, type))
 }
 
 export interface PaginatedOutput<T> {
@@ -164,7 +159,7 @@ export function formatPaginatedJson<T extends object>(
     full = false,
 ): string {
     const results = type ? filterEntityFields(data.results, type, full) : data.results
-    return JSON.stringify({ results, nextCursor: data.nextCursor }, null, 2)
+    return formatJson({ results, nextCursor: data.nextCursor })
 }
 
 export function formatPaginatedNdjson<T extends object>(
@@ -172,12 +167,12 @@ export function formatPaginatedNdjson<T extends object>(
     type?: EntityType,
     full = false,
 ): string {
-    const results = type ? filterEntityFields(data.results, type, full) : data.results
-    const lines = results.map((item) => JSON.stringify(item))
-    if (data.nextCursor) {
-        lines.push(JSON.stringify({ _meta: true, nextCursor: data.nextCursor }))
-    }
-    return lines.join('\n')
+    if (!data.nextCursor) return formatNdjson(data.results, type, full)
+    // Build the trailer with a string concat (not an array spread) so a
+    // 10k-row page doesn't pay an O(n) copy just to add one meta line.
+    const body = formatNdjson(data.results, type, full)
+    const trailer = JSON.stringify({ _meta: true, nextCursor: data.nextCursor })
+    return body ? `${body}\n${trailer}` : trailer
 }
 
 export function formatError(error: CliError): string

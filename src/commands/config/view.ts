@@ -5,7 +5,7 @@ import {
     probeApiToken,
     TOKEN_ENV_VAR,
 } from '../../lib/auth.js'
-import { type Config, CONFIG_PATH, readConfigStrict } from '../../lib/config.js'
+import { type Config, getConfigPath, readConfigStrict } from '../../lib/config.js'
 import { SECURE_STORE_DESCRIPTION, SecureStoreUnavailableError } from '../../lib/secure-store.js'
 
 export interface ViewConfigOptions {
@@ -77,7 +77,7 @@ function formatConfigView(
 ): string {
     const lines: string[] = []
     const headerSuffix = configMissing ? ` ${chalk.dim('(not created yet)')}` : ''
-    lines.push(`${chalk.dim('Config file:')} ${CONFIG_PATH}${headerSuffix}`)
+    lines.push(`${chalk.dim('Config file:')} ${getConfigPath()}${headerSuffix}`)
     lines.push('')
 
     // When a token is present, its metadata is the ground truth for the active
@@ -133,7 +133,9 @@ export async function viewConfig(options: ViewConfigOptions): Promise<void> {
     const token = await probeTokenPresence()
 
     if (read.state === 'missing' && token.state === 'missing') {
-        console.log(`${chalk.dim('Config file:')} ${CONFIG_PATH} ${chalk.dim('(not created yet)')}`)
+        console.log(
+            `${chalk.dim('Config file:')} ${getConfigPath()} ${chalk.dim('(not created yet)')}`,
+        )
         return
     }
 

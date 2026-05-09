@@ -304,6 +304,14 @@ describe('shouldDisableSpinner', () => {
         expect(shouldDisableSpinner()).toBe(true)
     })
 
+    it("treats CI='false' as opt-out (does not disable the spinner)", () => {
+        // cli-core's isCI() honours CI='false' as a deliberate opt-out so a
+        // nested invocation can run interactively even when the parent shell
+        // exports CI=true. Regression test for the isCI() swap.
+        process.env.CI = 'false'
+        expect(shouldDisableSpinner()).toBe(false)
+    })
+
     it.each([
         ['--json', ['node', 'tw', '--json']],
         ['--ndjson', ['node', 'tw', '--ndjson']],
