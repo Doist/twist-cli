@@ -1,3 +1,9 @@
+## [2.36.3](https://github.com/Doist/twist-cli/compare/v2.36.2...v2.36.3) (2026-05-09)
+
+### Bug Fixes
+
+- **deps:** bump @doist/twist-sdk to 2.5.1 for Node 26 gzip fix ([#207](https://github.com/Doist/twist-cli/issues/207)) ([46732c6](https://github.com/Doist/twist-cli/commit/46732c6df42c13f15349e003fde379f25509f608))
+
 ## [2.36.2](https://github.com/Doist/twist-cli/compare/v2.36.1...v2.36.2) (2026-05-08)
 
 ### Bug Fixes
