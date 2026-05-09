@@ -30,17 +30,24 @@ type TwLocalFlags = {
     includePrivateChannels: boolean
     nonInteractive: boolean
     interactive: boolean
-    /** Path supplied via `--progress-jsonl <path>` (space form). cli-core deliberately
-     * drops this form across CLIs (it can swallow positionals like
-     * `tw inbox --progress-jsonl`); twist re-adds it because the flag is global. */
-    progressJsonlSpacePath: string | undefined
+    /**
+     * Resolved value for `--progress-jsonl` across all three forms (bare,
+     * `=path`, space-separated `<path>`). `false` = absent, `true` = bare,
+     * string = path. Twist parses this locally — and ignores cli-core's
+     * `progressJsonl` field — so that "last occurrence wins" stays correct
+     * when the forms are mixed (`tw --progress-jsonl=/a --progress-jsonl /b`
+     * → `/b`). cli-core deliberately drops the space form cross-CLI because
+     * it can swallow positionals (`td task add --progress-jsonl "Buy milk"`);
+     * twist re-adds it because the flag is global, not subcommand-attached.
+     */
+    progressJsonl: string | true | false
 }
 
 function parseTwLocalFlags(argv: string[]): TwLocalFlags {
     let includePrivate = false
     let nonInteractive = false
     let interactive = false
-    let progressJsonlSpacePath: string | undefined
+    let progressJsonl: string | true | false = false
 
     for (let i = 0; i < argv.length; i++) {
         const arg = argv[i]
@@ -51,13 +58,16 @@ function parseTwLocalFlags(argv: string[]): TwLocalFlags {
             nonInteractive = true
         } else if (arg === '--interactive') {
             interactive = true
-        } else if (
-            arg === '--progress-jsonl' &&
-            i + 1 < argv.length &&
-            !argv[i + 1].startsWith('-')
-        ) {
-            // Last one wins — keep walking and let later occurrences overwrite.
-            progressJsonlSpacePath = argv[i + 1]
+        } else if (arg === '--progress-jsonl') {
+            // Bare or space form. Last one wins — overwrite any prior value.
+            if (i + 1 < argv.length && !argv[i + 1].startsWith('-')) {
+                progressJsonl = argv[i + 1]
+                i++
+            } else {
+                progressJsonl = true
+            }
+        } else if (arg.startsWith('--progress-jsonl=')) {
+            progressJsonl = arg.slice('--progress-jsonl='.length)
         }
     }
 
@@ -65,7 +75,7 @@ function parseTwLocalFlags(argv: string[]): TwLocalFlags {
         includePrivateChannels: includePrivate,
         nonInteractive,
         interactive,
-        progressJsonlSpacePath,
+        progressJsonl,
     }
 }
 
@@ -78,20 +88,11 @@ export function parseGlobalArgs(argv?: string[]): TwGlobalArgs {
     const base = parseCoreGlobalArgs(args)
     const local = parseTwLocalFlags(args)
 
-    // cli-core's `progressJsonl` is `false | true | string`. Layer the space
-    // form on top: a space-form path overrides any bare detection, and a path
-    // from either form (`=path` → cli-core, `<path>` → local) feeds
-    // `progressJsonlPath` for callers that want the resolved path directly.
-    const progressJsonl =
-        local.progressJsonlSpacePath !== undefined
-            ? local.progressJsonlSpacePath
-            : base.progressJsonl
-    const progressJsonlPath = typeof progressJsonl === 'string' ? progressJsonl : undefined
-
     return {
         ...base,
-        progressJsonl,
-        progressJsonlPath,
+        progressJsonl: local.progressJsonl,
+        progressJsonlPath:
+            typeof local.progressJsonl === 'string' ? local.progressJsonl : undefined,
         includePrivateChannels: local.includePrivateChannels,
         nonInteractive: local.nonInteractive,
         interactive: local.interactive,

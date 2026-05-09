@@ -84,6 +84,57 @@ describe('parseGlobalArgs', () => {
             expect(result.progressJsonl).toBe(true)
             expect(result.progressJsonlPath).toBeUndefined()
         })
+
+        // Twist parses --progress-jsonl locally (not via cli-core) so last-occurrence
+        // ordering stays correct when the forms are mixed. Regression for #209 review.
+        describe('last-occurrence-wins across mixed forms', () => {
+            it('=path then space form: space form wins', () => {
+                const result = parseGlobalArgs([
+                    'node',
+                    'tw',
+                    '--progress-jsonl=/tmp/first',
+                    '--progress-jsonl',
+                    '/tmp/second',
+                ])
+                expect(result.progressJsonl).toBe('/tmp/second')
+                expect(result.progressJsonlPath).toBe('/tmp/second')
+            })
+
+            it('space form then =path: =path wins', () => {
+                const result = parseGlobalArgs([
+                    'node',
+                    'tw',
+                    '--progress-jsonl',
+                    '/tmp/first',
+                    '--progress-jsonl=/tmp/second',
+                ])
+                expect(result.progressJsonl).toBe('/tmp/second')
+                expect(result.progressJsonlPath).toBe('/tmp/second')
+            })
+
+            it('path then bare: bare reverts to true (no path)', () => {
+                const result = parseGlobalArgs([
+                    'node',
+                    'tw',
+                    '--progress-jsonl',
+                    '/tmp/first',
+                    '--progress-jsonl',
+                ])
+                expect(result.progressJsonl).toBe(true)
+                expect(result.progressJsonlPath).toBeUndefined()
+            })
+
+            it('repeated =path forms: last wins', () => {
+                const result = parseGlobalArgs([
+                    'node',
+                    'tw',
+                    '--progress-jsonl=/tmp/first',
+                    '--progress-jsonl=/tmp/second',
+                ])
+                expect(result.progressJsonl).toBe('/tmp/second')
+                expect(result.progressJsonlPath).toBe('/tmp/second')
+            })
+        })
     })
 })
 
