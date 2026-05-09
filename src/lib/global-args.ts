@@ -1,102 +1,118 @@
-import { isCI } from '@doist/cli-core'
-
 /**
- * Centralized, type-safe parsing of global CLI flags.
+ * Per-CLI extension of `@doist/cli-core`'s global-args parser.
  *
- * Replaces scattered `process.argv.includes()` checks with a single parse
- * that correctly handles `--flag=value` variants and avoids false-positives
- * from option values.
- *
- * The result is lazily cached on first access — safe to call before or after
- * Commander's `parseAsync()` since it reads `process.argv` directly.
+ * Layers twist's `--include-private-channels`, `--non-interactive`,
+ * `--interactive`, and the `--progress-jsonl <path>` space form on top of
+ * the canonical shape (`--json`, `--ndjson`, `--quiet`, `--verbose`,
+ * `--accessible`, `--no-spinner`, `--progress-jsonl[=path]`).
  */
 
-export interface GlobalArgs {
-    json: boolean
-    ndjson: boolean
-    noSpinner: boolean
-    progressJsonl: boolean
+import {
+    createAccessibleGate,
+    createGlobalArgsStore,
+    createSpinnerGate,
+    type GlobalArgs as CoreGlobalArgs,
+    parseGlobalArgs as parseCoreGlobalArgs,
+} from '@doist/cli-core'
+
+export type TwGlobalArgs = CoreGlobalArgs & {
+    /** Resolved path for `--progress-jsonl` (any form). `undefined` when bare or absent. */
     progressJsonlPath: string | undefined
     includePrivateChannels: boolean
-    accessible: boolean
     nonInteractive: boolean
     interactive: boolean
 }
 
-/**
- * Parse well-known global flags from an argv array.
- *
- * Pure function — pass an explicit array for testing, or omit to use
- * `process.argv`.
- */
-export function parseGlobalArgs(argv?: string[]): GlobalArgs {
-    const args = argv ?? process.argv
+/** Back-compat alias — pre-cli-core twist code imported `GlobalArgs` from this module. */
+export type GlobalArgs = TwGlobalArgs
 
-    const has = (flag: string) =>
-        args.includes(flag) || args.some((arg) => arg.startsWith(`${flag}=`))
+type TwLocalFlags = {
+    includePrivateChannels: boolean
+    nonInteractive: boolean
+    interactive: boolean
+    /** Path supplied via `--progress-jsonl <path>` (space form). cli-core deliberately
+     * drops this form across CLIs (it can swallow positionals like
+     * `tw inbox --progress-jsonl`); twist re-adds it because the flag is global. */
+    progressJsonlSpacePath: string | undefined
+}
 
-    // Parse --progress-jsonl with optional path value.
-    // Supports: --progress-jsonl, --progress-jsonl=path, --progress-jsonl path
-    // "Last one wins" when specified multiple times.
-    const progressIndices = args
-        .map((arg, index) => ({ arg, index }))
-        .filter(({ arg }) => arg === '--progress-jsonl' || arg.startsWith('--progress-jsonl='))
+function parseTwLocalFlags(argv: string[]): TwLocalFlags {
+    let includePrivate = false
+    let nonInteractive = false
+    let interactive = false
+    let progressJsonlSpacePath: string | undefined
 
-    let progressJsonlPath: string | undefined
-    if (progressIndices.length > 0) {
-        const { arg, index } = progressIndices[progressIndices.length - 1]
-        if (arg.includes('=')) {
-            progressJsonlPath = arg.slice(arg.indexOf('=') + 1)
-        } else if (index + 1 < args.length && !args[index + 1].startsWith('-')) {
-            progressJsonlPath = args[index + 1]
+    for (let i = 0; i < argv.length; i++) {
+        const arg = argv[i]
+        if (arg === '--') break
+        if (arg === '--include-private-channels') {
+            includePrivate = true
+        } else if (arg === '--non-interactive') {
+            nonInteractive = true
+        } else if (arg === '--interactive') {
+            interactive = true
+        } else if (
+            arg === '--progress-jsonl' &&
+            i + 1 < argv.length &&
+            !argv[i + 1].startsWith('-')
+        ) {
+            // Last one wins — keep walking and let later occurrences overwrite.
+            progressJsonlSpacePath = argv[i + 1]
         }
     }
 
     return {
-        json: has('--json'),
-        ndjson: has('--ndjson'),
-        noSpinner: has('--no-spinner'),
-        progressJsonl: progressIndices.length > 0,
+        includePrivateChannels: includePrivate,
+        nonInteractive,
+        interactive,
+        progressJsonlSpacePath,
+    }
+}
+
+/**
+ * Parse well-known global flags from an argv array. Pure — pass an explicit
+ * array for testing, or omit to read `process.argv`.
+ */
+export function parseGlobalArgs(argv?: string[]): TwGlobalArgs {
+    const args = argv ?? process.argv
+    const base = parseCoreGlobalArgs(args)
+    const local = parseTwLocalFlags(args)
+
+    // cli-core's `progressJsonl` is `false | true | string`. Layer the space
+    // form on top: a space-form path overrides any bare detection, and a path
+    // from either form (`=path` → cli-core, `<path>` → local) feeds
+    // `progressJsonlPath` for callers that want the resolved path directly.
+    const progressJsonl =
+        local.progressJsonlSpacePath !== undefined
+            ? local.progressJsonlSpacePath
+            : base.progressJsonl
+    const progressJsonlPath = typeof progressJsonl === 'string' ? progressJsonl : undefined
+
+    return {
+        ...base,
+        progressJsonl,
         progressJsonlPath,
-        includePrivateChannels: has('--include-private-channels'),
-        accessible: has('--accessible'),
-        nonInteractive: has('--non-interactive'),
-        interactive: has('--interactive'),
+        includePrivateChannels: local.includePrivateChannels,
+        nonInteractive: local.nonInteractive,
+        interactive: local.interactive,
     }
 }
 
-// ---------------------------------------------------------------------------
-// Cached singleton
-// ---------------------------------------------------------------------------
-
-let cached: GlobalArgs | null = null
-
-function getGlobalArgs(): GlobalArgs {
-    if (!cached) {
-        cached = parseGlobalArgs()
-    }
-    return cached
-}
+const store = createGlobalArgsStore<TwGlobalArgs>(() => parseGlobalArgs())
 
 /** Clear the cached parse result. Call in test teardown. */
-export function resetGlobalArgs(): void {
-    cached = null
-}
+export const resetGlobalArgs = store.reset
 
 // ---------------------------------------------------------------------------
 // Query functions — drop-in replacements for the old process.argv checks
 // ---------------------------------------------------------------------------
 
 export function isJsonMode(): boolean {
-    return getGlobalArgs().json
-}
-
-export function isAccessible(): boolean {
-    return process.env.TW_ACCESSIBLE === '1' || getGlobalArgs().accessible
+    return store.get().json
 }
 
 export function isNonInteractive(): boolean {
-    const args = getGlobalArgs()
+    const args = store.get()
     if (args.interactive) return false
     if (args.nonInteractive) return true
     return !process.stdin.isTTY
@@ -107,21 +123,24 @@ export function includePrivateChannels(): boolean {
     if (envVal === '1' || envVal === 'true') {
         return true
     }
-    return getGlobalArgs().includePrivateChannels
-}
-
-export function shouldDisableSpinner(): boolean {
-    if (process.env.TW_SPINNER === 'false') return true
-    if (isCI()) return true
-
-    const args = getGlobalArgs()
-    return args.json || args.ndjson || args.noSpinner || args.progressJsonl || args.nonInteractive
+    return store.get().includePrivateChannels
 }
 
 export function isProgressJsonlEnabled(): boolean {
-    return getGlobalArgs().progressJsonl
+    return store.get().progressJsonl !== false
 }
 
 export function getProgressJsonlPath(): string | undefined {
-    return getGlobalArgs().progressJsonlPath
+    return store.get().progressJsonlPath
 }
+
+export const isAccessible = createAccessibleGate({
+    envVar: 'TW_ACCESSIBLE',
+    getArgs: store.get,
+})
+
+export const shouldDisableSpinner = createSpinnerGate({
+    envVar: 'TW_SPINNER',
+    getArgs: store.get,
+    extraTriggers: () => store.get().nonInteractive,
+})

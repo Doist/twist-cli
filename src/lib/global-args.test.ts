@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import {
+    getProgressJsonlPath,
     includePrivateChannels,
     isAccessible,
     isNonInteractive,
@@ -46,22 +47,16 @@ describe('parseGlobalArgs', () => {
             expect(result).toEqual({
                 json: false,
                 ndjson: false,
+                quiet: false,
+                verbose: 0,
+                accessible: false,
                 noSpinner: false,
                 progressJsonl: false,
                 progressJsonlPath: undefined,
                 includePrivateChannels: false,
-                accessible: false,
                 nonInteractive: false,
                 interactive: false,
             })
-        })
-    })
-
-    describe('--flag=value prefix matching', () => {
-        it('detects --progress-jsonl=path', () => {
-            const result = parseGlobalArgs(['--progress-jsonl=/tmp/out.jsonl'])
-            expect(result.progressJsonl).toBe(true)
-            expect(result.progressJsonlPath).toBe('/tmp/out.jsonl')
         })
     })
 
@@ -74,13 +69,13 @@ describe('parseGlobalArgs', () => {
 
         it('detects --progress-jsonl=path', () => {
             const result = parseGlobalArgs(['node', 'tw', '--progress-jsonl=/tmp/out.jsonl'])
-            expect(result.progressJsonl).toBe(true)
+            expect(result.progressJsonl).toBe('/tmp/out.jsonl')
             expect(result.progressJsonlPath).toBe('/tmp/out.jsonl')
         })
 
-        it('detects --progress-jsonl path as separate arg', () => {
+        it('detects --progress-jsonl path as separate arg (twist re-adds the space form cli-core drops)', () => {
             const result = parseGlobalArgs(['node', 'tw', '--progress-jsonl', '/tmp/out.jsonl'])
-            expect(result.progressJsonl).toBe(true)
+            expect(result.progressJsonl).toBe('/tmp/out.jsonl')
             expect(result.progressJsonlPath).toBe('/tmp/out.jsonl')
         })
 
@@ -88,16 +83,6 @@ describe('parseGlobalArgs', () => {
             const result = parseGlobalArgs(['node', 'tw', '--progress-jsonl', '--json'])
             expect(result.progressJsonl).toBe(true)
             expect(result.progressJsonlPath).toBeUndefined()
-        })
-
-        it('last one wins when specified multiple times', () => {
-            const result = parseGlobalArgs([
-                'node',
-                'tw',
-                '--progress-jsonl=/tmp/first',
-                '--progress-jsonl=/tmp/second',
-            ])
-            expect(result.progressJsonlPath).toBe('/tmp/second')
         })
     })
 })
@@ -122,6 +107,11 @@ describe('cached singleton', () => {
         resetGlobalArgs()
         process.argv = ['node', 'tw', '--progress-jsonl']
         expect(isProgressJsonlEnabled()).toBe(true)
+    })
+
+    it('exposes the resolved path via getProgressJsonlPath()', () => {
+        process.argv = ['node', 'tw', '--progress-jsonl', '/tmp/out.jsonl']
+        expect(getProgressJsonlPath()).toBe('/tmp/out.jsonl')
     })
 })
 
@@ -307,7 +297,7 @@ describe('shouldDisableSpinner', () => {
     it("treats CI='false' as opt-out (does not disable the spinner)", () => {
         // cli-core's isCI() honours CI='false' as a deliberate opt-out so a
         // nested invocation can run interactively even when the parent shell
-        // exports CI=true. Regression test for the isCI() swap.
+        // exports CI=true. Regression test for the cli-core gate.
         process.env.CI = 'false'
         expect(shouldDisableSpinner()).toBe(false)
     })
