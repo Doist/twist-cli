@@ -1,5 +1,5 @@
 import { getTwistClient } from '../../lib/api.js'
-import { readConfig } from '../../lib/config.js'
+import { getConfig } from '../../lib/config.js'
 import { CliError } from '../../lib/errors.js'
 import { openEditor, readStdin } from '../../lib/input.js'
 import type { MutationOptions } from '../../lib/options.js'
@@ -46,7 +46,7 @@ export async function createThread(
         resolved = await resolveNotifyIds(allIds, channel.workspaceId)
     }
 
-    const config = await readConfig()
+    const config = await getConfig()
     const shouldUnarchive = options.unarchive ?? config.userSettings?.unarchiveNewThreads ?? false
 
     if (options.dryRun) {

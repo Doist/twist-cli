@@ -29,7 +29,7 @@ vi.mock('../lib/config.js', async (importOriginal) => {
     const actual = await importOriginal<typeof import('../lib/config.js')>()
     return {
         ...actual,
-        readConfig: vi.fn().mockResolvedValue({}),
+        getConfig: vi.fn().mockResolvedValue({}),
         getConfigPath: vi.fn(() => '/tmp/test-config.json'),
     }
 })
@@ -40,13 +40,13 @@ vi.mock('../lib/api.js', () => ({
 
 import { createWrappedTwistClient } from '../lib/api.js'
 import { NoTokenError, probeApiToken } from '../lib/auth.js'
-import { readConfig } from '../lib/config.js'
+import { getConfig } from '../lib/config.js'
 import { registerDoctorCommand } from './doctor.js'
 
 const mockReadFile = vi.mocked(readFile)
 const mockCreateWrappedTwistClient = vi.mocked(createWrappedTwistClient)
 const mockProbeApiToken = vi.mocked(probeApiToken)
-const mockReadConfig = vi.mocked(readConfig)
+const mockGetConfig = vi.mocked(getConfig)
 
 function createProgram() {
     const program = new Command()
@@ -76,7 +76,7 @@ describe('doctor command', () => {
         process.exitCode = undefined
 
         mockReadFile.mockRejectedValue(Object.assign(new Error('missing'), { code: 'ENOENT' }))
-        mockReadConfig.mockResolvedValue({})
+        mockGetConfig.mockResolvedValue({})
         mockProbeApiToken.mockResolvedValue({
             token: 'test_token_123456789',
             metadata: { authMode: 'read-write', source: 'secure-store' },
@@ -130,7 +130,7 @@ describe('doctor command', () => {
                 updateChannel: 'pre-release',
             }),
         )
-        mockReadConfig.mockResolvedValue({ updateChannel: 'pre-release' })
+        mockGetConfig.mockResolvedValue({ updateChannel: 'pre-release' })
         mockProbeApiToken.mockResolvedValue({
             token: 'plaintext-token',
             metadata: { authMode: 'read-write', source: 'config-file' },
@@ -196,7 +196,7 @@ describe('doctor command', () => {
     })
 
     it('normalizes invalid update channel values to stable', async () => {
-        mockReadConfig.mockResolvedValue({ updateChannel: 'beta' as never })
+        mockGetConfig.mockResolvedValue({ updateChannel: 'beta' as never })
         mockFetch('1.0.0')
 
         const program = createProgram()

@@ -53,9 +53,13 @@ export interface Config {
     userSettings?: UserSettings
 }
 
-export async function readConfig(): Promise<Config> {
-    // cli-core's readConfig returns Partial<T> via {} on any failure, so the
-    // result is always an object — Config's all-optional fields make the cast safe.
+/**
+ * Thin wrapper around cli-core's lenient `readConfig`. Returns `{}` when the
+ * file is missing, unreadable, or invalid — runtime code paths treat "no
+ * config" and "empty config" the same. Use `readConfigStrict` for inspection
+ * commands that need to distinguish failure modes.
+ */
+export async function getConfig(): Promise<Config> {
     return (await readConfigCore<Config>(getConfigPath())) as Config
 }
 
@@ -63,7 +67,7 @@ export type StrictReadResult = { state: 'missing' } | { state: 'present'; config
 
 /**
  * Read and parse the config file strictly — for inspection commands that need
- * to distinguish "missing" from "present but broken". `readConfig` deliberately
+ * to distinguish "missing" from "present but broken". `getConfig` deliberately
  * swallows errors for runtime code paths; this one surfaces them.
  */
 export async function readConfigStrict(): Promise<StrictReadResult> {
@@ -99,13 +103,14 @@ export async function readConfigStrict(): Promise<StrictReadResult> {
     }
 }
 
-export async function writeConfig(config: Config): Promise<void> {
+/** Thin wrapper around cli-core's `writeConfig`. */
+export async function setConfig(config: Config): Promise<void> {
     await writeConfigCore(getConfigPath(), config)
 }
 
 export async function updateConfig(updates: Partial<Config>): Promise<void> {
-    const config = await readConfig()
-    await writeConfig({ ...config, ...updates })
+    const config = await getConfig()
+    await setConfig({ ...config, ...updates })
 }
 
 export function validateConfigForDoctor(config: Record<string, unknown>): string[] {

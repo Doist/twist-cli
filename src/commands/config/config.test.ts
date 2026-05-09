@@ -9,7 +9,7 @@ vi.mock('../../lib/config.js', async (importOriginal) => {
         ...actual,
         getConfigPath: () => '/tmp/fake-twist-cli/config.json',
         readConfigStrict: vi.fn(),
-        writeConfig: vi.fn(),
+        setConfig: vi.fn(),
     }
 })
 
@@ -22,14 +22,14 @@ vi.mock('../../lib/auth.js', async (importOriginal) => {
 })
 
 import { NoTokenError, probeApiToken } from '../../lib/auth.js'
-import { type Config, readConfigStrict, writeConfig } from '../../lib/config.js'
+import { type Config, readConfigStrict, setConfig } from '../../lib/config.js'
 import { CliError } from '../../lib/errors.js'
 import { SecureStoreUnavailableError } from '../../lib/secure-store.js'
 import { registerConfigCommand } from './index.js'
 
 const mockReadConfigStrict = vi.mocked(readConfigStrict)
 const mockProbeApiToken = vi.mocked(probeApiToken)
-const mockWriteConfig = vi.mocked(writeConfig)
+const mockSetConfig = vi.mocked(setConfig)
 
 function createProgram() {
     const program = new Command()
@@ -291,7 +291,7 @@ describe('config view', () => {
 describe('config set', () => {
     beforeEach(() => {
         vi.clearAllMocks()
-        mockWriteConfig.mockResolvedValue()
+        mockSetConfig.mockResolvedValue()
     })
 
     it('writes userSettings.unarchiveNewThreads = true', async () => {
@@ -307,7 +307,7 @@ describe('config set', () => {
             'true',
         ])
 
-        expect(mockWriteConfig).toHaveBeenCalledWith({
+        expect(mockSetConfig).toHaveBeenCalledWith({
             userSettings: { unarchiveNewThreads: true },
         })
         const output = consoleSpy.mock.calls.map((c) => c.join(' ')).join('\n')
@@ -331,7 +331,7 @@ describe('config set', () => {
             'off',
         ])
 
-        expect(mockWriteConfig).toHaveBeenCalledWith({
+        expect(mockSetConfig).toHaveBeenCalledWith({
             userSettings: { unarchiveNewThreads: false },
         })
         consoleSpy.mockRestore()
@@ -356,7 +356,7 @@ describe('config set', () => {
             'true',
         ])
 
-        expect(mockWriteConfig).toHaveBeenCalledWith({
+        expect(mockSetConfig).toHaveBeenCalledWith({
             userSettings: { unarchiveNewThreads: true },
             currentWorkspace: 7,
         })
@@ -369,7 +369,7 @@ describe('config set', () => {
         await expect(
             createProgram().parseAsync(['node', 'tw', 'config', 'set', 'nope', 'true']),
         ).rejects.toBeInstanceOf(CliError)
-        expect(mockWriteConfig).not.toHaveBeenCalled()
+        expect(mockSetConfig).not.toHaveBeenCalled()
     })
 
     it('rejects invalid boolean values', async () => {
@@ -385,7 +385,7 @@ describe('config set', () => {
                 'maybe',
             ]),
         ).rejects.toMatchObject({ code: 'INVALID_VALUE' })
-        expect(mockWriteConfig).not.toHaveBeenCalled()
+        expect(mockSetConfig).not.toHaveBeenCalled()
     })
 
     it('writes a fresh config when the file is missing', async () => {
@@ -401,7 +401,7 @@ describe('config set', () => {
             'true',
         ])
 
-        expect(mockWriteConfig).toHaveBeenCalledWith({
+        expect(mockSetConfig).toHaveBeenCalledWith({
             userSettings: { unarchiveNewThreads: true },
         })
         consoleSpy.mockRestore()
@@ -420,6 +420,6 @@ describe('config set', () => {
                 'true',
             ]),
         ).rejects.toMatchObject({ code: 'CONFIG_INVALID_JSON' })
-        expect(mockWriteConfig).not.toHaveBeenCalled()
+        expect(mockSetConfig).not.toHaveBeenCalled()
     })
 })

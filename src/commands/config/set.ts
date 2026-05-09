@@ -1,5 +1,5 @@
 import chalk from 'chalk'
-import { type Config, readConfigStrict, writeConfig } from '../../lib/config.js'
+import { type Config, readConfigStrict, setConfig } from '../../lib/config.js'
 import { CliError } from '../../lib/errors.js'
 
 const TRUE_VALUES = new Set(['true', 'on', '1', 'yes'])
@@ -38,7 +38,7 @@ export async function setConfigValue(key: string, value: string): Promise<void> 
     const read = await readConfigStrict()
     const config: Config = read.state === 'present' ? read.config : {}
     const summary = setter.apply(config, value)
-    await writeConfig(config)
+    await setConfig(config)
 
     console.log(chalk.green('✓'), `Set ${chalk.cyan(summary)}`)
 }

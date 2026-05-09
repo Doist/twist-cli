@@ -1,4 +1,4 @@
-import { readConfig, type UpdateChannel } from './config.js'
+import { getConfig, type UpdateChannel } from './config.js'
 
 export const PACKAGE_NAME = '@doist/twist-cli'
 const VALID_UPDATE_CHANNELS: ReadonlySet<UpdateChannel> = new Set(['stable', 'pre-release'])
@@ -63,6 +63,6 @@ export async function fetchLatestVersion(channel: UpdateChannel): Promise<string
 }
 
 export async function getConfiguredUpdateChannel(): Promise<UpdateChannel> {
-    const config = await readConfig()
+    const config = await getConfig()
     return normalizeUpdateChannel(config.updateChannel)
 }

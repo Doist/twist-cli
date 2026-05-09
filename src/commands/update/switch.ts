@@ -1,5 +1,5 @@
 import chalk from 'chalk'
-import { readConfig, type UpdateChannel, writeConfig } from '../../lib/config.js'
+import { getConfig, type UpdateChannel, setConfig } from '../../lib/config.js'
 import { CliError } from '../../lib/errors.js'
 
 export async function switchChannel(options: {
@@ -17,9 +17,9 @@ export async function switchChannel(options: {
     }
 
     const channel: UpdateChannel = options.preRelease ? 'pre-release' : 'stable'
-    const config = await readConfig()
+    const config = await getConfig()
     config.updateChannel = channel
-    await writeConfig(config)
+    await setConfig(config)
 
     if (channel === 'pre-release') {
         console.log(chalk.green('✓'), `Update channel set to ${chalk.magenta('pre-release')}`)

@@ -16,19 +16,19 @@ vi.mock('../../lib/config.js', async (importOriginal) => {
     const original = await importOriginal<typeof import('../../lib/config.js')>()
     return {
         ...original,
-        readConfig: vi.fn().mockResolvedValue({}),
-        writeConfig: vi.fn().mockResolvedValue(undefined),
+        getConfig: vi.fn().mockResolvedValue({}),
+        setConfig: vi.fn().mockResolvedValue(undefined),
     }
 })
 
 import { spawn } from 'node:child_process'
 import pkg from '../../../package.json' with { type: 'json' }
-import { readConfig, writeConfig } from '../../lib/config.js'
+import { getConfig, setConfig } from '../../lib/config.js'
 import { registerUpdateCommand } from './index.js'
 
 const mockSpawn = vi.mocked(spawn)
-const mockReadConfig = vi.mocked(readConfig)
-const mockWriteConfig = vi.mocked(writeConfig)
+const mockGetConfig = vi.mocked(getConfig)
+const mockSetConfig = vi.mocked(setConfig)
 
 function createProgram() {
     const program = new Command()
@@ -124,7 +124,7 @@ describe('update command', () => {
         vi.clearAllMocks()
         consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
         consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
-        mockReadConfig.mockResolvedValue({})
+        mockGetConfig.mockResolvedValue({})
     })
 
     afterEach(() => {
@@ -178,7 +178,7 @@ describe('update command', () => {
         })
 
         it('shows pre-release channel with --check when configured', async () => {
-            mockReadConfig.mockResolvedValue({ updateChannel: 'pre-release' })
+            mockGetConfig.mockResolvedValue({ updateChannel: 'pre-release' })
             mockFetch('99.0.0-rc.1')
 
             const program = createProgram()
@@ -188,7 +188,7 @@ describe('update command', () => {
         })
 
         it('falls back to stable when the configured channel is invalid', async () => {
-            mockReadConfig.mockResolvedValue({ updateChannel: 'beta' as never })
+            mockGetConfig.mockResolvedValue({ updateChannel: 'beta' as never })
             mockFetch(pkg.version)
 
             const program = createProgram()
@@ -285,7 +285,7 @@ describe('update command', () => {
 
     describe('pre-release channel', () => {
         beforeEach(() => {
-            mockReadConfig.mockResolvedValue({ updateChannel: 'pre-release' })
+            mockGetConfig.mockResolvedValue({ updateChannel: 'pre-release' })
         })
 
         it('fetches from /next when on pre-release channel', async () => {
@@ -355,12 +355,12 @@ describe('update command', () => {
 
     describe('switch subcommand', () => {
         it('switches to stable', async () => {
-            mockReadConfig.mockResolvedValue({ updateChannel: 'pre-release' })
+            mockGetConfig.mockResolvedValue({ updateChannel: 'pre-release' })
 
             const program = createProgram()
             await program.parseAsync(['node', 'tw', 'update', 'switch', '--stable'])
 
-            expect(mockWriteConfig).toHaveBeenCalledWith(
+            expect(mockSetConfig).toHaveBeenCalledWith(
                 expect.objectContaining({ updateChannel: 'stable' }),
             )
             expect(consoleSpy).toHaveBeenCalledWith('✓', 'Update channel set to stable')
@@ -370,7 +370,7 @@ describe('update command', () => {
             const program = createProgram()
             await program.parseAsync(['node', 'tw', 'update', 'switch', '--pre-release'])
 
-            expect(mockWriteConfig).toHaveBeenCalledWith(
+            expect(mockSetConfig).toHaveBeenCalledWith(
                 expect.objectContaining({ updateChannel: 'pre-release' }),
             )
             expect(consoleSpy).toHaveBeenCalledWith('✓', expect.stringContaining('pre-release'))
@@ -388,7 +388,7 @@ describe('update command', () => {
                 program.parseAsync(['node', 'tw', 'update', 'switch', '--stable', '--pre-release']),
             ).rejects.toHaveProperty('code', 'CONFLICTING_OPTIONS')
 
-            expect(mockWriteConfig).not.toHaveBeenCalled()
+            expect(mockSetConfig).not.toHaveBeenCalled()
         })
 
         it('errors when no flags specified', async () => {
@@ -397,11 +397,11 @@ describe('update command', () => {
                 program.parseAsync(['node', 'tw', 'update', 'switch']),
             ).rejects.toHaveProperty('code', 'CONFLICTING_OPTIONS')
 
-            expect(mockWriteConfig).not.toHaveBeenCalled()
+            expect(mockSetConfig).not.toHaveBeenCalled()
         })
 
         it('preserves existing config fields', async () => {
-            mockReadConfig.mockResolvedValue({
+            mockGetConfig.mockResolvedValue({
                 currentWorkspace: 42,
                 updateChannel: 'stable',
             })
@@ -409,7 +409,7 @@ describe('update command', () => {
             const program = createProgram()
             await program.parseAsync(['node', 'tw', 'update', 'switch', '--pre-release'])
 
-            expect(mockWriteConfig).toHaveBeenCalledWith(
+            expect(mockSetConfig).toHaveBeenCalledWith(
                 expect.objectContaining({
                     currentWorkspace: 42,
                     updateChannel: 'pre-release',
@@ -420,7 +420,7 @@ describe('update command', () => {
 
     describe('--channel flag', () => {
         it('shows stable by default', async () => {
-            mockReadConfig.mockResolvedValue({})
+            mockGetConfig.mockResolvedValue({})
 
             const program = createProgram()
             await program.parseAsync(['node', 'tw', 'update', '--channel'])
@@ -430,7 +430,7 @@ describe('update command', () => {
         })
 
         it('shows pre-release when configured', async () => {
-            mockReadConfig.mockResolvedValue({ updateChannel: 'pre-release' })
+            mockGetConfig.mockResolvedValue({ updateChannel: 'pre-release' })
 
             const program = createProgram()
             await program.parseAsync(['node', 'tw', 'update', '--channel'])
@@ -440,7 +440,7 @@ describe('update command', () => {
         })
 
         it('does not fetch from registry', async () => {
-            mockReadConfig.mockResolvedValue({})
+            mockGetConfig.mockResolvedValue({})
             const fetchSpy = vi.spyOn(global, 'fetch')
 
             const program = createProgram()
@@ -451,7 +451,7 @@ describe('update command', () => {
         })
 
         it('errors when combined with --check', async () => {
-            mockReadConfig.mockResolvedValue({})
+            mockGetConfig.mockResolvedValue({})
 
             const program = createProgram()
             await expect(

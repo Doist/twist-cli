@@ -6,12 +6,12 @@ const apiMocks = vi.hoisted(() => ({
 }))
 
 const configMocks = vi.hoisted(() => ({
-    readConfig: vi.fn().mockResolvedValue({}),
+    getConfig: vi.fn().mockResolvedValue({}),
 }))
 
 vi.mock('../../lib/config.js', async (importOriginal) => ({
     ...(await importOriginal<typeof import('../../lib/config.js')>()),
-    readConfig: configMocks.readConfig,
+    getConfig: configMocks.getConfig,
 }))
 
 vi.mock('../../lib/public-channels.js', () => ({
@@ -532,7 +532,7 @@ describe('thread view with failed batch response', () => {
 describe('thread create', () => {
     beforeEach(() => {
         vi.clearAllMocks()
-        configMocks.readConfig.mockResolvedValue({})
+        configMocks.getConfig.mockResolvedValue({})
     })
 
     it('creates a thread with positional title and content', async () => {
@@ -749,7 +749,7 @@ describe('thread create', () => {
     })
 
     it('unarchives when userSettings.unarchiveNewThreads is true', async () => {
-        configMocks.readConfig.mockResolvedValueOnce({
+        configMocks.getConfig.mockResolvedValueOnce({
             userSettings: { unarchiveNewThreads: true },
         })
         const client = createClient()
@@ -765,7 +765,7 @@ describe('thread create', () => {
     })
 
     it('--no-unarchive overrides config default of true', async () => {
-        configMocks.readConfig.mockResolvedValueOnce({
+        configMocks.getConfig.mockResolvedValueOnce({
             userSettings: { unarchiveNewThreads: true },
         })
         const client = createClient()
