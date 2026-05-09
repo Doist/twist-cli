@@ -28,9 +28,15 @@ export interface GlobalArgs {
  *
  * Pure function — pass an explicit array for testing, or omit to use
  * `process.argv`.
+ *
+ * Honors the `--` terminator: anything after it is treated as positional and
+ * ignored by global-flag detection (so `tw msg send -- --user=bot` does not
+ * misroute as account selection).
  */
 export function parseGlobalArgs(argv?: string[]): GlobalArgs {
-    const args = argv ?? process.argv
+    const fullArgs = argv ?? process.argv
+    const terminatorIndex = fullArgs.indexOf('--')
+    const args = terminatorIndex === -1 ? fullArgs : fullArgs.slice(0, terminatorIndex)
 
     const has = (flag: string) =>
         args.includes(flag) || args.some((arg) => arg.startsWith(`${flag}=`))
@@ -51,8 +57,9 @@ export function parseGlobalArgs(argv?: string[]): GlobalArgs {
         }
     }
 
-    // --user <ref> | --user=<ref> | --user (no value — left undefined so
-    // index.ts can surface a clear usage error before commander runs).
+    // --user <ref> | --user=<ref> | --user (no value — left undefined so the
+    // pre-parse validator can surface a clear usage error before commander
+    // runs).
     let user: string | undefined
     const userIndices = args
         .map((arg, index) => ({ arg, index }))
@@ -81,6 +88,49 @@ export function parseGlobalArgs(argv?: string[]): GlobalArgs {
         interactive: has('--interactive'),
         user,
     }
+}
+
+/**
+ * Validate the `--user` flag from an argv slice. Single source of truth for
+ * the pre-Commander validation in `src/index.ts`.
+ *
+ * Returns:
+ *  - `{ ok: true, ref }` — valid value (possibly undefined when --user wasn't passed)
+ *  - `{ ok: false, message, hints }` — invalid; caller should raise CliError
+ *
+ * `knownCommands` lets the validator catch the common typo
+ * `tw --user list` (forgot the value, list looks like a subcommand). Pass the
+ * full set of subcommand names + aliases.
+ */
+export type UserFlagValidation =
+    | { ok: true; ref: string | undefined }
+    | { ok: false; message: string; hints: string[] }
+
+export function validateUserFlag(
+    argv: string[],
+    knownCommands: ReadonlySet<string>,
+): UserFlagValidation {
+    const terminatorIndex = argv.indexOf('--')
+    const scanRange = terminatorIndex === -1 ? argv : argv.slice(0, terminatorIndex)
+    const sawUserFlag = scanRange.some((a) => a === '--user' || a.startsWith('--user='))
+    if (!sawUserFlag) return { ok: true, ref: undefined }
+
+    const ref = parseGlobalArgs(argv).user
+    if (!ref) {
+        return {
+            ok: false,
+            message: '--user requires a value: <id|email>.',
+            hints: ['Example: tw --user me@example.com inbox'],
+        }
+    }
+    if (knownCommands.has(ref)) {
+        return {
+            ok: false,
+            message: `--user requires a value: <id|email>. Got "${ref}", which looks like a subcommand — did you forget the value?`,
+            hints: [`Example: tw --user me@example.com ${ref}`],
+        }
+    }
+    return { ok: true, ref }
 }
 
 // ---------------------------------------------------------------------------

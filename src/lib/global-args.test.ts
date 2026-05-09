@@ -9,6 +9,7 @@ import {
     resetGlobalArgs,
     shouldDisableSpinner,
     stripUserFlag,
+    validateUserFlag,
 } from './global-args.js'
 
 describe('parseGlobalArgs', () => {
@@ -81,6 +82,66 @@ describe('parseGlobalArgs', () => {
         })
         it('leaves --user at end of argv as undefined', () => {
             expect(parseGlobalArgs(['inbox', '--user']).user).toBeUndefined()
+        })
+    })
+
+    describe('validateUserFlag', () => {
+        const known = new Set(['inbox', 'thread', 'channel', 'account'])
+
+        it('returns ok with undefined ref when --user is not present', () => {
+            expect(validateUserFlag(['inbox'], known)).toEqual({ ok: true, ref: undefined })
+        })
+
+        it('returns ok with the ref for --user <ref>', () => {
+            expect(validateUserFlag(['--user', 'me@example.com', 'inbox'], known)).toEqual({
+                ok: true,
+                ref: 'me@example.com',
+            })
+        })
+
+        it('returns ok with the ref for --user=<ref>', () => {
+            expect(validateUserFlag(['--user=12345', 'inbox'], known)).toEqual({
+                ok: true,
+                ref: '12345',
+            })
+        })
+
+        it('rejects bare --user with no value', () => {
+            const result = validateUserFlag(['--user'], known)
+            expect(result.ok).toBe(false)
+            if (result.ok) throw new Error('expected failure')
+            expect(result.message).toContain('--user requires a value')
+        })
+
+        it('rejects --user= with empty value', () => {
+            const result = validateUserFlag(['--user=', 'inbox'], known)
+            expect(result.ok).toBe(false)
+            if (result.ok) throw new Error('expected failure')
+            expect(result.message).toContain('--user requires a value')
+        })
+
+        it('rejects --user followed by another flag (--user --json)', () => {
+            const result = validateUserFlag(['--user', '--json', 'inbox'], known)
+            expect(result.ok).toBe(false)
+            if (result.ok) throw new Error('expected failure')
+            expect(result.message).toContain('--user requires a value')
+        })
+
+        it('rejects --user followed by a known subcommand and hints with the subcommand name', () => {
+            const result = validateUserFlag(['--user', 'inbox'], known)
+            expect(result.ok).toBe(false)
+            if (result.ok) throw new Error('expected failure')
+            expect(result.message).toContain('looks like a subcommand')
+            expect(result.hints[0]).toContain('inbox')
+        })
+
+        it('ignores --user tokens after the -- terminator', () => {
+            // `tw msg send -- --user=bot` is positional content, not a global
+            // flag. Verifies the bug fix.
+            expect(validateUserFlag(['msg', 'send', '--', '--user=bot'], known)).toEqual({
+                ok: true,
+                ref: undefined,
+            })
         })
     })
 

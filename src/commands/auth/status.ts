@@ -1,8 +1,8 @@
 import { TwistRequestError } from '@doist/twist-sdk'
 import chalk from 'chalk'
-import { getDefaultAccountId } from '../../lib/accounts.js'
+import { getDefaultAccountId, getStoredAccounts } from '../../lib/accounts.js'
 import { getSessionUser } from '../../lib/api.js'
-import { getAuthMetadata, listStoredAccounts, NoTokenError } from '../../lib/auth.js'
+import { getAuthMetadata, NoTokenError } from '../../lib/auth.js'
 import { getConfig } from '../../lib/config.js'
 import { CliError } from '../../lib/errors.js'
 import { formatJson } from '../../lib/output.js'
@@ -21,9 +21,11 @@ export async function showStatus(options: { json?: boolean }): Promise<void> {
         throw error
     }
 
-    const metadata = await getAuthMetadata()
-    const config = await getConfig()
-    const storedAccounts = await listStoredAccounts()
+    // One config read covers both the stored-accounts list and the
+    // default-id lookup; metadata fetch runs in parallel so cold status
+    // doesn't pay for sequential FS hops.
+    const [metadata, config] = await Promise.all([getAuthMetadata(), getConfig()])
+    const storedAccounts = getStoredAccounts(config)
     const defaultAccountId = getDefaultAccountId(config)
     const userIdStr = String(user.id)
 

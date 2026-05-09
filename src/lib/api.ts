@@ -9,6 +9,7 @@ import { getStoredAccounts, updateStoredAccount } from './accounts.js'
 import { resolveActiveAccount } from './auth.js'
 import { type Config, getConfig, setConfig } from './config.js'
 import { CliError, isInsufficientScope } from './errors.js'
+import { getRequestedUserRef } from './global-args.js'
 import { ensureWriteAllowed, isMutatingMethod } from './permissions.js'
 import { getProgressTracker } from './progress.js'
 import { withSpinner } from './spinner.js'
@@ -238,7 +239,7 @@ export function createWrappedTwistClient(token: string): TwistApi {
 
 export async function getTwistClient(): Promise<TwistApi> {
     if (!apiClient) {
-        const resolved = await resolveActiveAccount()
+        const resolved = await resolveActiveAccount({ ref: getRequestedUserRef() })
         apiClient = createWrappedTwistClient(resolved.token)
     }
     return apiClient
@@ -265,11 +266,11 @@ export async function getCurrentWorkspaceId(flagValue?: number): Promise<number>
         return flagValue
     }
 
-    const resolved = await resolveActiveAccount()
+    const resolved = await resolveActiveAccount({ ref: getRequestedUserRef() })
 
-    // Env-token flow has no persistent slot to write into; resolve the
-    // workspace freshly from the API each call.
-    if (resolved.id === 'env') {
+    // Env-token / legacy-fallback flows have no persistent slot to write
+    // into; resolve the workspace freshly from the API each call.
+    if (!resolved.id) {
         const sessionUser = await getSessionUser()
         if (sessionUser.defaultWorkspace) return sessionUser.defaultWorkspace
         return firstWorkspaceId()
@@ -286,19 +287,20 @@ export async function getCurrentWorkspaceId(flagValue?: number): Promise<number>
         config = migrated
     }
 
-    const account = getStoredAccounts(config).find((a) => a.id === resolved.id)
+    const accountId = resolved.id
+    const account = getStoredAccounts(config).find((a) => a.id === accountId)
     if (account?.currentWorkspace) {
         return account.currentWorkspace
     }
 
     const sessionUser = await getSessionUser()
     if (sessionUser.defaultWorkspace) {
-        await persistAccountWorkspace(resolved.id, sessionUser.defaultWorkspace)
+        await persistAccountWorkspace(accountId, sessionUser.defaultWorkspace)
         return sessionUser.defaultWorkspace
     }
 
     const id = await firstWorkspaceId()
-    await persistAccountWorkspace(resolved.id, id)
+    await persistAccountWorkspace(accountId, id)
     return id
 }
 
@@ -348,8 +350,8 @@ function migrateLegacyCurrentWorkspace(config: Config): Config {
  * Persist the active account's workspace selection. Used by `tw workspace use`.
  */
 export async function setActiveAccountWorkspace(workspaceId: number): Promise<void> {
-    const resolved = await resolveActiveAccount()
-    if (resolved.id === 'env') return
+    const resolved = await resolveActiveAccount({ ref: getRequestedUserRef() })
+    if (!resolved.id) return
     await persistAccountWorkspace(resolved.id, workspaceId)
 }
 

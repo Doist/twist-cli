@@ -1,4 +1,5 @@
 import { createInterface } from 'node:readline'
+import { TwistRequestError } from '@doist/twist-sdk'
 import chalk from 'chalk'
 import { createWrappedTwistClient } from '../../lib/api.js'
 import { upsertAccount } from '../../lib/auth.js'
@@ -48,8 +49,25 @@ export async function loginWithToken(token?: string): Promise<void> {
     const trimmed = token.trim()
 
     // Identify the Twist user behind the token so it lands in the right slot.
+    // Wrap probe failures so a bad/expired token or transient network error
+    // surfaces as a structured CliError rather than a raw stack trace.
     const probeApi = createWrappedTwistClient(trimmed)
-    const sessionUser = await probeApi.users.getSessionUser()
+    let sessionUser: Awaited<ReturnType<typeof probeApi.users.getSessionUser>>
+    try {
+        sessionUser = await probeApi.users.getSessionUser()
+    } catch (error) {
+        if (error instanceof TwistRequestError && error.httpStatusCode === 401) {
+            throw new CliError(
+                'INVALID_TOKEN',
+                'Token rejected by Twist (401). The token is invalid or expired.',
+                ['Get a fresh token via `tw auth login`, or pass a valid one to `tw auth token`'],
+            )
+        }
+        const detail = error instanceof Error && error.message ? `: ${error.message}` : ''
+        throw new CliError('AUTH_FAILED', `Could not verify token with Twist${detail}`, [
+            'Check your network connection, then re-run `tw auth token`',
+        ])
+    }
     const userId = String(sessionUser.id)
 
     const saveResult = await upsertAccount({

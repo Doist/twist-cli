@@ -1,6 +1,5 @@
 import chalk from 'chalk'
-import { getDefaultAccountId } from '../../lib/accounts.js'
-import { listStoredAccounts } from '../../lib/auth.js'
+import { getDefaultAccountId, getStoredAccounts } from '../../lib/accounts.js'
 import { getConfig } from '../../lib/config.js'
 import { isAccessible } from '../../lib/global-args.js'
 import { formatJson } from '../../lib/output.js'
@@ -10,8 +9,9 @@ export interface ListAccountsOptions {
 }
 
 export async function listAccountsCommand(options: ListAccountsOptions): Promise<void> {
-    const accounts = await listStoredAccounts()
+    // One config read drives both the account list and the default lookup.
     const config = await getConfig()
+    const accounts = getStoredAccounts(config)
     const defaultId = getDefaultAccountId(config)
 
     if (options.json) {

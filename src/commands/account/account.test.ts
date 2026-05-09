@@ -5,7 +5,6 @@ vi.mock('../../lib/auth.js', async (importOriginal) => {
     const actual = await importOriginal<typeof import('../../lib/auth.js')>()
     return {
         ...actual,
-        listStoredAccounts: vi.fn(),
         setDefaultAccountId: vi.fn(),
     }
 })
@@ -20,11 +19,11 @@ vi.mock('../../lib/config.js', async (importOriginal) => {
 
 vi.mock('chalk')
 
-import { listStoredAccounts, setDefaultAccountId } from '../../lib/auth.js'
+import { AccountNotFoundError } from '../../lib/accounts.js'
+import { setDefaultAccountId } from '../../lib/auth.js'
 import { getConfig } from '../../lib/config.js'
 import { registerAccountCommand } from './index.js'
 
-const mockListStoredAccounts = vi.mocked(listStoredAccounts)
 const mockSetDefaultAccountId = vi.mocked(setDefaultAccountId)
 const mockGetConfig = vi.mocked(getConfig)
 
@@ -50,21 +49,20 @@ describe('account command', () => {
 
     describe('list', () => {
         it('prints a hint when no accounts are stored', async () => {
-            mockListStoredAccounts.mockResolvedValue([])
+            mockGetConfig.mockResolvedValue({ configVersion: 2, accounts: [] })
             await createProgram().parseAsync(['node', 'tw', 'account', 'list'])
 
             expect(consoleSpy.mock.calls.flat().join('\n')).toContain('No stored Twist accounts')
         })
 
         it('marks the default account', async () => {
-            mockListStoredAccounts.mockResolvedValue([
-                { id: '1', email: 'a@b.c', name: 'Alice' },
-                { id: '2', email: 'd@e.f', name: 'Dan' },
-            ])
             mockGetConfig.mockResolvedValue({
                 configVersion: 2,
                 account: { defaultAccount: '2' },
-                accounts: [],
+                accounts: [
+                    { id: '1', email: 'a@b.c', name: 'Alice' },
+                    { id: '2', email: 'd@e.f', name: 'Dan' },
+                ],
             })
 
             await createProgram().parseAsync(['node', 'tw', 'account', 'list'])
@@ -76,13 +74,10 @@ describe('account command', () => {
         })
 
         it('outputs JSON when --json given', async () => {
-            mockListStoredAccounts.mockResolvedValue([
-                { id: '1', email: 'a@b.c', authMode: 'read-write' },
-            ])
             mockGetConfig.mockResolvedValue({
                 configVersion: 2,
                 account: { defaultAccount: '1' },
-                accounts: [],
+                accounts: [{ id: '1', email: 'a@b.c', authMode: 'read-write' }],
             })
 
             await createProgram().parseAsync(['node', 'tw', 'account', 'list', '--json'])
@@ -100,22 +95,17 @@ describe('account command', () => {
     })
 
     describe('use', () => {
-        it('sets the default account by id', async () => {
-            mockGetConfig.mockResolvedValue({
-                configVersion: 2,
-                accounts: [{ id: '111', email: 'a@b.c' }],
-            })
+        it('sets the default account by ref and reuses the resolved account in the success message', async () => {
+            mockSetDefaultAccountId.mockResolvedValue({ id: '111', email: 'a@b.c' })
 
             await createProgram().parseAsync(['node', 'tw', 'account', 'use', '111'])
 
             expect(mockSetDefaultAccountId).toHaveBeenCalledWith('111')
+            expect(consoleSpy.mock.calls.flat().join('\n')).toContain('a@b.c')
         })
 
         it('rejects an unknown ref', async () => {
-            mockGetConfig.mockResolvedValue({
-                configVersion: 2,
-                accounts: [{ id: '111', email: 'a@b.c' }],
-            })
+            mockSetDefaultAccountId.mockRejectedValue(new AccountNotFoundError('nope'))
 
             await expect(
                 createProgram().parseAsync(['node', 'tw', 'account', 'use', 'nope']),

@@ -95,10 +95,10 @@ describe('auth multi-account storage', () => {
         const { getApiToken, resolveActiveAccount } = await import('./auth.js')
 
         await expect(getApiToken()).resolves.toBe('env_token_123456')
-        await expect(resolveActiveAccount()).resolves.toMatchObject({
-            id: 'env',
-            source: 'env',
-        })
+        const resolved = await resolveActiveAccount()
+        expect(resolved.source).toBe('env')
+        expect(resolved.id).toBeUndefined()
+        expect(resolved.email).toBeUndefined()
         expect(mocks.getConfig).not.toHaveBeenCalled()
     })
 
@@ -306,7 +306,8 @@ describe('auth multi-account storage', () => {
         const { resolveActiveAccount } = await import('./auth.js')
 
         const resolved = await resolveActiveAccount()
-        expect(resolved.id).toBe('legacy')
+        expect(resolved.legacy).toBe(true)
+        expect(resolved.id).toBeUndefined()
         expect(resolved.token).toBe('legacy-token-1234567')
         expect(resolved.authMode).toBe('read-write')
         // does NOT auto-migrate at runtime — postinstall's job
@@ -320,7 +321,8 @@ describe('auth multi-account storage', () => {
         const { resolveActiveAccount } = await import('./auth.js')
 
         const resolved = await resolveActiveAccount()
-        expect(resolved.id).toBe('legacy')
+        expect(resolved.legacy).toBe(true)
+        expect(resolved.id).toBeUndefined()
         expect(resolved.token).toBe('legacy-secure-1234567')
         expect(resolved.source).toBe('secure-store')
     })

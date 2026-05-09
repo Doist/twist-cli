@@ -329,6 +329,22 @@ describe('auth command', () => {
             ).rejects.toHaveProperty('code', 'AUTH_FAILED')
             expect(mockUpsertAccount).not.toHaveBeenCalled()
         })
+
+        it('cleanup still runs when a post-callback step fails (regression: server must close on upsert error)', async () => {
+            const program = createProgram()
+            const cleanup = setupOAuthMocks()
+            mockUpsertAccount.mockRejectedValueOnce(new Error('config write failed'))
+
+            await expect(
+                program.parseAsync(['node', 'tw', 'auth', 'login']),
+            ).rejects.toHaveProperty('code', 'AUTH_FAILED')
+
+            // The callback server resolved successfully, so the returned
+            // cleanup MUST still run via the `finally` block — otherwise the
+            // OAuth listener is left dangling and the next login fails with
+            // EADDRINUSE.
+            expect(cleanup).toHaveBeenCalled()
+        })
     })
 
     describe('status subcommand', () => {
@@ -368,10 +384,13 @@ describe('auth command', () => {
                 authMode: 'read-write',
                 source: 'secure-store',
             })
-            mockListStoredAccounts.mockResolvedValue([
-                { id: '12345', email: 'scott@example.com' },
-                { id: '67890', email: 'other@example.com' },
-            ])
+            mockGetConfig.mockResolvedValue({
+                configVersion: 2,
+                accounts: [
+                    { id: '12345', email: 'scott@example.com' },
+                    { id: '67890', email: 'other@example.com' },
+                ],
+            })
 
             await program.parseAsync(['node', 'tw', 'auth', 'status'])
 

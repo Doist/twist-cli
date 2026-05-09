@@ -19,7 +19,6 @@ import {
     type StoredAccount,
 } from './config.js'
 import { CliError } from './errors.js'
-import { getRequestedUserRef } from './global-args.js'
 import {
     accountForUser,
     createSecureStore,
@@ -57,14 +56,25 @@ export interface AuthMetadata {
     email?: string
 }
 
+/**
+ * The account whose token will be used for the current command.
+ *
+ * `id` and `email` are present only for stored v2 accounts. Env-token and
+ * legacy v1 fallback flows leave them unset (they don't represent a real
+ * account record). Use `source` / the `legacy` flag to distinguish:
+ *  - `source: 'env'` — `TWIST_API_TOKEN` is in scope
+ *  - `legacy: true` — v1 single-user fallback (no v2 record yet)
+ *  - otherwise — a stored v2 account (`id` and `email` are guaranteed)
+ */
 export interface ResolvedAccount {
-    id: string
-    email: string
+    id?: string
+    email?: string
     name?: string
     token: string
     authMode: AuthMode
     authScope?: string
     source: AuthMetadata['source']
+    legacy?: boolean
 }
 
 export interface UpsertAccountInput {
@@ -109,8 +119,6 @@ export async function resolveActiveAccount(opts: { ref?: string } = {}): Promise
     const envToken = process.env[TOKEN_ENV_VAR]
     if (envToken) {
         return {
-            id: 'env',
-            email: '',
             token: envToken,
             authMode: 'unknown',
             source: 'env',
@@ -118,58 +126,56 @@ export async function resolveActiveAccount(opts: { ref?: string } = {}): Promise
     }
 
     const config = await getConfig()
-    const accounts = getStoredAccounts(config)
-    const requestedRef = opts.ref ?? getRequestedUserRef()
+    const target = resolveTargetAccount(config, opts.ref)
+    if (target.kind === 'legacy') {
+        return resolveLegacyToken(config)
+    }
 
-    // Gate the legacy fallback on the *absence* of `config.accounts` rather
-    // than an empty array. A v2 config that has been logged out
-    // (`accounts: []`) must not silently fall back to a stale `api-token`
-    // keyring entry — that would let a forgotten v1 credential
-    // reauthenticate the next command.
+    const { token, source } = await loadTokenForStoredAccount(target.account)
+    return {
+        id: target.account.id,
+        email: target.account.email,
+        name: target.account.name,
+        token,
+        authMode: target.account.authMode ?? 'unknown',
+        authScope: target.account.authScope,
+        source,
+    }
+}
+
+type TargetAccountResult = { kind: 'stored'; account: StoredAccount } | { kind: 'legacy' }
+
+/**
+ * Pick the account record this invocation should act on. Shared between
+ * `resolveActiveAccount` (read path) and `clearApiToken` (write path) so the
+ * `--user` / default / single-account / legacy fallback rules stay in lockstep.
+ *
+ * Returns `{ kind: 'legacy' }` only when the config has no `accounts` key at
+ * all (a v1-shaped install). An empty `accounts: []` is treated as a clean v2
+ * state; callers should surface `NoTokenError` rather than poking the legacy
+ * keyring.
+ */
+function resolveTargetAccount(config: Config, requestedRef?: string): TargetAccountResult {
+    const accounts = getStoredAccounts(config)
     const isLegacyShape = !Array.isArray(config.accounts)
+
     if (accounts.length === 0) {
-        if (requestedRef) {
-            throw new AccountNotFoundError(requestedRef)
-        }
-        if (isLegacyShape) {
-            return resolveLegacyToken(config)
-        }
+        if (requestedRef) throw new AccountNotFoundError(requestedRef)
+        if (isLegacyShape) return { kind: 'legacy' }
         throw new NoTokenError()
     }
 
-    let target: StoredAccount
     if (requestedRef) {
         const found = findAccountByRef(config, requestedRef)
         if (!found) throw new AccountNotFoundError(requestedRef)
-        target = found.account
-    } else if (config.account?.defaultAccount) {
-        const found = findAccountByRef(config, config.account.defaultAccount)
-        if (!found) {
-            // Default points at a missing account — treat like no default.
-            if (accounts.length === 1) {
-                target = accounts[0]
-            } else {
-                throw new NoAccountSelectedError()
-            }
-        } else {
-            target = found.account
-        }
-    } else if (accounts.length === 1) {
-        target = accounts[0]
-    } else {
-        throw new NoAccountSelectedError()
+        return { kind: 'stored', account: found.account }
     }
 
-    const { token, source } = await loadTokenForStoredAccount(target)
-    return {
-        id: target.id,
-        email: target.email,
-        name: target.name,
-        token,
-        authMode: target.authMode ?? 'unknown',
-        authScope: target.authScope,
-        source,
-    }
+    const def = getDefaultAccount(config)
+    if (def) return { kind: 'stored', account: def }
+
+    if (accounts.length === 1) return { kind: 'stored', account: accounts[0] }
+    throw new NoAccountSelectedError()
 }
 
 /**
@@ -271,10 +277,15 @@ export async function upsertAccount(
         await setConfig(next)
     } catch (error) {
         // Config write is the source of truth — without it, later commands
-        // can't resolve the account even though the keyring holds the
-        // secret. Roll back the keyring so we don't leak a credential for
-        // a non-stored account, then surface the failure.
-        if (storedSecurely) {
+        // can't resolve a brand-new account even though the keyring holds
+        // the secret. For *new* accounts, roll the keyring back so we don't
+        // leak a credential nothing references.
+        //
+        // For an existing account being re-authenticated, the unmodified
+        // config still points at the same `user-<id>` slot, so leaving the
+        // new token in place keeps the user authenticated — destroying it
+        // would be the more damaging outcome of a transient write failure.
+        if (storedSecurely && !previouslyExisted) {
             try {
                 await secureStore.deleteSecret()
             } catch {
@@ -303,40 +314,17 @@ export async function upsertAccount(
  */
 export async function clearApiToken(opts: { ref?: string } = {}): Promise<TokenStorageResult> {
     const config = await getConfig()
-    const accounts = getStoredAccounts(config)
-    const requestedRef = opts.ref ?? getRequestedUserRef()
+    const target = resolveTargetAccount(config, opts.ref)
 
-    // No accounts stored yet — fall through to legacy logout only on a
-    // v1-shaped config (no `accounts` key at all). Empty `accounts: []` is
-    // an already-clean v2 install; treat as a no-op rather than poking the
-    // legacy keyring.
-    if (accounts.length === 0) {
-        if (!Array.isArray(config.accounts)) {
-            return clearLegacyToken(config)
-        }
-        if (requestedRef) {
-            throw new AccountNotFoundError(requestedRef)
-        }
-        throw new NoTokenError()
+    if (target.kind === 'legacy') {
+        // `--user <ref>` against a v1-shaped install — we don't know what
+        // identity the legacy token represents, so refuse to log it out under
+        // the new exact-match contract.
+        if (opts.ref) throw new AccountNotFoundError(opts.ref)
+        return clearLegacyToken(config)
     }
 
-    let target: StoredAccount
-    if (requestedRef) {
-        const found = findAccountByRef(config, requestedRef)
-        if (!found) throw new AccountNotFoundError(requestedRef)
-        target = found.account
-    } else {
-        const def = getDefaultAccount(config)
-        if (def) {
-            target = def
-        } else if (accounts.length === 1) {
-            target = accounts[0]
-        } else {
-            throw new NoAccountSelectedError()
-        }
-    }
-
-    return removeAccountById(target.id)
+    return removeAccountById(target.account.id)
 }
 
 /**
@@ -377,11 +365,16 @@ export async function removeAccountById(id: string): Promise<TokenStorageResult>
     return { storage: 'secure-store' }
 }
 
-export async function setDefaultAccountId(id: string): Promise<void> {
+/**
+ * Set the default account, looked up by id or email. Returns the resolved
+ * account so callers can show "switched to <email>" without re-resolving.
+ */
+export async function setDefaultAccountId(ref: string): Promise<StoredAccount> {
     const config = ensureV2Shape(await getConfig())
-    const found = findAccountByRef(config, id)
-    if (!found) throw new AccountNotFoundError(id)
+    const found = findAccountByRef(config, ref)
+    if (!found) throw new AccountNotFoundError(ref)
     await setConfig(stripLegacyAuthFields(setDefaultAccountInConfig(config, found.account.id)))
+    return found.account
 }
 
 export async function listStoredAccounts(): Promise<StoredAccount[]> {
@@ -422,12 +415,11 @@ async function resolveLegacyToken(config: Config): Promise<ResolvedAccount> {
     const legacyToken = typeof config.token === 'string' ? config.token.trim() : ''
     if (legacyToken) {
         return {
-            id: 'legacy',
-            email: '',
             token: legacyToken,
             authMode: config.authMode ?? 'unknown',
             authScope: config.authScope,
             source: 'config-file',
+            legacy: true,
         }
     }
 
@@ -441,12 +433,11 @@ async function resolveLegacyToken(config: Config): Promise<ResolvedAccount> {
         const stored = await secureStore.getSecret()
         if (stored?.trim()) {
             return {
-                id: 'legacy',
-                email: '',
                 token: stored.trim(),
                 authMode: config.authMode ?? 'unknown',
                 authScope: config.authScope,
                 source: 'secure-store',
+                legacy: true,
             }
         }
     } catch (error) {
@@ -520,8 +511,8 @@ function resolvedToMetadata(resolved: ResolvedAccount): AuthMetadata {
         authMode: resolved.authMode,
         authScope: resolved.authScope,
         source: resolved.source,
-        accountId: resolved.id === 'env' || resolved.id === 'legacy' ? undefined : resolved.id,
-        email: resolved.email || undefined,
+        accountId: resolved.id,
+        email: resolved.email,
     }
 }
 

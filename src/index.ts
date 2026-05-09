@@ -3,7 +3,7 @@
 import { type Command, program } from 'commander'
 import pkg from '../package.json' with { type: 'json' }
 import { CliError } from './lib/errors.js'
-import { getRequestedUserRef, isJsonMode, stripUserFlag } from './lib/global-args.js'
+import { isJsonMode, stripUserFlag, validateUserFlag } from './lib/global-args.js'
 import { formatError, formatErrorJson } from './lib/output.js'
 import { startEarlySpinner, stopEarlySpinner } from './lib/spinner.js'
 
@@ -119,34 +119,37 @@ for (const [name, [description]] of Object.entries(commands)) {
     }
 }
 
+function reportError(err: Error): void {
+    stopEarlySpinner()
+    if (err instanceof CliError) {
+        console.error(isJsonMode() ? formatErrorJson(err) : formatError(err))
+    } else {
+        console.error(
+            isJsonMode()
+                ? formatErrorJson('INTERNAL_ERROR', err.message)
+                : err.stack || err.message,
+        )
+    }
+    process.exitCode = 1
+}
+
 // Validate `--user` and strip it from argv before commander parses.
 //
 // Commander has no global-option attachment, so leaving `--user` in argv
-// would make every subcommand error on it. We capture the value via
-// `parseGlobalArgs` first and remove it here. Before stripping we surface
-// usage errors that the parser can detect now but commander never will
-// because it never sees the flag — bare `--user`, `--user=` (empty), and
-// `--user <known-subcommand>` (almost always a forgotten value).
+// would make every subcommand error on it. The validator (single source of
+// truth in `global-args.ts`) catches bare `--user`, `--user=` (empty), and
+// `--user <known-subcommand>` (almost always a forgotten value) — commander
+// would never see these because we strip the flag before parsing.
 {
     const originalArgs = process.argv.slice(2)
-    const sawUserFlag = originalArgs.some((a) => a === '--user' || a.startsWith('--user='))
-    if (sawUserFlag) {
-        const ref = getRequestedUserRef()
-        const reportUserFlagError = (message: string, hints: string[]): never => {
-            const err = new CliError('USER_FLAG_INVALID', message, hints)
-            console.error(isJsonMode() ? formatErrorJson(err) : formatError(err))
-            process.exit(1)
-        }
-        if (!ref) {
-            reportUserFlagError('--user requires a value: <id|email>.', [
-                'Example: tw --user me@example.com inbox',
-            ])
-        } else if (Object.hasOwn(commands, ref) || Object.hasOwn(commandAliases, ref)) {
-            reportUserFlagError(
-                `--user requires a value: <id|email>. Got "${ref}", which looks like a subcommand — did you forget the value?`,
-                [`Example: tw --user me@example.com ${ref}`],
-            )
-        }
+    const knownCommands = new Set([...Object.keys(commands), ...Object.keys(commandAliases)])
+    const validation = validateUserFlag(originalArgs, knownCommands)
+    if (!validation.ok) {
+        // Pre-parse failure runs synchronously here, before commander
+        // registers anything — the bottom `.catch(reportError)` can't see
+        // it. Route through the shared formatter, then exit explicitly.
+        reportError(new CliError('USER_FLAG_INVALID', validation.message, validation.hints))
+        process.exit(process.exitCode ?? 1)
     }
     process.argv = [process.argv[0], process.argv[1], ...stripUserFlag(originalArgs)]
 }
@@ -216,19 +219,7 @@ if (process.argv[2] === 'completion-server') {
 
 await program
     .parseAsync()
-    .catch((err: Error) => {
-        stopEarlySpinner()
-        if (err instanceof CliError) {
-            console.error(isJsonMode() ? formatErrorJson(err) : formatError(err))
-        } else {
-            console.error(
-                isJsonMode()
-                    ? formatErrorJson('INTERNAL_ERROR', err.message)
-                    : err.stack || err.message,
-            )
-        }
-        process.exitCode = 1
-    })
+    .catch(reportError)
     .finally(() => {
         stopEarlySpinner()
     })
