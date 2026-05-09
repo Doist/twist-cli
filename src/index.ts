@@ -2,8 +2,9 @@
 
 import { type Command, program } from 'commander'
 import pkg from '../package.json' with { type: 'json' }
-import { CliError } from './lib/errors.js'
+import { BaseCliError } from './lib/errors.js'
 import { isJsonMode } from './lib/global-args.js'
+import { preloadMarkdown } from './lib/markdown.js'
 import { formatError, formatErrorJson } from './lib/output.js'
 import { startEarlySpinner, stopEarlySpinner } from './lib/spinner.js'
 
@@ -163,9 +164,28 @@ if (process.argv[2] === 'completion-server') {
             if (idx !== -1) (program.commands as Command[]).splice(idx, 1)
         }
 
+        // Preload markdown renderer in parallel with the command module load
+        // when output will be pretty-printed (not JSON/NDJSON/raw). The cost
+        // overlaps with the dynamic import so commands that render markdown
+        // pay no extra latency.
+        const noMarkdownCommands = new Set([
+            'changelog',
+            'update',
+            'completion',
+            'doctor',
+            'auth',
+            'config',
+            'skill',
+        ])
+        const argv = process.argv.slice(2)
+        const wantsRaw = argv.includes('--raw') || argv.includes('--ndjson')
+        const needsMarkdown = !noMarkdownCommands.has(commandName) && !isJsonMode() && !wantsRaw
+
         startEarlySpinner()
         try {
+            const markdownReady = needsMarkdown ? preloadMarkdown() : undefined
             const register = await loader()
+            await markdownReady
             register(program)
         } catch (err) {
             stopEarlySpinner()
@@ -178,7 +198,7 @@ await program
     .parseAsync()
     .catch((err: Error) => {
         stopEarlySpinner()
-        if (err instanceof CliError) {
+        if (err instanceof BaseCliError) {
             console.error(isJsonMode() ? formatErrorJson(err) : formatError(err))
         } else {
             console.error(

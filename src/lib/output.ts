@@ -1,6 +1,8 @@
 import { formatJson as formatJsonCore, formatNdjson as formatNdjsonCore } from '@doist/cli-core'
 import chalk from 'chalk'
-import type { CliError } from './errors.js'
+import type { BaseCliError } from './errors.js'
+
+type AnyCliError = BaseCliError<string>
 
 export const colors = {
     author: chalk.cyan,
@@ -175,9 +177,9 @@ export function formatPaginatedNdjson<T extends object>(
     return body ? `${body}\n${trailer}` : trailer
 }
 
-export function formatError(error: CliError): string
+export function formatError(error: AnyCliError): string
 export function formatError(message: string): string
-export function formatError(messageOrError: string | CliError): string {
+export function formatError(messageOrError: string | AnyCliError): string {
     if (typeof messageOrError === 'string') {
         return colors.error(messageOrError)
     }
@@ -195,10 +197,10 @@ export function formatError(messageOrError: string | CliError): string {
     return color(lines.join('\n'))
 }
 
-export function formatErrorJson(error: CliError): string
+export function formatErrorJson(error: AnyCliError): string
 export function formatErrorJson(code: string, message: string, hints?: string[]): string
 export function formatErrorJson(
-    codeOrError: string | CliError,
+    codeOrError: string | AnyCliError,
     message?: string,
     hints?: string[],
 ): string {

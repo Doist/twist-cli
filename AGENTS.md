@@ -63,7 +63,7 @@ This is a TypeScript CLI (`tw`) for Twist messaging, built with Commander.js.
 
 ## Error Handling
 
-- **Always use `CliError` from `src/lib/errors.ts`** instead of bare `throw new Error(...)`, `console.error() + process.exit(1)`, or `console.error() + process.exitCode = 1`. This ensures structured error output in `--json` mode and consistent formatting in text mode. The global error handler in `src/index.ts` catches all errors, formats them appropriately, and sets the exit code.
+- **Always use `CliError` from `src/lib/errors.ts`** instead of bare `throw new Error(...)`, `console.error() + process.exit(1)`, or `console.error() + process.exitCode = 1`. This ensures structured error output in `--json` mode and consistent formatting in text mode. The global error handler in `src/index.ts` catches all errors, formats them appropriately, and sets the exit code. The same handler also matches `BaseCliError` (re-exported from `src/lib/errors.ts`) so errors thrown by `@doist/cli-core` helpers route through the same formatter.
 
 ```typescript
 import { CliError } from '../../lib/errors.js'
