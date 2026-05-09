@@ -1,11 +1,7 @@
-import { beforeAll, describe, expect, it } from 'vitest'
-import { preloadMarkdown, renderMarkdown } from './markdown.js'
+import { describe, expect, it } from 'vitest'
+import { renderMarkdown } from './markdown.js'
 
 describe('markdown', () => {
-    beforeAll(async () => {
-        await preloadMarkdown()
-    })
-
     it('renders markdown via cli-core/markdown', async () => {
         const result = await renderMarkdown('# Heading\n\n**bold** and *italic*')
         expect(result).not.toBe('# Heading\n\n**bold** and *italic*')

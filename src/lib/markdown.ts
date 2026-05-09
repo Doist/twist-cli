@@ -15,7 +15,6 @@ export async function preloadMarkdown(): Promise<void> {
 }
 
 export async function renderMarkdown(content: string): Promise<string> {
-    if (!preloadPromise) return content
-    await preloadPromise
+    await preloadMarkdown()
     return coreRenderMarkdown(preprocessMentions(content))
 }
