@@ -11,6 +11,3 @@ export type { SpinnerOptions } from '@doist/cli-core'
 const spinner = createSpinner({ isDisabled: shouldDisableSpinner })
 
 export const { LoadingSpinner, withSpinner, startEarlySpinner, stopEarlySpinner } = spinner
-
-/** @internal Test-only — exposed so the existing spinner test suite can fully reset state. */
-export const resetEarlySpinner = spinner.resetEarlySpinner
