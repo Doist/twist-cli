@@ -1,3 +1,4 @@
+import { formatJson as formatJsonCore, formatNdjson as formatNdjsonCore } from '@doist/cli-core'
 import chalk from 'chalk'
 import type { CliError } from './errors.js'
 
@@ -134,10 +135,8 @@ export function formatJson<T extends object>(
     type?: EntityType,
     full = false,
 ): string {
-    if (full || !type) {
-        return JSON.stringify(data, null, 2)
-    }
-    return JSON.stringify(filterEntityFields(data, type), null, 2)
+    if (full || !type) return formatJsonCore(data)
+    return formatJsonCore(filterEntityFields(data, type))
 }
 
 export function formatNdjson<T extends object>(
@@ -145,12 +144,8 @@ export function formatNdjson<T extends object>(
     type?: EntityType,
     full = false,
 ): string {
-    if (full || !type) {
-        return items.map((item) => JSON.stringify(item)).join('\n')
-    }
-    return filterEntityFields(items, type)
-        .map((item) => JSON.stringify(item))
-        .join('\n')
+    if (full || !type) return formatNdjsonCore(items)
+    return formatNdjsonCore(filterEntityFields(items, type))
 }
 
 export interface PaginatedOutput<T> {
@@ -164,7 +159,7 @@ export function formatPaginatedJson<T extends object>(
     full = false,
 ): string {
     const results = type ? filterEntityFields(data.results, type, full) : data.results
-    return JSON.stringify({ results, nextCursor: data.nextCursor }, null, 2)
+    return formatJsonCore({ results, nextCursor: data.nextCursor })
 }
 
 export function formatPaginatedNdjson<T extends object>(
@@ -173,11 +168,8 @@ export function formatPaginatedNdjson<T extends object>(
     full = false,
 ): string {
     const results = type ? filterEntityFields(data.results, type, full) : data.results
-    const lines = results.map((item) => JSON.stringify(item))
-    if (data.nextCursor) {
-        lines.push(JSON.stringify({ _meta: true, nextCursor: data.nextCursor }))
-    }
-    return lines.join('\n')
+    if (!data.nextCursor) return formatNdjsonCore(results)
+    return formatNdjsonCore([...results, { _meta: true, nextCursor: data.nextCursor }])
 }
 
 export function formatError(error: CliError): string

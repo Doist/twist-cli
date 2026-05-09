@@ -1,9 +1,22 @@
-import { chmod, mkdir, readFile, writeFile } from 'node:fs/promises'
-import { homedir } from 'node:os'
-import { dirname, join } from 'node:path'
+import {
+    getConfigPath as getConfigPathCore,
+    readConfig as readConfigCore,
+    readConfigStrict as readConfigStrictCore,
+    writeConfig as writeConfigCore,
+} from '@doist/cli-core'
 import { CliError } from './errors.js'
 
-export const CONFIG_PATH = join(homedir(), '.config', 'twist-cli', 'config.json')
+const APP_NAME = 'twist-cli'
+
+/**
+ * Resolve the canonical config path lazily. Computing on each call (instead of
+ * caching at module load) keeps the path responsive to vitest's `vi.doMock`
+ * for `node:os` — which only reliably reaches cli-core's compiled `homedir()`
+ * call after the mock has been set up by the test, not at import time.
+ */
+export function getConfigPath(): string {
+    return getConfigPathCore(APP_NAME)
+}
 
 export type AuthMode = 'read-only' | 'read-write' | 'unknown'
 export type UpdateChannel = 'stable' | 'pre-release'
@@ -40,77 +53,59 @@ export interface Config {
     userSettings?: UserSettings
 }
 
-export async function getConfig(): Promise<Config> {
-    try {
-        const content = await readFile(CONFIG_PATH, 'utf-8')
-        return JSON.parse(content) as Config
-    } catch {
-        return {}
-    }
+export async function readConfig(): Promise<Config> {
+    // cli-core's readConfig returns Partial<T> via {} on any failure, so the
+    // result is always an object — Config's all-optional fields make the cast safe.
+    return (await readConfigCore<Config>(getConfigPath())) as Config
 }
 
 export type StrictReadResult = { state: 'missing' } | { state: 'present'; config: Config }
 
 /**
  * Read and parse the config file strictly — for inspection commands that need
- * to distinguish "missing" from "present but broken". `getConfig` deliberately
+ * to distinguish "missing" from "present but broken". `readConfig` deliberately
  * swallows errors for runtime code paths; this one surfaces them.
  */
 export async function readConfigStrict(): Promise<StrictReadResult> {
-    let content: string
-    try {
-        content = await readFile(CONFIG_PATH, 'utf-8')
-    } catch (error) {
-        if (isMissingFileError(error)) return { state: 'missing' }
-        const detail = error instanceof Error ? error.message : String(error)
-        throw new CliError(
-            'CONFIG_READ_FAILED',
-            `Could not read config file ${CONFIG_PATH}: ${detail}`,
-            ['Check file permissions, or run `tw doctor` to diagnose'],
-        )
+    const path = getConfigPath()
+    const result = await readConfigStrictCore(path)
+    switch (result.state) {
+        case 'missing':
+            return { state: 'missing' }
+        case 'present':
+            return { state: 'present', config: result.config as Config }
+        case 'read-failed':
+            throw new CliError(
+                'CONFIG_READ_FAILED',
+                `Could not read config file ${path}: ${result.error.message}`,
+                ['Check file permissions, or run `tw doctor` to diagnose'],
+            )
+        case 'invalid-json':
+            throw new CliError(
+                'CONFIG_INVALID_JSON',
+                `Config file at ${path} is not valid JSON: ${result.error.message}`,
+                [
+                    'Fix the JSON by hand, or delete the file and re-authenticate with `tw auth login`',
+                ],
+            )
+        case 'invalid-shape':
+            throw new CliError(
+                'CONFIG_INVALID_SHAPE',
+                `Config file at ${path} must contain a JSON object (got ${result.actual})`,
+                [
+                    'Fix the JSON by hand, or delete the file and re-authenticate with `tw auth login`',
+                ],
+            )
     }
-
-    let parsed: unknown
-    try {
-        parsed = JSON.parse(content)
-    } catch (error) {
-        const detail = error instanceof Error ? error.message : String(error)
-        throw new CliError(
-            'CONFIG_INVALID_JSON',
-            `Config file at ${CONFIG_PATH} is not valid JSON: ${detail}`,
-            ['Fix the JSON by hand, or delete the file and re-authenticate with `tw auth login`'],
-        )
-    }
-
-    if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) {
-        const actual = Array.isArray(parsed) ? 'array' : parsed === null ? 'null' : typeof parsed
-        throw new CliError(
-            'CONFIG_INVALID_SHAPE',
-            `Config file at ${CONFIG_PATH} must contain a JSON object (got ${actual})`,
-            ['Fix the JSON by hand, or delete the file and re-authenticate with `tw auth login`'],
-        )
-    }
-
-    return { state: 'present', config: parsed as Config }
 }
 
-function isMissingFileError(error: unknown): boolean {
-    return error instanceof Error && 'code' in error && error.code === 'ENOENT'
-}
-
-export async function setConfig(config: Config): Promise<void> {
-    const dir = dirname(CONFIG_PATH)
-    await mkdir(dir, { recursive: true, mode: 0o700 })
-    await writeFile(CONFIG_PATH, JSON.stringify(config, null, 2), {
-        encoding: 'utf-8',
-        mode: 0o600,
-    })
-    await chmod(CONFIG_PATH, 0o600)
+export async function writeConfig(config: Config): Promise<void> {
+    await writeConfigCore(getConfigPath(), config)
 }
 
 export async function updateConfig(updates: Partial<Config>): Promise<void> {
-    const config = await getConfig()
-    await setConfig({ ...config, ...updates })
+    const config = await readConfig()
+    await writeConfig({ ...config, ...updates })
 }
 
 export function validateConfigForDoctor(config: Record<string, unknown>): string[] {
@@ -184,8 +179,4 @@ export function validateConfigForDoctor(config: Record<string, unknown>): string
     }
 
     return issues
-}
-
-export function getConfigPath(): string {
-    return CONFIG_PATH
 }

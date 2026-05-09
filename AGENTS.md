@@ -18,6 +18,8 @@ The project uses two tsconfig files: `tsconfig.json` includes test files for typ
 
 Tests are colocated next to the module they cover (for example `src/commands/thread/thread.test.ts` or `src/lib/refs.test.ts`). Shared Vitest manual mocks for npm packages live in `src/__mocks__/` (e.g. `chalk.ts`).
 
+`vitest.config.ts` lists `@doist/cli-core` in `server.deps.inline` so `vi.mock('@doist/cli-core', …)` and `vi.doMock('node:fs/promises', …)` reach cli-core's compiled imports. Without it, vitest treats the package as external and Node's native resolver bypasses the mock substitution, breaking the `auth` / `config` / spinner suites.
+
 Run a single test file:
 
 ```bash

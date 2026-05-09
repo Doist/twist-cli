@@ -6,7 +6,7 @@ import {
     type WorkspaceUser,
 } from '@doist/twist-sdk'
 import { getApiToken } from './auth.js'
-import { getConfig, updateConfig } from './config.js'
+import { readConfig, updateConfig } from './config.js'
 import { CliError, isInsufficientScope } from './errors.js'
 import { ensureWriteAllowed, isMutatingMethod } from './permissions.js'
 import { getProgressTracker } from './progress.js'
@@ -264,7 +264,7 @@ export async function getCurrentWorkspaceId(flagValue?: number): Promise<number>
         return flagValue
     }
 
-    const config = await getConfig()
+    const config = await readConfig()
     if (config.currentWorkspace) {
         return config.currentWorkspace
     }

@@ -5,23 +5,23 @@ const mocks = vi.hoisted(() => {
 
     return {
         MockSecureStoreUnavailableError,
-        getConfig: vi.fn(),
+        readConfig: vi.fn(),
         getConfigPath: vi.fn(() => '/home/user/.config/twist-cli/config.json'),
         secureTokenStore: {
             getSecret: vi.fn(),
             setSecret: vi.fn(),
             deleteSecret: vi.fn(),
         },
-        setConfig: vi.fn(),
+        writeConfig: vi.fn(),
         unlink: vi.fn(),
         updateConfig: vi.fn(),
     }
 })
 
 vi.mock('./config.js', () => ({
-    getConfig: mocks.getConfig,
+    readConfig: mocks.readConfig,
     getConfigPath: mocks.getConfigPath,
-    setConfig: mocks.setConfig,
+    writeConfig: mocks.writeConfig,
     updateConfig: mocks.updateConfig,
 }))
 
@@ -39,8 +39,8 @@ describe('auth token storage', () => {
     beforeEach(() => {
         vi.resetModules()
         vi.clearAllMocks()
-        mocks.getConfig.mockReset()
-        mocks.setConfig.mockReset()
+        mocks.readConfig.mockReset()
+        mocks.writeConfig.mockReset()
         mocks.updateConfig.mockReset()
         mocks.unlink.mockReset()
         mocks.secureTokenStore.getSecret.mockReset()
@@ -60,12 +60,12 @@ describe('auth token storage', () => {
 
         await expect(getApiToken()).resolves.toBe('env_token_123456')
         expect(mocks.secureTokenStore.getSecret).not.toHaveBeenCalled()
-        expect(mocks.getConfig).not.toHaveBeenCalled()
+        expect(mocks.readConfig).not.toHaveBeenCalled()
     })
 
     it('migrates a legacy plaintext config token into the secure store', async () => {
         mocks.secureTokenStore.setSecret.mockResolvedValue(undefined)
-        mocks.getConfig.mockResolvedValue({
+        mocks.readConfig.mockResolvedValue({
             token: 'legacy_token_123456',
             currentWorkspace: 42,
         })
@@ -74,14 +74,14 @@ describe('auth token storage', () => {
 
         await expect(getApiToken()).resolves.toBe('legacy_token_123456')
         expect(mocks.secureTokenStore.setSecret).toHaveBeenCalledWith('legacy_token_123456')
-        expect(mocks.setConfig).toHaveBeenCalledWith({ currentWorkspace: 42 })
+        expect(mocks.writeConfig).toHaveBeenCalledWith({ currentWorkspace: 42 })
         expect(mocks.unlink).not.toHaveBeenCalled()
     })
 
     it('prefers the fallback config token over a stale secure-store token', async () => {
         mocks.secureTokenStore.getSecret.mockResolvedValue('stale_secure_token_123456')
         mocks.secureTokenStore.setSecret.mockResolvedValue(undefined)
-        mocks.getConfig.mockResolvedValue({
+        mocks.readConfig.mockResolvedValue({
             token: 'fresh_config_token_123456',
             currentWorkspace: 42,
         })
@@ -96,11 +96,11 @@ describe('auth token storage', () => {
     it('returns the migrated token even when config cleanup fails', async () => {
         mocks.secureTokenStore.getSecret.mockResolvedValue(null)
         mocks.secureTokenStore.setSecret.mockResolvedValue(undefined)
-        mocks.getConfig.mockResolvedValue({
+        mocks.readConfig.mockResolvedValue({
             token: 'legacy_token_123456',
             currentWorkspace: 42,
         })
-        mocks.setConfig.mockRejectedValue(new Error('EACCES'))
+        mocks.writeConfig.mockRejectedValue(new Error('EACCES'))
         const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
 
         const { getApiToken } = await import('./auth.js')
@@ -115,7 +115,7 @@ describe('auth token storage', () => {
 
     it('writes tokens to the secure store by default', async () => {
         mocks.secureTokenStore.setSecret.mockResolvedValue(undefined)
-        mocks.getConfig.mockResolvedValue({})
+        mocks.readConfig.mockResolvedValue({})
 
         const { saveApiToken } = await import('./auth.js')
 
@@ -127,11 +127,11 @@ describe('auth token storage', () => {
 
     it('keeps secure-store success when plaintext cleanup fails after saving', async () => {
         mocks.secureTokenStore.setSecret.mockResolvedValue(undefined)
-        mocks.getConfig.mockResolvedValue({
+        mocks.readConfig.mockResolvedValue({
             token: 'legacy_token_123456',
             currentWorkspace: 42,
         })
-        mocks.setConfig.mockRejectedValue(new Error('EACCES'))
+        mocks.writeConfig.mockRejectedValue(new Error('EACCES'))
 
         const { saveApiToken } = await import('./auth.js')
 
@@ -144,7 +144,7 @@ describe('auth token storage', () => {
 
     it('deletes tokens from the secure store and removes any legacy config token', async () => {
         mocks.secureTokenStore.deleteSecret.mockResolvedValue(true)
-        mocks.getConfig.mockResolvedValue({
+        mocks.readConfig.mockResolvedValue({
             token: 'legacy_token_123456',
             currentWorkspace: 7,
         })
@@ -153,14 +153,14 @@ describe('auth token storage', () => {
 
         await expect(clearApiToken()).resolves.toEqual({ storage: 'secure-store' })
         expect(mocks.secureTokenStore.deleteSecret).toHaveBeenCalled()
-        expect(mocks.setConfig).toHaveBeenCalledWith({ currentWorkspace: 7 })
+        expect(mocks.writeConfig).toHaveBeenCalledWith({ currentWorkspace: 7 })
     })
 
     it('persists pending secure-store clear state when logout falls back to config', async () => {
         mocks.secureTokenStore.deleteSecret.mockRejectedValue(
             new mocks.MockSecureStoreUnavailableError('No keychain access'),
         )
-        mocks.getConfig.mockResolvedValue({
+        mocks.readConfig.mockResolvedValue({
             token: 'legacy_token_123456',
             currentWorkspace: 7,
         })
@@ -172,7 +172,7 @@ describe('auth token storage', () => {
             warning:
                 'system credential manager unavailable; local auth state cleared in /home/user/.config/twist-cli/config.json',
         })
-        expect(mocks.setConfig).toHaveBeenCalledWith({
+        expect(mocks.writeConfig).toHaveBeenCalledWith({
             currentWorkspace: 7,
             pendingSecureStoreClear: true,
         })
@@ -182,7 +182,7 @@ describe('auth token storage', () => {
         mocks.secureTokenStore.setSecret.mockRejectedValue(
             new mocks.MockSecureStoreUnavailableError('No keychain access'),
         )
-        mocks.getConfig.mockResolvedValue({})
+        mocks.readConfig.mockResolvedValue({})
 
         const { saveApiToken } = await import('./auth.js')
 
@@ -191,7 +191,7 @@ describe('auth token storage', () => {
             warning:
                 'system credential manager unavailable; token saved as plaintext in /home/user/.config/twist-cli/config.json',
         })
-        expect(mocks.setConfig).toHaveBeenCalledWith({
+        expect(mocks.writeConfig).toHaveBeenCalledWith({
             token: 'fallback_token_123456',
             authMode: 'unknown',
             authScope: undefined,
@@ -202,7 +202,7 @@ describe('auth token storage', () => {
         mocks.secureTokenStore.setSecret.mockRejectedValue(
             new mocks.MockSecureStoreUnavailableError('No keychain access'),
         )
-        mocks.getConfig.mockResolvedValue({ token: 'legacy_token_123456' })
+        mocks.readConfig.mockResolvedValue({ token: 'legacy_token_123456' })
         const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
 
         const { getApiToken } = await import('./auth.js')
@@ -214,7 +214,7 @@ describe('auth token storage', () => {
     })
 
     it('probes a legacy config token without migrating it', async () => {
-        mocks.getConfig.mockResolvedValue({
+        mocks.readConfig.mockResolvedValue({
             token: 'legacy_token_123456',
             authMode: 'read-write',
             currentWorkspace: 42,
@@ -230,12 +230,12 @@ describe('auth token storage', () => {
             },
         })
         expect(mocks.secureTokenStore.setSecret).not.toHaveBeenCalled()
-        expect(mocks.setConfig).not.toHaveBeenCalled()
+        expect(mocks.writeConfig).not.toHaveBeenCalled()
     })
 
     it('probes a secure-store token without mutating config', async () => {
         mocks.secureTokenStore.getSecret.mockResolvedValue('secure_token_123456')
-        mocks.getConfig.mockResolvedValue({
+        mocks.readConfig.mockResolvedValue({
             authMode: 'read-only',
             authScope: 'user:read',
             currentWorkspace: 42,
@@ -252,13 +252,13 @@ describe('auth token storage', () => {
             },
         })
         expect(mocks.secureTokenStore.getSecret).toHaveBeenCalled()
-        expect(mocks.setConfig).not.toHaveBeenCalled()
+        expect(mocks.writeConfig).not.toHaveBeenCalled()
     })
 
     it('treats pending secure-store clear as logged out and does not reuse stale secure tokens', async () => {
         mocks.secureTokenStore.deleteSecret.mockResolvedValue(true)
         mocks.secureTokenStore.getSecret.mockResolvedValue('stale_secure_token_123456')
-        mocks.getConfig.mockResolvedValue({
+        mocks.readConfig.mockResolvedValue({
             pendingSecureStoreClear: true,
             currentWorkspace: 7,
         })
@@ -268,6 +268,6 @@ describe('auth token storage', () => {
         await expect(getApiToken()).rejects.toThrow('No API token found')
         expect(mocks.secureTokenStore.deleteSecret).toHaveBeenCalled()
         expect(mocks.secureTokenStore.getSecret).not.toHaveBeenCalled()
-        expect(mocks.setConfig).toHaveBeenCalledWith({ currentWorkspace: 7 })
+        expect(mocks.writeConfig).toHaveBeenCalledWith({ currentWorkspace: 7 })
     })
 })

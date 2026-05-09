@@ -1,3 +1,5 @@
+import { isCI } from '@doist/cli-core'
+
 /**
  * Centralized, type-safe parsing of global CLI flags.
  *
@@ -110,7 +112,7 @@ export function includePrivateChannels(): boolean {
 
 export function shouldDisableSpinner(): boolean {
     if (process.env.TW_SPINNER === 'false') return true
-    if (process.env.CI) return true
+    if (isCI()) return true
 
     const args = getGlobalArgs()
     return args.json || args.ndjson || args.noSpinner || args.progressJsonl || args.nonInteractive

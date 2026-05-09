@@ -1,5 +1,5 @@
 import { unlink } from 'node:fs/promises'
-import { type AuthMode, type Config, getConfig, getConfigPath, setConfig } from './config.js'
+import { type AuthMode, type Config, getConfigPath, readConfig, writeConfig } from './config.js'
 import { CliError } from './errors.js'
 import {
     createSecureStore,
@@ -56,7 +56,7 @@ export async function getApiToken(): Promise<string> {
         return envToken
     }
 
-    const config = await getConfig()
+    const config = await readConfig()
     const configToken = getConfigToken(config)
     const secureStore = createSecureStore()
 
@@ -121,7 +121,7 @@ export async function probeApiToken(): Promise<AuthProbeResult> {
         }
     }
 
-    const config = await getConfig()
+    const config = await readConfig()
     const configToken = getConfigToken(config)
     if (configToken) {
         return {
@@ -167,7 +167,7 @@ export async function getAuthMetadata(): Promise<AuthMetadata> {
         return { authMode: 'unknown', source: 'env' }
     }
 
-    const config = await getConfig()
+    const config = await readConfig()
     return {
         authMode: config.authMode ?? 'unknown',
         authScope: config.authScope,
@@ -192,7 +192,7 @@ export async function saveApiToken(
 
     try {
         await secureStore.setSecret(trimmedToken)
-        const existingConfig = await getConfig()
+        const existingConfig = await readConfig()
         const warning = await cleanupAuthFallbackState(existingConfig, 'Token was stored securely,')
         // Persist auth metadata to config — needed for ensureWriteAllowed() enforcement
         try {
@@ -211,12 +211,12 @@ export async function saveApiToken(
         }
     }
 
-    const config = await getConfig()
+    const config = await readConfig()
     config.token = trimmedToken
     delete config.pendingSecureStoreClear
     config.authMode = options.authMode ?? 'unknown'
     config.authScope = options.authScope
-    await writeConfig(config)
+    await persistOrClearConfig(config)
     return {
         storage: 'config-file',
         warning: buildFallbackWarning('token saved as plaintext in'),
@@ -224,7 +224,7 @@ export async function saveApiToken(
 }
 
 export async function clearApiToken(): Promise<TokenStorageResult> {
-    const config = await getConfig()
+    const config = await readConfig()
     const secureStore = createSecureStore()
 
     // Clear auth metadata from the in-memory config object so all subsequent
@@ -243,7 +243,7 @@ export async function clearApiToken(): Promise<TokenStorageResult> {
         }
     }
 
-    await writeConfig(withPendingSecureStoreClear(config))
+    await persistOrClearConfig(withPendingSecureStoreClear(config))
     return {
         storage: 'config-file',
         warning: buildFallbackWarning('local auth state cleared in'),
@@ -251,13 +251,19 @@ export async function clearApiToken(): Promise<TokenStorageResult> {
 }
 
 async function saveAuthMetadata(options: SaveApiTokenOptions): Promise<void> {
-    const config = await getConfig()
+    const config = await readConfig()
     config.authMode = options.authMode ?? 'unknown'
     config.authScope = options.authScope
-    await setConfig(config)
+    await writeConfig(config)
 }
 
-async function writeConfig(config: Config): Promise<void> {
+/**
+ * Auth-local cousin of `writeConfig` that deletes the file when the resulting
+ * config has no own keys. The public `writeConfig` always serializes (even
+ * `{}`) — this wrapper exists for the auth flows that strip the legacy
+ * plaintext token and want to leave nothing behind.
+ */
+async function persistOrClearConfig(config: Config): Promise<void> {
     if (Object.keys(config).length === 0) {
         try {
             await unlink(getConfigPath())
@@ -269,7 +275,7 @@ async function writeConfig(config: Config): Promise<void> {
         return
     }
 
-    await setConfig(config)
+    await writeConfig(config)
 }
 
 async function cleanupAuthFallbackState(
@@ -277,7 +283,7 @@ async function cleanupAuthFallbackState(
     warningPrefix: string,
 ): Promise<string | undefined> {
     try {
-        await writeConfig(withoutAuthFallbackState(config))
+        await persistOrClearConfig(withoutAuthFallbackState(config))
         return undefined
     } catch (error) {
         return buildConfigCleanupWarning(warningPrefix, error)
