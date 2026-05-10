@@ -8,7 +8,6 @@ vi.mock('@doist/cli-core', async () => {
         readConfig: vi.fn(),
         readConfigStrict: vi.fn(),
         writeConfig: vi.fn(),
-        updateConfig: vi.fn(),
     }
 })
 
@@ -16,7 +15,6 @@ import {
     getConfigPath as getConfigPathCore,
     readConfig as readConfigCore,
     readConfigStrict as readConfigStrictCore,
-    updateConfig as updateConfigCore,
     writeConfig as writeConfigCore,
 } from '@doist/cli-core'
 import {
@@ -32,7 +30,6 @@ const mockGetConfigPathCore = vi.mocked(getConfigPathCore)
 const mockReadConfigCore = vi.mocked(readConfigCore)
 const mockReadConfigStrictCore = vi.mocked(readConfigStrictCore)
 const mockWriteConfigCore = vi.mocked(writeConfigCore)
-const mockUpdateConfigCore = vi.mocked(updateConfigCore)
 
 describe('validateConfigForDoctor', () => {
     it('accepts an empty config', () => {
@@ -71,6 +68,62 @@ describe('validateConfigForDoctor', () => {
         expect(validateConfigForDoctor({ userSettings: null })).toContain(
             'userSettings must be an object',
         )
+    })
+
+    it('accepts canonical update_channel values', () => {
+        expect(validateConfigForDoctor({ update_channel: 'stable' })).toEqual([])
+        expect(validateConfigForDoctor({ update_channel: 'pre-release' })).toEqual([])
+    })
+
+    it('rejects invalid update_channel values', () => {
+        expect(validateConfigForDoctor({ update_channel: 'beta' })).toContain(
+            'update_channel must be one of: stable, pre-release',
+        )
+    })
+
+    it('emits a legacy-key warning when on-disk config still has updateChannel', () => {
+        const issues = validateConfigForDoctor({ updateChannel: 'pre-release' })
+        expect(issues).toContain(
+            'updateChannel is a legacy key — will be migrated to update_channel automatically on next config write',
+        )
+        // Legacy key must not be flagged as "unrecognized" — it's a known
+        // migration alias.
+        expect(issues.some((i) => i.includes('unrecognized'))).toBe(false)
+    })
+})
+
+describe('legacy updateChannel migration (read seam)', () => {
+    it('getConfig migrates updateChannel → update_channel transparently', async () => {
+        mockReadConfigCore.mockResolvedValueOnce({ updateChannel: 'pre-release' })
+        const config = await getConfig()
+        expect(config).toEqual({ update_channel: 'pre-release' })
+        expect(config).not.toHaveProperty('updateChannel')
+    })
+
+    it('getConfig passes through update_channel unchanged when already canonical', async () => {
+        mockReadConfigCore.mockResolvedValueOnce({ update_channel: 'stable' })
+        await expect(getConfig()).resolves.toEqual({ update_channel: 'stable' })
+    })
+
+    it('getConfig drops the legacy key when both are present (canonical wins)', async () => {
+        mockReadConfigCore.mockResolvedValueOnce({
+            update_channel: 'stable',
+            updateChannel: 'pre-release',
+        })
+        const config = await getConfig()
+        expect(config).toEqual({ update_channel: 'stable' })
+        expect(config).not.toHaveProperty('updateChannel')
+    })
+
+    it('readConfigStrict migrates legacy key on the present branch', async () => {
+        mockReadConfigStrictCore.mockResolvedValueOnce({
+            state: 'present',
+            config: { updateChannel: 'pre-release' },
+        })
+        await expect(readConfigStrict()).resolves.toEqual({
+            state: 'present',
+            config: { update_channel: 'pre-release' },
+        })
     })
 })
 
@@ -157,12 +210,24 @@ describe('thin config wrappers', () => {
         )
     })
 
-    it('updateConfig forwards path and updates to cli-core updateConfig', async () => {
-        mockUpdateConfigCore.mockResolvedValueOnce(undefined)
-        await updateConfig({ currentWorkspace: 12 })
-        expect(mockUpdateConfigCore).toHaveBeenCalledWith(
+    it('updateConfig merges with the current (migrated) config and writes canonical shape', async () => {
+        // On-disk file has the legacy key — updateConfig should migrate, merge,
+        // and write the canonical key (legacy key dropped from output).
+        mockReadConfigCore.mockResolvedValueOnce({
+            currentWorkspace: 7,
+            updateChannel: 'pre-release',
+        })
+        mockWriteConfigCore.mockResolvedValueOnce(undefined)
+
+        await updateConfig({ authMode: 'read-write' })
+
+        expect(mockWriteConfigCore).toHaveBeenCalledWith(
             '/tmp/cli-core-test/twist-cli/config.json',
-            { currentWorkspace: 12 },
+            {
+                currentWorkspace: 7,
+                update_channel: 'pre-release',
+                authMode: 'read-write',
+            },
         )
     })
 })

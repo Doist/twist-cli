@@ -43,7 +43,7 @@ const fullConfig: Config = {
     authMode: 'read-write',
     authScope: 'user:read',
     currentWorkspace: 12345,
-    updateChannel: 'stable',
+    update_channel: 'stable',
 }
 
 function presentConfig(config: Config = fullConfig) {
@@ -173,7 +173,7 @@ describe('config view', () => {
     })
 
     it('degrades gracefully when the credential manager is unavailable', async () => {
-        presentConfig({ authMode: 'read-write', updateChannel: 'stable' })
+        presentConfig({ authMode: 'read-write', update_channel: 'stable' })
         mockProbeApiToken.mockRejectedValue(new SecureStoreUnavailableError('macOS Keychain error'))
         const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
 
@@ -249,7 +249,7 @@ describe('config view', () => {
     })
 
     it('shows "not set" when no token can be found anywhere', async () => {
-        presentConfig({ updateChannel: 'stable' })
+        presentConfig({ update_channel: 'stable' })
         mockProbeApiToken.mockRejectedValue(new NoTokenError())
         const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
 

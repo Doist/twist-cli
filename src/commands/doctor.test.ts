@@ -127,10 +127,10 @@ describe('doctor command', () => {
         mockReadFile.mockResolvedValue(
             JSON.stringify({
                 token: 'plaintext-token',
-                updateChannel: 'pre-release',
+                update_channel: 'pre-release',
             }),
         )
-        mockGetConfig.mockResolvedValue({ updateChannel: 'pre-release' })
+        mockGetConfig.mockResolvedValue({ update_channel: 'pre-release' })
         mockProbeApiToken.mockResolvedValue({
             token: 'plaintext-token',
             metadata: { authMode: 'read-write', source: 'config-file' },
@@ -161,7 +161,7 @@ describe('doctor command', () => {
                 pendingSecureStoreClear: 'yes',
                 currentWorkspace: 'abc',
                 authMode: 'admin',
-                updateChannel: 'beta',
+                update_channel: 'beta',
                 extraSetting: true,
             }),
         )
@@ -184,7 +184,7 @@ describe('doctor command', () => {
         expect(configWarning).toContain('pendingSecureStoreClear must be a boolean')
         expect(configWarning).toContain('currentWorkspace must be a positive integer')
         expect(configWarning).toContain('authMode must be one of: read-only, read-write, unknown')
-        expect(configWarning).toContain('updateChannel must be one of: stable, pre-release')
+        expect(configWarning).toContain('update_channel must be one of: stable, pre-release')
         expect(consoleSpy).toHaveBeenCalledWith(
             expect.stringContaining('PASS Authenticated as person@example.com via secure-store'),
         )
@@ -196,7 +196,7 @@ describe('doctor command', () => {
     })
 
     it('normalizes invalid update channel values to stable', async () => {
-        mockGetConfig.mockResolvedValue({ updateChannel: 'beta' as never })
+        mockGetConfig.mockResolvedValue({ update_channel: 'beta' as never })
         mockFetch('1.0.0')
 
         const program = createProgram()

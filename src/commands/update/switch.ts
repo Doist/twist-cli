@@ -18,7 +18,7 @@ export async function switchChannel(options: {
 
     const channel: UpdateChannel = options.preRelease ? 'pre-release' : 'stable'
     const config = await getConfig()
-    config.updateChannel = channel
+    config.update_channel = channel
     await setConfig(config)
 
     if (channel === 'pre-release') {

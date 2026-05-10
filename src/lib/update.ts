@@ -64,5 +64,5 @@ export async function fetchLatestVersion(channel: UpdateChannel): Promise<string
 
 export async function getConfiguredUpdateChannel(): Promise<UpdateChannel> {
     const config = await getConfig()
-    return normalizeUpdateChannel(config.updateChannel)
+    return normalizeUpdateChannel(config.update_channel)
 }

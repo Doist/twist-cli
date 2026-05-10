@@ -2,7 +2,6 @@ import {
     getConfigPath as getConfigPathCore,
     readConfig as readConfigCore,
     readConfigStrict as readConfigStrictCore,
-    updateConfig as updateConfigCore,
     writeConfig as writeConfigCore,
 } from '@doist/cli-core'
 import { CliError } from './errors.js'
@@ -28,6 +27,10 @@ const KNOWN_CONFIG_KEYS: ReadonlySet<string> = new Set([
     'currentWorkspace',
     'authMode',
     'authScope',
+    'update_channel',
+    // Legacy alias. Read-seam migration (see `migrateLegacyKeys`) renames it to
+    // `update_channel`; kept in the known-keys set so `tw doctor` doesn't flag
+    // an unmigrated config file as having unrecognized keys.
     'updateChannel',
     'userSettings',
 ])
@@ -50,8 +53,27 @@ export interface Config {
     // Auth metadata persisted alongside the token to track OAuth scope.
     authMode?: AuthMode
     authScope?: string
-    updateChannel?: UpdateChannel
+    // Snake_case to match cli-core's update command, which reads this key
+    // directly. The rest of twist's config keys remain camelCase; the
+    // exception is contained to one field via the read-seam migration in
+    // `migrateLegacyKeys`.
+    update_channel?: UpdateChannel
     userSettings?: UserSettings
+}
+
+/**
+ * Rename twist's legacy `updateChannel` field to the canonical
+ * `update_channel` (the shape cli-core's update command expects). Runs on
+ * every read so the in-memory `Config` is always canonical, even when the
+ * on-disk file is still in the old shape — the file is rewritten with the
+ * canonical key on the next `setConfig` / `updateConfig` call.
+ */
+function migrateLegacyKeys(raw: Record<string, unknown>): Record<string, unknown> {
+    if (!('updateChannel' in raw)) return raw
+    const { updateChannel, ...rest } = raw
+    // Canonical key wins if both are present (shouldn't happen in practice).
+    if ('update_channel' in rest) return rest
+    return { ...rest, update_channel: updateChannel }
 }
 
 /**
@@ -61,7 +83,11 @@ export interface Config {
  * commands that need to distinguish failure modes.
  */
 export async function getConfig(): Promise<Config> {
-    return (await readConfigCore<Config>(getConfigPath())) as Config
+    const raw = (await readConfigCore<Record<string, unknown>>(getConfigPath())) as Record<
+        string,
+        unknown
+    >
+    return migrateLegacyKeys(raw) as Config
 }
 
 export type StrictReadResult = { state: 'missing' } | { state: 'present'; config: Config }
@@ -78,7 +104,10 @@ export async function readConfigStrict(): Promise<StrictReadResult> {
         case 'missing':
             return { state: 'missing' }
         case 'present':
-            return { state: 'present', config: result.config as Config }
+            return {
+                state: 'present',
+                config: migrateLegacyKeys(result.config as Record<string, unknown>) as Config,
+            }
         case 'read-failed':
             throw new CliError(
                 'CONFIG_READ_FAILED',
@@ -109,9 +138,16 @@ export async function setConfig(config: Config): Promise<void> {
     await writeConfigCore(getConfigPath(), config)
 }
 
-/** Thin wrapper around cli-core's `updateConfig`. */
+/**
+ * Read-merge-write wrapper around cli-core's `updateConfig`. Inlines the
+ * read+write rather than calling cli-core's atomic variant so the on-disk
+ * file is rewritten in the canonical snake_case shape (the legacy
+ * `updateChannel` field is dropped here rather than lingering across update
+ * calls). Race-free in practice — the config file is single-user.
+ */
 export async function updateConfig(updates: Partial<Config>): Promise<void> {
-    await updateConfigCore<Config>(getConfigPath(), updates)
+    const current = await getConfig()
+    await writeConfigCore(getConfigPath(), { ...current, ...updates })
 }
 
 export function validateConfigForDoctor(config: Record<string, unknown>): string[] {
@@ -153,11 +189,17 @@ export function validateConfigForDoctor(config: Record<string, unknown>): string
     }
 
     if (
-        config.updateChannel !== undefined &&
-        (typeof config.updateChannel !== 'string' ||
-            !UPDATE_CHANNELS.has(config.updateChannel as UpdateChannel))
+        config.update_channel !== undefined &&
+        (typeof config.update_channel !== 'string' ||
+            !UPDATE_CHANNELS.has(config.update_channel as UpdateChannel))
     ) {
-        issues.push('updateChannel must be one of: stable, pre-release')
+        issues.push('update_channel must be one of: stable, pre-release')
+    }
+
+    if (config.updateChannel !== undefined) {
+        issues.push(
+            'updateChannel is a legacy key — will be migrated to update_channel automatically on next config write',
+        )
     }
 
     if (config.userSettings !== undefined) {
