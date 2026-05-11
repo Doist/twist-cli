@@ -5,12 +5,14 @@ import {
     type Workspace,
     type WorkspaceUser,
 } from '@doist/twist-sdk'
-import { getApiToken } from './auth.js'
-import { getConfig, updateConfig } from './config.js'
+import { resolveActiveUser } from './auth.js'
+import { type Config, getConfig, setConfig, type StoredUser } from './config.js'
 import { CliError, isInsufficientScope } from './errors.js'
+import { getRequestedUserRef } from './global-args.js'
 import { ensureWriteAllowed, isMutatingMethod } from './permissions.js'
 import { getProgressTracker } from './progress.js'
 import { withSpinner } from './spinner.js'
+import { getStoredUsers, updateStoredUser } from './users.js'
 
 // Mapping of API method paths to user-friendly spinner messages
 const API_SPINNER_MESSAGES: Record<string, { text: string; color?: 'blue' | 'green' | 'yellow' }> =
@@ -237,8 +239,8 @@ export function createWrappedTwistClient(token: string): TwistApi {
 
 export async function getTwistClient(): Promise<TwistApi> {
     if (!apiClient) {
-        const token = await getApiToken()
-        apiClient = createWrappedTwistClient(token)
+        const resolved = await resolveActiveUser({ ref: getRequestedUserRef() })
+        apiClient = createWrappedTwistClient(resolved.token)
     }
     return apiClient
 }
@@ -264,27 +266,92 @@ export async function getCurrentWorkspaceId(flagValue?: number): Promise<number>
         return flagValue
     }
 
-    const config = await getConfig()
-    if (config.currentWorkspace) {
-        return config.currentWorkspace
+    const resolved = await resolveActiveUser({ ref: getRequestedUserRef() })
+
+    // Env-token / legacy-fallback flows have no persistent slot to write
+    // into; resolve the workspace freshly from the API each call.
+    if (!resolved.id) {
+        const sessionUser = await getSessionUser()
+        if (sessionUser.defaultWorkspace) return sessionUser.defaultWorkspace
+        return firstWorkspaceId()
+    }
+
+    let config = await getConfig()
+
+    // One-shot migration: legacy installs stored a single `currentWorkspace`
+    // at the top level. Move it onto the default-or-only user so that
+    // `tw --user <other>` doesn't try to use someone else's workspace.
+    const migrated = migrateLegacyCurrentWorkspace(config)
+    if (migrated !== config) {
+        await setConfig(migrated)
+        config = migrated
+    }
+
+    const userId = resolved.id
+    const user = getStoredUsers(config).find((u) => u.id === userId)
+    if (user?.current_workspace) {
+        return user.current_workspace
     }
 
     const sessionUser = await getSessionUser()
     if (sessionUser.defaultWorkspace) {
-        await updateConfig({ currentWorkspace: sessionUser.defaultWorkspace })
+        await persistUserWorkspace(userId, sessionUser.defaultWorkspace)
         return sessionUser.defaultWorkspace
     }
 
+    const id = await firstWorkspaceId()
+    await persistUserWorkspace(userId, id)
+    return id
+}
+
+async function firstWorkspaceId(): Promise<number> {
     const workspaces = await fetchWorkspaces()
     if (workspaces.length === 0) {
         throw new CliError('NOT_FOUND', 'No workspaces found for this user', [
             'Ensure your account has been added to a workspace',
         ])
     }
+    return workspaces[0].id
+}
 
-    const defaultWorkspace = workspaces[0]
-    await updateConfig({ currentWorkspace: defaultWorkspace.id })
-    return defaultWorkspace.id
+async function persistUserWorkspace(userId: string, workspaceId: number): Promise<void> {
+    const config = await getConfig()
+    await setConfig(updateStoredUser(config, userId, { current_workspace: workspaceId }))
+}
+
+function migrateLegacyCurrentWorkspace(config: Config): Config {
+    if (typeof config.currentWorkspace !== 'number') return config
+    const users = getStoredUsers(config)
+    if (users.length === 0) {
+        // No users to attach to yet — strip the orphan so it stops being
+        // surfaced by `tw doctor` and friends.
+        const { currentWorkspace: _drop, ...rest } = config
+        return rest
+    }
+    const targetId = config.user?.default_user ?? (users.length === 1 ? users[0].id : undefined)
+    if (!targetId) {
+        // Multiple users and no default — we can't guess whose workspace
+        // this was. Drop it; `getCurrentWorkspaceId` will re-derive per
+        // user on next call.
+        const { currentWorkspace: _drop, ...rest } = config
+        return rest
+    }
+    const next: StoredUser[] = users.map((u) =>
+        u.id === targetId && u.current_workspace === undefined
+            ? { ...u, current_workspace: config.currentWorkspace }
+            : u,
+    )
+    const { currentWorkspace: _drop, ...rest } = config
+    return { ...rest, users: next }
+}
+
+/**
+ * Persist the active user's workspace selection. Used by `tw workspace use`.
+ */
+export async function setActiveAccountWorkspace(workspaceId: number): Promise<void> {
+    const resolved = await resolveActiveUser({ ref: getRequestedUserRef() })
+    if (!resolved.id) return
+    await persistUserWorkspace(resolved.id, workspaceId)
 }
 
 export async function getSessionUser(): Promise<User> {

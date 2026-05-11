@@ -1,7 +1,7 @@
 import type { ArchiveFilter } from '@doist/twist-sdk'
 import chalk from 'chalk'
 import { Command, Option } from 'commander'
-import { getCurrentWorkspaceId, getTwistClient } from '../lib/api.js'
+import { assertBatchData, getCurrentWorkspaceId, getTwistClient } from '../lib/api.js'
 import { withCaseInsensitiveChoices } from '../lib/completion.js'
 import { formatRelativeDate } from '../lib/dates.js'
 import { CliError } from '../lib/errors.js'
@@ -53,8 +53,10 @@ async function showInbox(workspaceRef: string | undefined, options: InboxOptions
         client.threads.getUnread(workspaceId, { batch: true }),
     )
 
-    const unreadThreadIds = new Set(unreadData.data.map((u) => u.threadId))
-    let inboxThreads = threads.data.map((t) => ({
+    const inboxData = assertBatchData(threads, 'inbox threads')
+    const unreadList = assertBatchData(unreadData, 'unread threads')
+    const unreadThreadIds = new Set(unreadList.map((u) => u.threadId))
+    let inboxThreads = inboxData.map((t) => ({
         ...t,
         isUnread: unreadThreadIds.has(t.id),
     }))
