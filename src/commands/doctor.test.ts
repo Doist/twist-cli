@@ -127,7 +127,7 @@ describe('doctor command', () => {
         mockReadFile.mockResolvedValue(
             JSON.stringify({
                 token: 'plaintext-token',
-                updateChannel: 'pre-release',
+                update_channel: 'pre-release',
             }),
         )
         mockGetConfig.mockResolvedValue({ updateChannel: 'pre-release' })
@@ -161,7 +161,7 @@ describe('doctor command', () => {
                 pendingSecureStoreClear: 'yes',
                 currentWorkspace: 'abc',
                 authMode: 'admin',
-                updateChannel: 'beta',
+                update_channel: 'beta',
                 extraSetting: true,
             }),
         )
@@ -184,7 +184,7 @@ describe('doctor command', () => {
         expect(configWarning).toContain('pendingSecureStoreClear must be a boolean')
         expect(configWarning).toContain('currentWorkspace must be a positive integer')
         expect(configWarning).toContain('authMode must be one of: read-only, read-write, unknown')
-        expect(configWarning).toContain('updateChannel must be one of: stable, pre-release')
+        expect(configWarning).toContain('update_channel must be one of: stable, pre-release')
         expect(consoleSpy).toHaveBeenCalledWith(
             expect.stringContaining('PASS Authenticated as person@example.com via secure-store'),
         )
@@ -193,6 +193,57 @@ describe('doctor command', () => {
         )
         expect(consoleSpy).toHaveBeenCalledWith('Doctor summary: 2 passed, 1 warning')
         expect(process.exitCode).toBeUndefined()
+    })
+
+    it('reads legacy updateChannel from on-disk config and reports the channel', async () => {
+        // Disk still has the legacy camelCase key; read-seam translates it,
+        // so doctor reports the configured channel exactly as it would for
+        // a canonical `update_channel` file. No "unrecognized key" warning.
+        mockReadFile.mockResolvedValue(
+            JSON.stringify({
+                token: 'plaintext-token',
+                updateChannel: 'pre-release',
+            }),
+        )
+        mockGetConfig.mockResolvedValue({ updateChannel: 'pre-release' })
+        mockProbeApiToken.mockResolvedValue({
+            token: 'plaintext-token',
+            metadata: { authMode: 'read-write', source: 'config-file' },
+        })
+        mockFetch('1.0.0')
+
+        const program = createProgram()
+        await program.parseAsync(['node', 'tw', 'doctor'])
+
+        expect(consoleSpy).toHaveBeenCalledWith(
+            expect.stringContaining('PASS CLI is up to date on pre-release (v1.0.0)'),
+        )
+        const configWarning = consoleSpy.mock.calls.find(
+            (call: unknown[]) =>
+                typeof call[0] === 'string' &&
+                (call[0] as string).includes('WARN Config file is readable but'),
+        )?.[0]
+        // updateChannel is a known legacy key — must not show as unrecognized.
+        expect(configWarning ?? '').not.toContain('unrecognized key "updateChannel"')
+    })
+
+    it('flags invalid legacy updateChannel value in the validator', async () => {
+        mockReadFile.mockResolvedValue(
+            JSON.stringify({
+                updateChannel: 'beta',
+            }),
+        )
+        mockFetch('1.0.0')
+
+        const program = createProgram()
+        await program.parseAsync(['node', 'tw', 'doctor'])
+
+        const configWarning = consoleSpy.mock.calls.find(
+            (call: unknown[]) =>
+                typeof call[0] === 'string' &&
+                (call[0] as string).includes('WARN Config file is readable but'),
+        )?.[0]
+        expect(configWarning).toContain('updateChannel must be one of: stable, pre-release')
     })
 
     it('normalizes invalid update channel values to stable', async () => {

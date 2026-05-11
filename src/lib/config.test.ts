@@ -31,8 +31,8 @@ import {
 const mockGetConfigPathCore = vi.mocked(getConfigPathCore)
 const mockReadConfigCore = vi.mocked(readConfigCore)
 const mockReadConfigStrictCore = vi.mocked(readConfigStrictCore)
-const mockWriteConfigCore = vi.mocked(writeConfigCore)
 const mockUpdateConfigCore = vi.mocked(updateConfigCore)
+const mockWriteConfigCore = vi.mocked(writeConfigCore)
 
 describe('validateConfigForDoctor', () => {
     it('accepts an empty config', () => {
@@ -71,6 +71,69 @@ describe('validateConfigForDoctor', () => {
         expect(validateConfigForDoctor({ userSettings: null })).toContain(
             'userSettings must be an object',
         )
+    })
+
+    it('accepts both updateChannel and update_channel with valid values', () => {
+        expect(validateConfigForDoctor({ updateChannel: 'stable' })).toEqual([])
+        expect(validateConfigForDoctor({ update_channel: 'pre-release' })).toEqual([])
+    })
+
+    it('rejects invalid values on either key', () => {
+        expect(validateConfigForDoctor({ updateChannel: 'beta' })).toContain(
+            'updateChannel must be one of: stable, pre-release',
+        )
+        expect(validateConfigForDoctor({ update_channel: 'beta' })).toContain(
+            'update_channel must be one of: stable, pre-release',
+        )
+    })
+
+    it('does not flag updateChannel as unrecognized (legacy alias)', () => {
+        const issues = validateConfigForDoctor({ updateChannel: 'pre-release' })
+        expect(issues.some((i) => i.includes('unrecognized'))).toBe(false)
+    })
+})
+
+describe('persistence-seam translation', () => {
+    it('getConfig exposes the legacy updateChannel value as updateChannel in memory', async () => {
+        mockReadConfigCore.mockResolvedValueOnce({ updateChannel: 'pre-release' })
+        await expect(getConfig()).resolves.toEqual({ updateChannel: 'pre-release' })
+    })
+
+    it('getConfig prefers update_channel when both are on disk (cli-core wrote last)', async () => {
+        mockReadConfigCore.mockResolvedValueOnce({
+            updateChannel: 'stable',
+            update_channel: 'pre-release',
+        })
+        await expect(getConfig()).resolves.toEqual({ updateChannel: 'pre-release' })
+    })
+
+    it('getConfig returns the canonical key as updateChannel when only it is on disk', async () => {
+        mockReadConfigCore.mockResolvedValueOnce({ update_channel: 'stable' })
+        await expect(getConfig()).resolves.toEqual({ updateChannel: 'stable' })
+    })
+
+    it('getConfig guards against a manually-edited config that is not an object', async () => {
+        // `null`, primitive JSON, or arrays are all valid JSON. The legacy
+        // migration must not crash on `in` checks against them.
+        mockReadConfigCore.mockResolvedValueOnce(null as never)
+        await expect(getConfig()).resolves.toEqual({})
+
+        mockReadConfigCore.mockResolvedValueOnce('not an object' as never)
+        await expect(getConfig()).resolves.toEqual({})
+
+        mockReadConfigCore.mockResolvedValueOnce(['array', 'top-level'] as never)
+        await expect(getConfig()).resolves.toEqual({})
+    })
+
+    it('readConfigStrict translates legacy key on the present branch', async () => {
+        mockReadConfigStrictCore.mockResolvedValueOnce({
+            state: 'present',
+            config: { updateChannel: 'pre-release' },
+        })
+        await expect(readConfigStrict()).resolves.toEqual({
+            state: 'present',
+            config: { updateChannel: 'pre-release' },
+        })
     })
 })
 
@@ -157,7 +220,31 @@ describe('thin config wrappers', () => {
         )
     })
 
-    it('updateConfig forwards path and updates to cli-core updateConfig', async () => {
+    it('setConfig dual-writes the channel field (camelCase + snake_case)', async () => {
+        // Older twist builds read `updateChannel`; cli-core reads
+        // `update_channel`. Both keys must hit disk during the overlap window.
+        mockWriteConfigCore.mockResolvedValueOnce(undefined)
+        await setConfig({ updateChannel: 'pre-release', currentWorkspace: 3 })
+        expect(mockWriteConfigCore).toHaveBeenCalledWith(
+            '/tmp/cli-core-test/twist-cli/config.json',
+            {
+                currentWorkspace: 3,
+                updateChannel: 'pre-release',
+                update_channel: 'pre-release',
+            },
+        )
+    })
+
+    it('updateConfig delegates to cli-core (atomic) with dual-write translation', async () => {
+        mockUpdateConfigCore.mockResolvedValueOnce(undefined)
+        await updateConfig({ updateChannel: 'stable' })
+        expect(mockUpdateConfigCore).toHaveBeenCalledWith(
+            '/tmp/cli-core-test/twist-cli/config.json',
+            { updateChannel: 'stable', update_channel: 'stable' },
+        )
+    })
+
+    it('updateConfig forwards non-channel partials unchanged', async () => {
         mockUpdateConfigCore.mockResolvedValueOnce(undefined)
         await updateConfig({ currentWorkspace: 12 })
         expect(mockUpdateConfigCore).toHaveBeenCalledWith(
