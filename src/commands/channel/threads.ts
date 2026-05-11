@@ -1,6 +1,6 @@
 import type { ArchiveFilter, Thread } from '@doist/twist-sdk'
 import chalk from 'chalk'
-import { getCurrentWorkspaceId, getTwistClient } from '../../lib/api.js'
+import { assertBatchData, getCurrentWorkspaceId, getTwistClient } from '../../lib/api.js'
 import { formatRelativeDate } from '../../lib/dates.js'
 import { CliError } from '../../lib/errors.js'
 import { isAccessible } from '../../lib/global-args.js'
@@ -86,8 +86,10 @@ export async function showChannelThreads(
         client.threads.getUnread(workspaceId, { batch: true }),
     )
 
-    const unreadThreadIds = new Set(unreadResp.data.map((u) => u.threadId))
-    let threads: DecoratedThread[] = threadsResp.data.map((t) => ({
+    const threadsList = assertBatchData(threadsResp, `threads in #${channel.name}`)
+    const unreadList = assertBatchData(unreadResp, 'unread threads')
+    const unreadThreadIds = new Set(unreadList.map((u) => u.threadId))
+    let threads: DecoratedThread[] = threadsList.map((t) => ({
         ...t,
         isUnread: unreadThreadIds.has(t.id),
     }))

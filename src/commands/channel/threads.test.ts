@@ -14,6 +14,12 @@ const refsMocks = vi.hoisted(() => ({
 vi.mock('../../lib/api.js', () => ({
     getTwistClient: apiMocks.getTwistClient,
     getCurrentWorkspaceId: apiMocks.getCurrentWorkspaceId,
+    assertBatchData: <T>(response: { code?: number; data: T }, label: string): T => {
+        if ((response.code ?? 200) >= 400 || response.data == null) {
+            throw new Error(`Failed to fetch ${label}.`)
+        }
+        return response.data
+    },
 }))
 
 vi.mock('../../lib/refs.js', () => ({
