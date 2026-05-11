@@ -20,11 +20,15 @@ tw auth login --callback-port <n># Override the local OAuth callback port (defau
 tw auth login --json             # Emit a JSON envelope for scripted / agent use
 tw auth login --ndjson           # Emit an NDJSON envelope for scripted / agent use
 tw auth token                    # Save API token manually (prompts securely; scope unknown, assumed write-capable)
-tw auth status                   # Verify authentication + show mode
-tw auth status --json            # JSON output: { id, email, name }
-tw auth logout                   # Remove saved token and auth metadata
+tw auth status                   # Verify authentication + show mode (lists other stored accounts)
+tw auth status --json            # JSON output: { id, email, name, authMode, isDefault, storedAccounts }
+tw auth logout                   # Remove saved token and auth metadata (use --user to target a specific account)
+tw account list                  # List all authenticated Twist accounts
+tw account list --json           # JSON output for stored accounts
+tw account use <id|email>        # Set the default account (used when --user is not given)
+tw --user <id|email> <command>   # Run any command as a specific stored account
 tw workspaces                    # List available workspaces
-tw workspace use <ref>           # Set current workspace
+tw workspace use <ref>           # Set current workspace (per-account)
 tw completion install            # Install shell completions
 tw config view                   # Show the current CLI configuration file (token masked)
 tw config set <key> <value>      # Set a user preference (e.g. unarchive-new-threads true)
@@ -33,7 +37,9 @@ tw update                        # Update CLI to latest version
 tw changelog                     # Show recent changelog entries
 ```
 
-Stored auth uses the system credential manager when available. If secure storage is unavailable, `tw` warns and falls back to `~/.config/twist-cli/config.json`. `TWIST_API_TOKEN` always takes priority over the stored token, and legacy plaintext config tokens are migrated automatically when secure storage is available.
+Multiple Twist accounts can be authenticated simultaneously. Each account's token is stored in a per-account keyring slot (`user-<id>`), and per-account state (`current_workspace`) is tracked separately so `tw --user other@example.com inbox` doesn't reuse the previous account's workspace selection. Without `--user`, the default account is used; if only one account is stored, it's implicit.
+
+Stored auth uses the system credential manager when available. If secure storage is unavailable, `tw` warns and falls back to `~/.config/twist-cli/config.json`. `TWIST_API_TOKEN` always takes priority over stored accounts (anonymous identity), and legacy plaintext config tokens are migrated automatically on install when secure storage is available.
 
 In read-only mode (`tw auth login --read-only`), commands that modify Twist data (reply, archive, react, delete, etc.) are blocked by the CLI. Externally provided tokens (`TWIST_API_TOKEN` or `tw auth token`) are treated as unknown scope and assumed write-capable.
 

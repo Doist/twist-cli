@@ -2,8 +2,8 @@
 
 import { type Command, program } from 'commander'
 import pkg from '../package.json' with { type: 'json' }
-import { BaseCliError } from './lib/errors.js'
-import { isJsonMode, isNdjsonMode } from './lib/global-args.js'
+import { BaseCliError, CliError } from './lib/errors.js'
+import { isJsonMode, isNdjsonMode, stripUserFlag, validateUserFlag } from './lib/global-args.js'
 import { preloadMarkdown } from './lib/markdown.js'
 import { formatError, formatErrorJson } from './lib/output.js'
 import { startEarlySpinner, stopEarlySpinner } from './lib/spinner.js'
@@ -41,6 +41,8 @@ const loadGroupsCommand = async () =>
 const loadDoctorCommand = async () => (await import('./commands/doctor.js')).registerDoctorCommand
 const loadConfigCommand = async () =>
     (await import('./commands/config/index.js')).registerConfigCommand
+const loadAccountCommand = async () =>
+    (await import('./commands/account/index.js')).registerAccountCommand
 
 const commands: Record<string, [string, () => Promise<(p: Command) => void>]> = {
     workspaces: ['List all workspaces', loadWorkspaceCommand],
@@ -70,6 +72,7 @@ const commands: Record<string, [string, () => Promise<(p: Command) => void>]> = 
         loadGroupsCommand,
     ],
     config: ['Manage CLI configuration', loadConfigCommand],
+    account: ['Manage authenticated Twist accounts (list, use)', loadAccountCommand],
 }
 
 const commandAliases: Record<string, string> = {
@@ -82,6 +85,7 @@ program
     .name('tw')
     .description('Twist CLI')
     .version(pkg.version)
+    .option('--user <id|email>', 'Select which stored account to use for this command')
     .option('--no-spinner', 'Disable loading animations')
     .option('--progress-jsonl [path]', 'Output progress events as JSONL to stderr or file')
     .option(
@@ -199,21 +203,45 @@ if (process.argv[2] === 'completion-server') {
     }
 }
 
-await program
-    .parseAsync()
-    .catch((err: Error) => {
-        stopEarlySpinner()
-        if (err instanceof BaseCliError) {
-            console.error(isJsonMode() ? formatErrorJson(err) : formatError(err))
-        } else {
-            console.error(
-                isJsonMode()
-                    ? formatErrorJson('INTERNAL_ERROR', err.message)
-                    : err.stack || err.message,
-            )
-        }
+// Pre-Commander validation of the global `--user <ref>` flag. Caught here so
+// `--user --json`, `--user=`, and `--user inbox` (forgot the value) produce a
+// clear CliError with hints instead of Commander's terser usage message.
+{
+    const knownCommands = new Set<string>([
+        ...Object.keys(commands),
+        ...Object.keys(commandAliases),
+    ])
+    const userArgs = process.argv.slice(2)
+    const validation = validateUserFlag(userArgs, knownCommands)
+    if (!validation.ok) {
+        const err = new CliError('USER_FLAG_INVALID', validation.message, validation.hints, 'info')
+        console.error(isJsonMode() ? formatErrorJson(err) : formatError(err))
         process.exitCode = 1
-    })
-    .finally(() => {
-        stopEarlySpinner()
-    })
+    } else {
+        // Strip `--user <ref>` from argv before Commander sees it. The value
+        // is still available via `getRequestedUserRef()` (read from the
+        // cached parse of the *original* argv).
+        const cleaned = stripUserFlag(userArgs)
+        process.argv = [process.argv[0], process.argv[1], ...cleaned]
+    }
+}
+
+if (!process.exitCode)
+    await program
+        .parseAsync()
+        .catch((err: Error) => {
+            stopEarlySpinner()
+            if (err instanceof BaseCliError) {
+                console.error(isJsonMode() ? formatErrorJson(err) : formatError(err))
+            } else {
+                console.error(
+                    isJsonMode()
+                        ? formatErrorJson('INTERNAL_ERROR', err.message)
+                        : err.stack || err.message,
+                )
+            }
+            process.exitCode = 1
+        })
+        .finally(() => {
+            stopEarlySpinner()
+        })
