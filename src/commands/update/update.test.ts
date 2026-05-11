@@ -1,464 +1,120 @@
-import type { ChildProcess } from 'node:child_process'
+import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { Command } from 'commander'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import packageJson from '../../../package.json' with { type: 'json' }
 
-vi.mock('node:child_process', () => ({
-    spawn: vi.fn(),
-}))
-
-vi.mock('chalk')
-
-vi.mock('../../lib/spinner.js', () => ({
-    withSpinner: vi.fn((_opts: unknown, fn: () => Promise<unknown>) => fn()),
-}))
-
-vi.mock('../../lib/config.js', async (importOriginal) => {
-    const original = await importOriginal<typeof import('../../lib/config.js')>()
-    return {
-        ...original,
-        getConfig: vi.fn().mockResolvedValue({}),
-        setConfig: vi.fn().mockResolvedValue(undefined),
-    }
-})
-
-import { spawn } from 'node:child_process'
-import pkg from '../../../package.json' with { type: 'json' }
-import { getConfig, setConfig } from '../../lib/config.js'
-import { registerUpdateCommand } from './index.js'
-
-const mockSpawn = vi.mocked(spawn)
-const mockGetConfig = vi.mocked(getConfig)
-const mockSetConfig = vi.mocked(setConfig)
-
-function createProgram() {
-    const program = new Command()
-    program.exitOverride()
-    registerUpdateCommand(program)
-    return program
-}
-
-function mockFetch(version: string) {
-    vi.stubGlobal(
-        'fetch',
-        vi.fn().mockResolvedValue({
-            ok: true,
-            json: () => Promise.resolve({ version }),
-        }),
-    )
-}
-
-function mockFetchError(status: number) {
-    vi.stubGlobal(
-        'fetch',
-        vi.fn().mockResolvedValue({
-            ok: false,
-            status,
-        }),
-    )
-}
-
-function mockFetchNetworkError(code: string) {
-    const error = new Error(`getaddrinfo ENOTFOUND registry.npmjs.org`)
-    ;(error as NodeJS.ErrnoException).code = code
-    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(error))
-}
-
-function mockSpawnSuccess() {
-    mockSpawn.mockImplementation(() => {
-        const child = {
-            stderr: {
-                on: vi.fn(),
-            },
-            on: vi.fn((event: string, cb: (arg: unknown) => void) => {
-                if (event === 'close') {
-                    setTimeout(() => cb(0), 0)
-                }
-                return child
-            }),
-        }
-        return child as unknown as ChildProcess
-    })
-}
-
-function mockSpawnFailure(exitCode: number) {
-    mockSpawn.mockImplementation(() => {
-        const child = {
-            stderr: {
-                on: vi.fn(),
-            },
-            on: vi.fn((event: string, cb: (arg: unknown) => void) => {
-                if (event === 'close') {
-                    setTimeout(() => cb(exitCode), 0)
-                }
-                return child
-            }),
-        }
-        return child as unknown as ChildProcess
-    })
-}
-
-function mockSpawnPermissionError() {
-    mockSpawn.mockImplementation(() => {
-        const child = {
-            stderr: {
-                on: vi.fn(),
-            },
-            on: vi.fn((event: string, cb: (arg: unknown) => void) => {
-                if (event === 'error') {
-                    const error = new Error('EACCES') as NodeJS.ErrnoException
-                    error.code = 'EACCES'
-                    setTimeout(() => cb(error), 0)
-                }
-                return child
-            }),
-        }
-        return child as unknown as ChildProcess
-    })
-}
-
-describe('update command', () => {
-    let consoleSpy: ReturnType<typeof vi.spyOn>
-    let consoleErrorSpy: ReturnType<typeof vi.spyOn>
+describe('update wrapper', () => {
+    let tmpConfigPath: string
 
     beforeEach(() => {
-        vi.clearAllMocks()
-        consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
-        consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
-        mockGetConfig.mockResolvedValue({})
+        tmpConfigPath = join(mkdtempSync(join(tmpdir(), 'twist-update-test-')), 'config.json')
+        vi.doMock('../../lib/config.js', async (importOriginal) => {
+            const actual = await importOriginal<typeof import('../../lib/config.js')>()
+            return { ...actual, getConfigPath: () => tmpConfigPath }
+        })
     })
 
     afterEach(() => {
-        consoleSpy.mockRestore()
-        consoleErrorSpy.mockRestore()
+        vi.doUnmock('@doist/cli-core/commands')
+        vi.doUnmock('../../lib/config.js')
+        vi.resetModules()
+        vi.restoreAllMocks()
         vi.unstubAllGlobals()
     })
 
-    describe('already up to date', () => {
-        it('shows already up to date when versions match', async () => {
-            mockFetch(pkg.version)
+    it('forwards twist-cli wiring (packageName, version, configPath, changelog hint, spinner) to cli-core', async () => {
+        const registerCoreSpy = vi.fn()
+        vi.doMock('@doist/cli-core/commands', () => ({
+            registerUpdateCommand: registerCoreSpy,
+            // Re-exported by src/lib/update.ts — must still resolve when the
+            // mocked module is loaded transitively via the wrapper.
+            fetchLatestVersion: vi.fn(),
+            compareVersions: vi.fn(),
+            isNewer: vi.fn(),
+            parseVersion: vi.fn(),
+            getInstallTag: vi.fn(),
+        }))
 
-            const program = createProgram()
-            await program.parseAsync(['node', 'tw', 'update'])
+        const { registerUpdateCommand } = await import('./index.js')
+        const { withSpinner } = await import('../../lib/spinner.js')
+        const program = new Command()
+        registerUpdateCommand(program)
 
-            expect(consoleSpy).toHaveBeenCalledWith('✓', `Already up to date (v${pkg.version})`)
-            expect(mockSpawn).not.toHaveBeenCalled()
+        expect(registerCoreSpy).toHaveBeenCalledTimes(1)
+        const [passedProgram, options] = registerCoreSpy.mock.calls[0]
+        expect(passedProgram).toBe(program)
+        expect(options).toEqual({
+            packageName: packageJson.name,
+            currentVersion: packageJson.version,
+            configPath: tmpConfigPath,
+            changelogCommandName: 'tw changelog',
+            withSpinner,
         })
     })
 
-    describe('--check flag', () => {
-        it('shows update available without installing', async () => {
-            mockFetch('99.0.0')
+    it('migrates a legacy-only updateChannel on disk so cli-core can read it', async () => {
+        writeFileSync(tmpConfigPath, JSON.stringify({ updateChannel: 'pre-release' }))
+        vi.stubGlobal(
+            'fetch',
+            vi.fn().mockResolvedValue({
+                ok: true,
+                json: () => Promise.resolve({ version: packageJson.version }),
+            }),
+        )
 
-            const program = createProgram()
-            await program.parseAsync(['node', 'tw', 'update', '--check'])
+        const { registerUpdateCommand } = await import('./index.js')
+        const program = new Command()
+        program.exitOverride()
+        registerUpdateCommand(program)
 
-            expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining(`Update available:`))
-            expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('Channel:'))
-            expect(mockSpawn).not.toHaveBeenCalled()
-        })
+        await program.parseAsync(['node', 'tw', 'update', '--check'])
 
-        it('shows already up to date with --check when versions match', async () => {
-            mockFetch(pkg.version)
-
-            const program = createProgram()
-            await program.parseAsync(['node', 'tw', 'update', '--check'])
-
-            expect(consoleSpy).toHaveBeenCalledWith('✓', `Already up to date (v${pkg.version})`)
-            expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('Channel:'))
-            expect(mockSpawn).not.toHaveBeenCalled()
-        })
-
-        it('shows channel info with --check', async () => {
-            mockFetch('99.0.0')
-
-            const program = createProgram()
-            await program.parseAsync(['node', 'tw', 'update', '--check'])
-
-            expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('Channel:'))
-        })
-
-        it('shows pre-release channel with --check when configured', async () => {
-            mockGetConfig.mockResolvedValue({ updateChannel: 'pre-release' })
-            mockFetch('99.0.0-rc.1')
-
-            const program = createProgram()
-            await program.parseAsync(['node', 'tw', 'update', '--check'])
-
-            expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('Channel:'))
-        })
-
-        it('falls back to stable when the configured channel is invalid', async () => {
-            mockGetConfig.mockResolvedValue({ updateChannel: 'beta' as never })
-            mockFetch(pkg.version)
-
-            const program = createProgram()
-            await program.parseAsync(['node', 'tw', 'update', '--check'])
-
-            expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('Channel: stable'))
-            expect(mockSpawn).not.toHaveBeenCalled()
+        // After the preAction hook ran, the on-disk file should carry both
+        // keys so cli-core's `update_channel` read succeeds going forward.
+        const onDisk = JSON.parse(readFileSync(tmpConfigPath, 'utf-8'))
+        expect(onDisk).toMatchObject({
+            updateChannel: 'pre-release',
+            update_channel: 'pre-release',
         })
     })
 
-    describe('update available', () => {
-        it('spawns npm install and reports success', async () => {
-            mockFetch('99.0.0')
-            mockSpawnSuccess()
-
-            const program = createProgram()
-            await program.parseAsync(['node', 'tw', 'update'])
-
-            expect(mockSpawn).toHaveBeenCalledWith(
-                'npm',
-                ['install', '-g', '@doist/twist-cli@latest'],
-                { stdio: 'pipe' },
-            )
-            expect(consoleSpy).toHaveBeenCalledWith(`Update available: v${pkg.version} → v99.0.0`)
-            expect(consoleSpy).toHaveBeenCalledWith('✓', 'Updated to v99.0.0')
-            expect(consoleSpy).toHaveBeenCalledWith(
-                expect.anything(),
-                expect.stringContaining('tw changelog'),
-                expect.anything(),
-            )
+    it('reads the persisted channel through cli-core (hermetic against the real config)', async () => {
+        writeFileSync(tmpConfigPath, JSON.stringify({ update_channel: 'stable' }))
+        const fetchMock = vi.fn().mockResolvedValue({
+            ok: true,
+            json: () => Promise.resolve({ version: packageJson.version }),
         })
+        vi.stubGlobal('fetch', fetchMock)
 
-        it('uses pnpm add when pnpm is detected', async () => {
-            mockFetch('99.0.0')
-            mockSpawnSuccess()
-            vi.stubEnv('npm_execpath', '/usr/local/lib/node_modules/pnpm/bin/pnpm.cjs')
+        const { registerUpdateCommand } = await import('./index.js')
+        const program = new Command()
+        program.exitOverride()
+        registerUpdateCommand(program)
 
-            const program = createProgram()
-            await program.parseAsync(['node', 'tw', 'update'])
+        await program.parseAsync(['node', 'tw', 'update', '--check'])
 
-            expect(mockSpawn).toHaveBeenCalledWith(
-                'pnpm',
-                ['add', '-g', '@doist/twist-cli@latest'],
-                { stdio: 'pipe' },
-            )
-        })
+        expect(fetchMock).toHaveBeenCalledTimes(1)
+        const [url] = fetchMock.mock.calls[0]
+        // Stable channel must resolve to the `latest` dist-tag — but we don't
+        // pin cli-core's exact registry URL shape; just assert the package
+        // name + channel-appropriate tag are present.
+        expect(url).toContain(packageJson.name)
+        expect(url).toContain('latest')
     })
 
-    describe('registry errors', () => {
-        it('handles HTTP errors from registry', async () => {
-            mockFetchError(503)
+    it('surfaces INVALID_UPDATE_CHANNEL when on-disk update_channel is unknown', async () => {
+        writeFileSync(tmpConfigPath, JSON.stringify({ update_channel: 'beta' }))
+        vi.stubGlobal('fetch', vi.fn())
 
-            const program = createProgram()
-            await expect(program.parseAsync(['node', 'tw', 'update'])).rejects.toHaveProperty(
-                'code',
-                'API_ERROR',
-            )
-        })
+        const { registerUpdateCommand } = await import('./index.js')
+        const program = new Command()
+        program.exitOverride()
+        registerUpdateCommand(program)
 
-        it('handles network failures', async () => {
-            mockFetchNetworkError('ENOTFOUND')
-
-            const program = createProgram()
-            await expect(program.parseAsync(['node', 'tw', 'update'])).rejects.toHaveProperty(
-                'code',
-                'API_ERROR',
-            )
-        })
-    })
-
-    describe('install errors', () => {
-        it('handles EACCES permission error and suggests sudo', async () => {
-            mockFetch('99.0.0')
-            mockSpawnPermissionError()
-
-            const program = createProgram()
-            await expect(program.parseAsync(['node', 'tw', 'update'])).rejects.toHaveProperty(
-                'code',
-                'INTERNAL_ERROR',
-            )
-        })
-
-        it('handles non-zero exit code from npm', async () => {
-            mockFetch('99.0.0')
-            mockSpawnFailure(1)
-
-            const program = createProgram()
-            await expect(program.parseAsync(['node', 'tw', 'update'])).rejects.toHaveProperty(
-                'code',
-                'INTERNAL_ERROR',
-            )
-        })
-    })
-
-    describe('pre-release channel', () => {
-        beforeEach(() => {
-            mockGetConfig.mockResolvedValue({ updateChannel: 'pre-release' })
-        })
-
-        it('fetches from /next when on pre-release channel', async () => {
-            mockFetch('99.0.0-rc.1')
-            mockSpawnSuccess()
-
-            const program = createProgram()
-            await program.parseAsync(['node', 'tw', 'update'])
-
-            expect(global.fetch).toHaveBeenCalledWith(
-                'https://registry.npmjs.org/@doist/twist-cli/next',
-            )
-        })
-
-        it('installs with @next tag', async () => {
-            mockFetch('99.0.0-rc.1')
-            mockSpawnSuccess()
-            vi.stubEnv('npm_execpath', '')
-
-            const program = createProgram()
-            await program.parseAsync(['node', 'tw', 'update'])
-
-            expect(mockSpawn).toHaveBeenCalledWith(
-                'npm',
-                ['install', '-g', '@doist/twist-cli@next'],
-                { stdio: 'pipe' },
-            )
-        })
-
-        it('does not show changelog hint on pre-release', async () => {
-            mockFetch('99.0.0-rc.1')
-            mockSpawnSuccess()
-
-            const program = createProgram()
-            await program.parseAsync(['node', 'tw', 'update'])
-
-            expect(consoleSpy).not.toHaveBeenCalledWith(
-                expect.anything(),
-                expect.stringContaining('tw changelog'),
-                expect.anything(),
-            )
-        })
-
-        it('treats next.10 as newer than next.2 (multi-digit prerelease)', async () => {
-            mockFetch('99.0.0-next.10')
-            mockSpawnSuccess()
-
-            const program = createProgram()
-            await program.parseAsync(['node', 'tw', 'update'])
-
-            expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('Update available'))
-            expect(mockSpawn).toHaveBeenCalled()
-        })
-
-        it('warns on downgrade but still installs', async () => {
-            mockFetch('0.0.1')
-            mockSpawnSuccess()
-
-            const program = createProgram()
-            await program.parseAsync(['node', 'tw', 'update'])
-
-            expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('Downgrade available'))
-            expect(mockSpawn).toHaveBeenCalled()
-            expect(consoleSpy).toHaveBeenCalledWith('✓', 'Updated to v0.0.1')
-        })
-    })
-
-    describe('switch subcommand', () => {
-        it('switches to stable', async () => {
-            mockGetConfig.mockResolvedValue({ updateChannel: 'pre-release' })
-
-            const program = createProgram()
-            await program.parseAsync(['node', 'tw', 'update', 'switch', '--stable'])
-
-            expect(mockSetConfig).toHaveBeenCalledWith(
-                expect.objectContaining({ updateChannel: 'stable' }),
-            )
-            expect(consoleSpy).toHaveBeenCalledWith('✓', 'Update channel set to stable')
-        })
-
-        it('switches to pre-release with warning', async () => {
-            const program = createProgram()
-            await program.parseAsync(['node', 'tw', 'update', 'switch', '--pre-release'])
-
-            expect(mockSetConfig).toHaveBeenCalledWith(
-                expect.objectContaining({ updateChannel: 'pre-release' }),
-            )
-            expect(consoleSpy).toHaveBeenCalledWith('✓', expect.stringContaining('pre-release'))
-            expect(consoleSpy).toHaveBeenCalledWith(
-                'Note:',
-                expect.anything(),
-                expect.anything(),
-                expect.anything(),
-            )
-        })
-
-        it('errors when both flags specified', async () => {
-            const program = createProgram()
-            await expect(
-                program.parseAsync(['node', 'tw', 'update', 'switch', '--stable', '--pre-release']),
-            ).rejects.toHaveProperty('code', 'CONFLICTING_OPTIONS')
-
-            expect(mockSetConfig).not.toHaveBeenCalled()
-        })
-
-        it('errors when no flags specified', async () => {
-            const program = createProgram()
-            await expect(
-                program.parseAsync(['node', 'tw', 'update', 'switch']),
-            ).rejects.toHaveProperty('code', 'CONFLICTING_OPTIONS')
-
-            expect(mockSetConfig).not.toHaveBeenCalled()
-        })
-
-        it('preserves existing config fields', async () => {
-            mockGetConfig.mockResolvedValue({
-                currentWorkspace: 42,
-                updateChannel: 'stable',
-            })
-
-            const program = createProgram()
-            await program.parseAsync(['node', 'tw', 'update', 'switch', '--pre-release'])
-
-            expect(mockSetConfig).toHaveBeenCalledWith(
-                expect.objectContaining({
-                    currentWorkspace: 42,
-                    updateChannel: 'pre-release',
-                }),
-            )
-        })
-    })
-
-    describe('--channel flag', () => {
-        it('shows stable by default', async () => {
-            mockGetConfig.mockResolvedValue({})
-
-            const program = createProgram()
-            await program.parseAsync(['node', 'tw', 'update', '--channel'])
-
-            expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('stable'))
-            expect(mockSpawn).not.toHaveBeenCalled()
-        })
-
-        it('shows pre-release when configured', async () => {
-            mockGetConfig.mockResolvedValue({ updateChannel: 'pre-release' })
-
-            const program = createProgram()
-            await program.parseAsync(['node', 'tw', 'update', '--channel'])
-
-            expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('pre-release'))
-            expect(mockSpawn).not.toHaveBeenCalled()
-        })
-
-        it('does not fetch from registry', async () => {
-            mockGetConfig.mockResolvedValue({})
-            const fetchSpy = vi.spyOn(global, 'fetch')
-
-            const program = createProgram()
-            await program.parseAsync(['node', 'tw', 'update', '--channel'])
-
-            expect(fetchSpy).not.toHaveBeenCalled()
-            fetchSpy.mockRestore()
-        })
-
-        it('errors when combined with --check', async () => {
-            mockGetConfig.mockResolvedValue({})
-
-            const program = createProgram()
-            await expect(
-                program.parseAsync(['node', 'tw', 'update', '--channel', '--check']),
-            ).rejects.toHaveProperty('code', 'CONFLICTING_OPTIONS')
-
-            expect(mockSpawn).not.toHaveBeenCalled()
-        })
+        await expect(program.parseAsync(['node', 'tw', 'update', '--check'])).rejects.toMatchObject(
+            { code: 'INVALID_UPDATE_CHANNEL' },
+        )
     })
 })
