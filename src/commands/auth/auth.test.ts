@@ -17,31 +17,20 @@ vi.mock('../../lib/api.js', () => ({
     getSessionUser: vi.fn(),
 }))
 
-// Mock OAuth modules
-vi.mock('../../lib/oauth.js', async (importOriginal) => {
-    const actual = await importOriginal<typeof import('../../lib/oauth.js')>()
+// Mock cli-core's auth subpath so login subcommand wiring doesn't drive a real
+// OAuth flow during tests. The provider + token-store units are exercised in
+// src/lib/auth-provider.test.ts.
+vi.mock('@doist/cli-core/auth', async (importOriginal) => {
+    const actual = await importOriginal<typeof import('@doist/cli-core/auth')>()
     return {
         ...actual,
-        buildAuthorizationUrl: vi.fn(),
-        exchangeCodeForToken: vi.fn(),
-        registerDynamicClient: vi.fn(),
+        attachLoginCommand: vi.fn((parent, _options) => {
+            const cmd = parent.command('login')
+            cmd.action(() => {})
+            return cmd
+        }),
     }
 })
-
-vi.mock('../../lib/oauth-server.js', () => ({
-    startCallbackServer: vi.fn(),
-}))
-
-vi.mock('../../lib/pkce.js', () => ({
-    generateCodeVerifier: vi.fn(),
-    generateCodeChallenge: vi.fn(),
-    generateState: vi.fn(),
-}))
-
-// Mock open package
-vi.mock('open', () => ({
-    default: vi.fn(),
-}))
 
 // Mock readline for interactive token input
 vi.mock('node:readline', () => ({
@@ -59,16 +48,8 @@ vi.mock('chalk')
 
 import { createInterface, type Interface } from 'node:readline'
 import { type User } from '@doist/twist-sdk'
-import open from 'open'
 import { getSessionUser } from '../../lib/api.js'
 import { clearApiToken, getAuthMetadata, saveApiToken } from '../../lib/auth.js'
-import { startCallbackServer } from '../../lib/oauth-server.js'
-import {
-    buildAuthorizationUrl,
-    exchangeCodeForToken,
-    registerDynamicClient,
-} from '../../lib/oauth.js'
-import { generateCodeChallenge, generateCodeVerifier, generateState } from '../../lib/pkce.js'
 import { registerAuthCommand } from './index.js'
 
 const mockCreateInterface = vi.mocked(createInterface)
@@ -77,16 +58,6 @@ const mockSaveApiToken = vi.mocked(saveApiToken)
 const mockClearApiToken = vi.mocked(clearApiToken)
 const mockGetAuthMetadata = vi.mocked(getAuthMetadata)
 const mockGetSessionUser = vi.mocked(getSessionUser)
-
-// OAuth mocks
-const mockGenerateCodeVerifier = vi.mocked(generateCodeVerifier)
-const mockGenerateCodeChallenge = vi.mocked(generateCodeChallenge)
-const mockGenerateState = vi.mocked(generateState)
-const mockBuildAuthorizationUrl = vi.mocked(buildAuthorizationUrl)
-const mockStartCallbackServer = vi.mocked(startCallbackServer)
-const mockExchangeCodeForToken = vi.mocked(exchangeCodeForToken)
-const mockRegisterDynamicClient = vi.mocked(registerDynamicClient)
-const mockOpen = vi.mocked(open)
 
 function createProgram() {
     const program = new Command()
@@ -347,218 +318,6 @@ describe('auth command', () => {
             await expect(program.parseAsync(['node', 'tw', 'auth', 'status'])).rejects.toThrow(
                 'No API token found',
             )
-        })
-    })
-
-    describe('login subcommand', () => {
-        it('successfully completes OAuth flow with dynamic client registration', async () => {
-            const program = createProgram()
-
-            // Mock dynamic client registration
-            mockRegisterDynamicClient.mockResolvedValue({
-                client_id: 'twd_dynamic_client_id',
-                client_secret: 'dynamic_client_secret',
-            })
-
-            // Mock PKCE parameters
-            mockGenerateCodeVerifier.mockReturnValue('test_code_verifier')
-            mockGenerateCodeChallenge.mockReturnValue('test_code_challenge')
-            mockGenerateState.mockReturnValue('test_state')
-
-            // Mock authorization URL
-            mockBuildAuthorizationUrl.mockReturnValue('https://twist.com/oauth/authorize?...')
-
-            // Mock callback server that resolves immediately
-            const mockCleanup = vi.fn()
-            mockStartCallbackServer.mockImplementation(async (expectedState) => {
-                // Simulate the browser opening behavior by calling our mocks
-                mockBuildAuthorizationUrl(
-                    'twd_dynamic_client_id',
-                    'test_code_challenge',
-                    expectedState,
-                )
-                await mockOpen('https://twist.com/oauth/authorize?...')
-
-                return Promise.resolve({
-                    code: 'auth_code_123',
-                    cleanup: mockCleanup,
-                })
-            })
-
-            // Mock token exchange
-            mockExchangeCodeForToken.mockResolvedValue('access_token_123')
-
-            // Mock browser opening
-            mockOpen.mockResolvedValue({} as Awaited<ReturnType<typeof open>>)
-
-            // Mock token saving
-            mockSaveApiToken.mockResolvedValue({ storage: 'secure-store' })
-
-            await program.parseAsync(['node', 'tw', 'auth', 'login'])
-
-            // Verify dynamic client registration
-            expect(mockRegisterDynamicClient).toHaveBeenCalled()
-
-            // Verify PKCE parameters were generated
-            expect(mockGenerateCodeVerifier).toHaveBeenCalled()
-            expect(mockGenerateCodeChallenge).toHaveBeenCalledWith('test_code_verifier')
-            expect(mockGenerateState).toHaveBeenCalled()
-
-            // Verify authorization URL was built with dynamic client ID
-            // Note: the actual buildAuthorizationUrl call happens inside a setTimeout,
-            // so we verify the mock's simulation call from startCallbackServer instead
-            expect(mockBuildAuthorizationUrl).toHaveBeenCalledWith(
-                'twd_dynamic_client_id',
-                'test_code_challenge',
-                'test_state',
-            )
-
-            // Verify callback server was started
-            expect(mockStartCallbackServer).toHaveBeenCalledWith('test_state')
-
-            // Verify browser was opened
-            expect(mockOpen).toHaveBeenCalledWith('https://twist.com/oauth/authorize?...')
-
-            // Verify token exchange with client credentials
-            expect(mockExchangeCodeForToken).toHaveBeenCalledWith(
-                'auth_code_123',
-                'test_code_verifier',
-                {
-                    client_id: 'twd_dynamic_client_id',
-                    client_secret: 'dynamic_client_secret',
-                },
-            )
-
-            // Verify token was saved with read-write auth metadata
-            expect(mockSaveApiToken).toHaveBeenCalledWith('access_token_123', {
-                authMode: 'read-write',
-                authScope: expect.any(String),
-            })
-
-            // Verify cleanup was called
-            expect(mockCleanup).toHaveBeenCalled()
-
-            // Verify success messages
-            expect(consoleSpy).toHaveBeenCalledWith('Starting OAuth authentication (read-write)...')
-            expect(consoleSpy).toHaveBeenCalledWith('✓', 'OAuth authentication successful!')
-        })
-
-        it('handles callback server errors', async () => {
-            const program = createProgram()
-
-            // Mock dynamic client registration
-            mockRegisterDynamicClient.mockResolvedValue({
-                client_id: 'twd_dynamic_client_id',
-                client_secret: 'dynamic_client_secret',
-            })
-
-            // Mock PKCE parameters
-            mockGenerateCodeVerifier.mockReturnValue('test_code_verifier')
-            mockGenerateCodeChallenge.mockReturnValue('test_code_challenge')
-            mockGenerateState.mockReturnValue('test_state')
-
-            // Mock callback server error
-            mockStartCallbackServer.mockRejectedValue(new Error('Port 8766 is already in use'))
-
-            const result = program.parseAsync(['node', 'tw', 'auth', 'login'])
-            await expect(result).rejects.toHaveProperty('code', 'AUTH_FAILED')
-            await expect(result).rejects.toHaveProperty('hints')
-        })
-
-        it('handles token exchange errors', async () => {
-            const program = createProgram()
-
-            // Mock dynamic client registration
-            mockRegisterDynamicClient.mockResolvedValue({
-                client_id: 'twd_dynamic_client_id',
-                client_secret: 'dynamic_client_secret',
-            })
-
-            // Mock PKCE parameters
-            mockGenerateCodeVerifier.mockReturnValue('test_code_verifier')
-            mockGenerateCodeChallenge.mockReturnValue('test_code_challenge')
-            mockGenerateState.mockReturnValue('test_state')
-
-            // Mock successful callback
-            const mockCleanup = vi.fn()
-            mockStartCallbackServer.mockResolvedValue({
-                code: 'auth_code_123',
-                cleanup: mockCleanup,
-            })
-
-            // Mock token exchange error
-            mockExchangeCodeForToken.mockRejectedValue(new Error('Invalid authorization code'))
-
-            const result = program.parseAsync(['node', 'tw', 'auth', 'login'])
-            await expect(result).rejects.toHaveProperty('code', 'AUTH_FAILED')
-            await expect(result).rejects.toHaveProperty('hints')
-            expect(mockCleanup).toHaveBeenCalled()
-        })
-
-        it('handles browser opening errors gracefully', async () => {
-            const program = createProgram()
-
-            // Mock dynamic client registration
-            mockRegisterDynamicClient.mockResolvedValue({
-                client_id: 'twd_dynamic_client_id',
-                client_secret: 'dynamic_client_secret',
-            })
-
-            // Mock PKCE parameters
-            mockGenerateCodeVerifier.mockReturnValue('test_code_verifier')
-            mockGenerateCodeChallenge.mockReturnValue('test_code_challenge')
-            mockGenerateState.mockReturnValue('test_state')
-
-            // Mock callback server
-            const mockCleanup = vi.fn()
-            mockStartCallbackServer.mockResolvedValue({
-                code: 'auth_code_123',
-                cleanup: mockCleanup,
-            })
-
-            // Mock browser opening error
-            mockOpen.mockRejectedValue(new Error('No browser available'))
-
-            // Mock successful token exchange (flow should still continue)
-            mockExchangeCodeForToken.mockResolvedValue('access_token_123')
-            mockSaveApiToken.mockResolvedValue({ storage: 'secure-store' })
-
-            await program.parseAsync(['node', 'tw', 'auth', 'login'])
-
-            // Should still complete successfully despite browser error
-            expect(consoleSpy).toHaveBeenCalledWith('✓', 'OAuth authentication successful!')
-        })
-
-        it('calls cleanup when OAuth server throws', async () => {
-            const program = createProgram()
-
-            // Mock dynamic client registration
-            mockRegisterDynamicClient.mockResolvedValue({
-                client_id: 'twd_dynamic_client_id',
-                client_secret: 'dynamic_client_secret',
-            })
-
-            // Mock PKCE parameters
-            mockGenerateCodeVerifier.mockReturnValue('test_code_verifier')
-            mockGenerateCodeChallenge.mockReturnValue('test_code_challenge')
-            mockGenerateState.mockReturnValue('test_state')
-
-            // Mock server that throws an error
-            mockStartCallbackServer.mockRejectedValue(new Error('Server failed to start'))
-
-            const result = program.parseAsync(['node', 'tw', 'auth', 'login'])
-            await expect(result).rejects.toHaveProperty('code', 'AUTH_FAILED')
-            await expect(result).rejects.toHaveProperty('hints')
-        })
-    })
-
-    describe('login subcommand with unconfigured client ID', () => {
-        // Note: Testing the unconfigured client ID scenario is complex with the current mock setup
-        // In practice, users would need to configure their client ID before OAuth works
-        it('would show error when client ID is not configured', () => {
-            // This test documents the expected behavior when TWIST_CLIENT_ID === 'YOUR_CLIENT_ID'
-            // The actual implementation checks this condition and shows an error message
-            expect(true).toBe(true) // Placeholder for documentation purposes
         })
     })
 
