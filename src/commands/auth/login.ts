@@ -23,8 +23,12 @@ export function attachTwistLoginCommand(parent: Command): Command {
         resolveScopes: ({ readOnly }) => (readOnly ? READ_ONLY_SCOPES : READ_WRITE_SCOPES),
         renderSuccess,
         renderError,
-        onSuccess() {
+        onSuccess({ view, account }) {
+            // Keep stdout clean for machine consumers — cli-core's `attachLoginCommand`
+            // already wrote the JSON / NDJSON success envelope before this hook runs.
+            if (view.json || view.ndjson) return
             console.log(chalk.green('✓'), 'OAuth authentication successful!')
+            console.log(chalk.dim(`Logged in as ${account.label}`))
             const result = store.lastSaveResult
             if (result) {
                 logTokenStorageResult(

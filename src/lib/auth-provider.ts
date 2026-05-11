@@ -58,12 +58,16 @@ export const READ_ONLY_SCOPES = [
 
 const AUTH_HINTS = ['Try again: tw auth login', 'Or set TWIST_API_TOKEN environment variable']
 
+/**
+ * Narrow account shape: only fields that round-trip through the local token
+ * store. `id` is the stringified numeric Twist user id (so cli-core's
+ * `AuthAccount.id` string contract holds), `label` is the user's display
+ * name. Richer session-user details are fetched on demand via the API
+ * rather than threaded through the auth flow.
+ */
 export interface TwistAccount extends AuthAccount {
     id: string
     label: string
-    userId: number
-    email: string
-    defaultWorkspace?: number | null
     authMode: AuthMode
     authScope: string
 }
@@ -80,26 +84,37 @@ function asHandshake(value: Record<string, unknown>): TwistHandshake {
     return value as TwistHandshake
 }
 
+function authFailed(message: string, cause?: unknown): CliError {
+    const detail = cause instanceof Error && cause.message ? `: ${cause.message}` : ''
+    return new CliError('AUTH_FAILED', `${message}${detail}`, AUTH_HINTS)
+}
+
 async function registerDynamicClient(
     redirectUri: string,
 ): Promise<{ clientId: string; clientSecret: string }> {
-    const response = await fetch(REGISTRATION_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-        body: JSON.stringify({
-            client_name: 'Twist CLI',
-            client_uri: 'https://github.com/doist/twist-cli',
-            redirect_uris: [redirectUri],
-            grant_types: ['authorization_code'],
-            response_types: ['code'],
-            token_endpoint_auth_method: 'client_secret_basic',
-            application_type: 'native',
-            logo_uri: LOGO_URI,
-        }),
-    })
+    let response: Response
+    try {
+        response = await fetch(REGISTRATION_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+            body: JSON.stringify({
+                client_name: 'Twist CLI',
+                client_uri: 'https://github.com/doist/twist-cli',
+                redirect_uris: [redirectUri],
+                grant_types: ['authorization_code'],
+                response_types: ['code'],
+                token_endpoint_auth_method: 'client_secret_basic',
+                application_type: 'native',
+                logo_uri: LOGO_URI,
+            }),
+        })
+    } catch (error) {
+        if (error instanceof CliError) throw error
+        throw authFailed('Failed to register OAuth client', error)
+    }
 
     if (!response.ok) {
-        const errorText = await response.text()
+        const errorText = await response.text().catch(() => '')
         throw new CliError(
             'AUTH_FAILED',
             `Client registration failed: ${response.status} ${response.statusText} - ${errorText}`,
@@ -107,7 +122,13 @@ async function registerDynamicClient(
         )
     }
 
-    const result = (await response.json()) as { client_id?: string; client_secret?: string }
+    let result: { client_id?: string; client_secret?: string }
+    try {
+        result = (await response.json()) as { client_id?: string; client_secret?: string }
+    } catch (error) {
+        throw authFailed('Invalid client registration response', error)
+    }
+
     if (!result.client_id || !result.client_secret) {
         throw new CliError(
             'AUTH_FAILED',
@@ -174,18 +195,25 @@ export function createTwistAuthProvider(): AuthProvider<TwistAccount> {
             })
 
             const credentials = btoa(`${hs.clientId}:${hs.clientSecret}`)
-            const response = await fetch(TOKEN_URL, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded',
-                    Accept: 'application/json',
-                    Authorization: `Basic ${credentials}`,
-                },
-                body: body.toString(),
-            })
+
+            let response: Response
+            try {
+                response = await fetch(TOKEN_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                        Accept: 'application/json',
+                        Authorization: `Basic ${credentials}`,
+                    },
+                    body: body.toString(),
+                })
+            } catch (error) {
+                if (error instanceof CliError) throw error
+                throw authFailed('Failed to exchange code for token', error)
+            }
 
             if (!response.ok) {
-                const errorText = await response.text()
+                const errorText = await response.text().catch(() => '')
                 throw new CliError(
                     'AUTH_FAILED',
                     `Token exchange failed: ${response.status} ${response.statusText} - ${errorText}`,
@@ -193,10 +221,15 @@ export function createTwistAuthProvider(): AuthProvider<TwistAccount> {
                 )
             }
 
-            const data = (await response.json()) as {
+            let data: {
                 access_token?: string
                 error?: string
                 error_description?: string
+            }
+            try {
+                data = (await response.json()) as typeof data
+            } catch (error) {
+                throw authFailed('Invalid token exchange response', error)
             }
 
             if (data.error) {
@@ -225,9 +258,6 @@ export function createTwistAuthProvider(): AuthProvider<TwistAccount> {
             return {
                 id: String(user.id),
                 label: user.name,
-                userId: user.id,
-                email: user.email,
-                defaultWorkspace: user.defaultWorkspace,
                 authMode: hs.authMode ?? 'unknown',
                 authScope: hs.authScope ?? '',
             }
@@ -248,13 +278,16 @@ export function createTwistTokenStore(): TwistTokenStore {
         async active() {
             try {
                 const { token, metadata } = await probeApiToken()
+                if (metadata.authUserId === undefined || metadata.authUserName === undefined) {
+                    // Stored token predates this adapter (env var, manual `tw auth token`,
+                    // or pre-upgrade config) — no persisted identity to round-trip.
+                    return null
+                }
                 return {
                     token,
                     account: {
-                        id: 'twist',
-                        label: 'Twist account',
-                        userId: 0,
-                        email: '',
+                        id: String(metadata.authUserId),
+                        label: metadata.authUserName,
                         authMode: metadata.authMode,
                         authScope: metadata.authScope ?? '',
                     },
@@ -265,9 +298,12 @@ export function createTwistTokenStore(): TwistTokenStore {
             }
         },
         async set(account, token) {
+            const userId = Number(account.id)
             lastSaveResult = await saveApiToken(token, {
                 authMode: account.authMode,
                 authScope: account.authScope,
+                authUserId: Number.isFinite(userId) ? userId : undefined,
+                authUserName: account.label,
             })
         },
         async clear() {

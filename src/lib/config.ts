@@ -28,6 +28,8 @@ const KNOWN_CONFIG_KEYS: ReadonlySet<string> = new Set([
     'currentWorkspace',
     'authMode',
     'authScope',
+    'authUserId',
+    'authUserName',
     'updateChannel',
     // Snake_case alias persisted on disk so cli-core's update command can read
     // it directly. The in-memory `Config` type only exposes `updateChannel` —
@@ -54,6 +56,11 @@ export interface Config {
     // Auth metadata persisted alongside the token to track OAuth scope.
     authMode?: AuthMode
     authScope?: string
+    // Identity of the authenticated user — captured after a successful OAuth
+    // login so the cli-core `TokenStore.active()` adapter can round-trip a
+    // real `TwistAccount` without re-fetching the session user.
+    authUserId?: number
+    authUserName?: string
     updateChannel?: UpdateChannel
     userSettings?: UserSettings
 }

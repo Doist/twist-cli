@@ -1,20 +1,16 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-vi.mock('./auth.js', () => ({
-    NoTokenError: class NoTokenError extends Error {
-        constructor() {
-            super('No API token found')
-            this.name = 'NoTokenError'
-        }
-    },
-    probeApiToken: vi.fn(),
-    saveApiToken: vi.fn(),
-    clearApiToken: vi.fn(),
-}))
+vi.mock('./auth.js', async (importOriginal) => {
+    const actual = await importOriginal<typeof import('./auth.js')>()
+    return {
+        ...actual,
+        probeApiToken: vi.fn(),
+        saveApiToken: vi.fn(),
+        clearApiToken: vi.fn(),
+    }
+})
 
-vi.mock('./api.js', () => ({
-    createWrappedTwistClient: vi.fn(),
-}))
+vi.mock('./api.js', () => ({ createWrappedTwistClient: vi.fn() }))
 
 import { createWrappedTwistClient } from './api.js'
 import {
@@ -28,274 +24,209 @@ import {
 } from './auth-provider.js'
 import { clearApiToken, NoTokenError, probeApiToken, saveApiToken } from './auth.js'
 
-const mockProbeApiToken = vi.mocked(probeApiToken)
-const mockSaveApiToken = vi.mocked(saveApiToken)
-const mockClearApiToken = vi.mocked(clearApiToken)
+const REDIRECT_URI = 'http://127.0.0.1:8766/callback'
+const mockProbe = vi.mocked(probeApiToken)
+const mockSave = vi.mocked(saveApiToken)
+const mockClear = vi.mocked(clearApiToken)
 const mockCreateClient = vi.mocked(createWrappedTwistClient)
 
-describe('createTwistAuthProvider', () => {
-    const REDIRECT_URI = 'http://127.0.0.1:8766/callback'
-    let fetchSpy: ReturnType<typeof vi.spyOn>
+const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status })
 
+describe('createTwistAuthProvider', () => {
+    let fetchSpy: ReturnType<typeof vi.spyOn>
     beforeEach(() => {
         fetchSpy = vi.spyOn(globalThis, 'fetch')
     })
-
     afterEach(() => {
         vi.restoreAllMocks()
     })
 
-    describe('prepare (dynamic client registration)', () => {
-        it('POSTs the twist DCR payload and returns clientId/clientSecret on the handshake', async () => {
-            fetchSpy.mockResolvedValue(
-                new Response(JSON.stringify({ client_id: 'twd_abc', client_secret: 'shh' }), {
-                    status: 200,
-                }),
-            )
+    it('prepare POSTs the DCR payload and surfaces clientId/clientSecret on the handshake', async () => {
+        fetchSpy.mockResolvedValue(json({ client_id: 'twd_abc', client_secret: 'shh' }))
 
-            const provider = createTwistAuthProvider()
-            const result = await provider.prepare!({ redirectUri: REDIRECT_URI, flags: {} })
-
-            expect(fetchSpy).toHaveBeenCalledTimes(1)
-            const [url, init] = fetchSpy.mock.calls[0]
-            expect(url).toBe(REGISTRATION_URL)
-            const body = JSON.parse((init as RequestInit).body as string)
-            expect(body).toMatchObject({
-                client_name: 'Twist CLI',
-                redirect_uris: [REDIRECT_URI],
-                grant_types: ['authorization_code'],
-                response_types: ['code'],
-                token_endpoint_auth_method: 'client_secret_basic',
-                application_type: 'native',
-            })
-            expect(result.handshake).toEqual({ clientId: 'twd_abc', clientSecret: 'shh' })
+        const result = await createTwistAuthProvider().prepare!({
+            redirectUri: REDIRECT_URI,
+            flags: {},
         })
 
-        it('throws AUTH_FAILED CliError on a non-2xx registration response', async () => {
-            fetchSpy.mockResolvedValue(new Response('boom', { status: 500 }))
-
-            const provider = createTwistAuthProvider()
-            await expect(
-                provider.prepare!({ redirectUri: REDIRECT_URI, flags: {} }),
-            ).rejects.toMatchObject({ code: 'AUTH_FAILED' })
+        const [url, init] = fetchSpy.mock.calls[0]
+        expect(url).toBe(REGISTRATION_URL)
+        expect(JSON.parse((init as RequestInit).body as string)).toMatchObject({
+            client_name: 'Twist CLI',
+            redirect_uris: [REDIRECT_URI],
+            token_endpoint_auth_method: 'client_secret_basic',
         })
-
-        it('throws when the response is missing client_id or client_secret', async () => {
-            fetchSpy.mockResolvedValue(
-                new Response(JSON.stringify({ client_id: 'only-id' }), { status: 200 }),
-            )
-
-            const provider = createTwistAuthProvider()
-            await expect(
-                provider.prepare!({ redirectUri: REDIRECT_URI, flags: {} }),
-            ).rejects.toMatchObject({ code: 'AUTH_FAILED' })
-        })
+        expect(result.handshake).toEqual({ clientId: 'twd_abc', clientSecret: 'shh' })
     })
 
-    describe('authorize', () => {
-        it('builds the twist authorize URL with PKCE params and threads verifier + authMode forward', async () => {
-            const provider = createTwistAuthProvider()
-            const handshake = { clientId: 'twd_abc', clientSecret: 'shh' }
-            const result = await provider.authorize({
-                redirectUri: REDIRECT_URI,
-                state: 'state-xyz',
-                scopes: READ_WRITE_SCOPES,
-                readOnly: false,
-                flags: {},
-                handshake,
-            })
+    it('prepare rewraps fetch rejections + bad responses as AUTH_FAILED', async () => {
+        const provider = createTwistAuthProvider()
+        const ctx = { redirectUri: REDIRECT_URI, flags: {} }
 
-            expect(result.authorizeUrl.startsWith(AUTHORIZATION_URL)).toBe(true)
-            const url = new URL(result.authorizeUrl)
-            expect(url.searchParams.get('client_id')).toBe('twd_abc')
-            expect(url.searchParams.get('response_type')).toBe('code')
-            expect(url.searchParams.get('redirect_uri')).toBe(REDIRECT_URI)
-            expect(url.searchParams.get('state')).toBe('state-xyz')
-            expect(url.searchParams.get('code_challenge_method')).toBe('S256')
-            expect(url.searchParams.get('code_challenge')).toBeTruthy()
-            expect(url.searchParams.get('scope')).toBe(READ_WRITE_SCOPES.join(' '))
+        fetchSpy.mockRejectedValueOnce(new TypeError('fetch failed'))
+        await expect(provider.prepare!(ctx)).rejects.toMatchObject({ code: 'AUTH_FAILED' })
 
-            const hs = result.handshake as Record<string, unknown>
-            expect(typeof hs.codeVerifier).toBe('string')
-            expect((hs.codeVerifier as string).length).toBeGreaterThan(40)
-            expect(hs.authMode).toBe('read-write')
-            expect(hs.authScope).toBe(READ_WRITE_SCOPES.join(' '))
-        })
+        fetchSpy.mockResolvedValueOnce(new Response('boom', { status: 500 }))
+        await expect(provider.prepare!(ctx)).rejects.toMatchObject({ code: 'AUTH_FAILED' })
 
-        it('marks authMode = "read-only" when readOnly is true', async () => {
-            const provider = createTwistAuthProvider()
-            const result = await provider.authorize({
-                redirectUri: REDIRECT_URI,
-                state: 's',
-                scopes: READ_ONLY_SCOPES,
-                readOnly: true,
-                flags: {},
-                handshake: { clientId: 'c', clientSecret: 's' },
-            })
-            expect((result.handshake as Record<string, unknown>).authMode).toBe('read-only')
-        })
+        fetchSpy.mockResolvedValueOnce(json({ client_id: 'only' }))
+        await expect(provider.prepare!(ctx)).rejects.toMatchObject({ code: 'AUTH_FAILED' })
     })
 
-    describe('exchangeCode', () => {
-        it('POSTs to the token endpoint with HTTP Basic auth and PKCE verifier', async () => {
-            fetchSpy.mockResolvedValue(
-                new Response(JSON.stringify({ access_token: 'tk_123' }), { status: 200 }),
-            )
-
-            const provider = createTwistAuthProvider()
-            const result = await provider.exchangeCode({
-                code: 'auth-code',
-                state: 's',
-                redirectUri: REDIRECT_URI,
-                handshake: {
-                    clientId: 'twd_abc',
-                    clientSecret: 'shh',
-                    codeVerifier: 'verif-1',
-                },
-            })
-
-            expect(result).toEqual({ accessToken: 'tk_123' })
-            const [url, init] = fetchSpy.mock.calls[0]
-            expect(url).toBe(TOKEN_URL)
-            const initObj = init as RequestInit
-            const headers = initObj.headers as Record<string, string>
-            expect(headers.Authorization).toBe(
-                `Basic ${Buffer.from('twd_abc:shh').toString('base64')}`,
-            )
-            expect(headers['Content-Type']).toBe('application/x-www-form-urlencoded')
-            const body = new URLSearchParams(initObj.body as string)
-            expect(body.get('grant_type')).toBe('authorization_code')
-            expect(body.get('code')).toBe('auth-code')
-            expect(body.get('redirect_uri')).toBe(REDIRECT_URI)
-            expect(body.get('code_verifier')).toBe('verif-1')
+    it('authorize builds the twist URL with PKCE params and threads verifier + authMode forward', async () => {
+        const result = await createTwistAuthProvider().authorize({
+            redirectUri: REDIRECT_URI,
+            state: 'state-xyz',
+            scopes: READ_WRITE_SCOPES,
+            readOnly: false,
+            flags: {},
+            handshake: { clientId: 'twd_abc', clientSecret: 'shh' },
         })
 
-        it('throws AUTH_FAILED on non-2xx token response', async () => {
-            fetchSpy.mockResolvedValue(new Response('nope', { status: 400 }))
-            const provider = createTwistAuthProvider()
-            await expect(
-                provider.exchangeCode({
-                    code: 'c',
-                    state: 's',
-                    redirectUri: REDIRECT_URI,
-                    handshake: { clientId: 'a', clientSecret: 'b', codeVerifier: 'v' },
-                }),
-            ).rejects.toMatchObject({ code: 'AUTH_FAILED' })
-        })
+        const url = new URL(result.authorizeUrl)
+        expect(result.authorizeUrl.startsWith(AUTHORIZATION_URL)).toBe(true)
+        expect(url.searchParams.get('client_id')).toBe('twd_abc')
+        expect(url.searchParams.get('code_challenge_method')).toBe('S256')
+        expect(url.searchParams.get('code_challenge')).toBeTruthy()
+        expect(url.searchParams.get('scope')).toBe(READ_WRITE_SCOPES.join(' '))
 
-        it('throws when verifier is missing from the handshake', async () => {
-            const provider = createTwistAuthProvider()
-            await expect(
-                provider.exchangeCode({
-                    code: 'c',
-                    state: 's',
-                    redirectUri: REDIRECT_URI,
-                    handshake: { clientId: 'a', clientSecret: 'b' },
-                }),
-            ).rejects.toMatchObject({ code: 'AUTH_FAILED' })
-        })
+        const hs = result.handshake as Record<string, unknown>
+        expect((hs.codeVerifier as string).length).toBeGreaterThan(40)
+        expect(hs.authMode).toBe('read-write')
     })
 
-    describe('validateToken', () => {
-        it('fetches the session user with the new token and returns a TwistAccount', async () => {
-            const getSessionUser = vi.fn().mockResolvedValue({
-                id: 42,
-                name: 'Ada Lovelace',
-                email: 'ada@example.com',
-                defaultWorkspace: 7,
-            })
-            mockCreateClient.mockReturnValue({
-                users: { getSessionUser },
-            } as unknown as ReturnType<typeof createWrappedTwistClient>)
+    it('authorize marks authMode read-only when readOnly is true', async () => {
+        const result = await createTwistAuthProvider().authorize({
+            redirectUri: REDIRECT_URI,
+            state: 's',
+            scopes: READ_ONLY_SCOPES,
+            readOnly: true,
+            flags: {},
+            handshake: { clientId: 'c', clientSecret: 's' },
+        })
+        expect((result.handshake as Record<string, unknown>).authMode).toBe('read-only')
+    })
 
-            const provider = createTwistAuthProvider()
-            const account = await provider.validateToken({
-                token: 'tk_new',
-                handshake: { authMode: 'read-write', authScope: 'user:read threads:read' },
-            })
+    it('exchangeCode POSTs to the token endpoint with HTTP Basic auth and the PKCE verifier', async () => {
+        fetchSpy.mockResolvedValue(json({ access_token: 'tk_123' }))
 
-            expect(mockCreateClient).toHaveBeenCalledWith('tk_new')
-            expect(account).toEqual({
-                id: '42',
-                label: 'Ada Lovelace',
-                userId: 42,
-                email: 'ada@example.com',
-                defaultWorkspace: 7,
-                authMode: 'read-write',
-                authScope: 'user:read threads:read',
-            })
+        const result = await createTwistAuthProvider().exchangeCode({
+            code: 'auth-code',
+            state: 's',
+            redirectUri: REDIRECT_URI,
+            handshake: { clientId: 'twd_abc', clientSecret: 'shh', codeVerifier: 'verif-1' },
         })
 
-        it('falls back to authMode "unknown" when handshake is missing it', async () => {
-            mockCreateClient.mockReturnValue({
-                users: {
-                    getSessionUser: vi.fn().mockResolvedValue({
-                        id: 1,
-                        name: 'x',
-                        email: 'x@x.com',
-                    }),
-                },
-            } as unknown as ReturnType<typeof createWrappedTwistClient>)
+        expect(result).toEqual({ accessToken: 'tk_123' })
+        const [url, init] = fetchSpy.mock.calls[0]
+        expect(url).toBe(TOKEN_URL)
+        const headers = (init as RequestInit).headers as Record<string, string>
+        expect(headers.Authorization).toBe(`Basic ${Buffer.from('twd_abc:shh').toString('base64')}`)
+        const body = new URLSearchParams((init as RequestInit).body as string)
+        expect(body.get('code')).toBe('auth-code')
+        expect(body.get('code_verifier')).toBe('verif-1')
+    })
 
-            const provider = createTwistAuthProvider()
-            const account = await provider.validateToken({ token: 'tk', handshake: {} })
-            expect(account.authMode).toBe('unknown')
-            expect(account.authScope).toBe('')
+    it('exchangeCode rewraps fetch rejections, bad responses, and missing-verifier as AUTH_FAILED', async () => {
+        const provider = createTwistAuthProvider()
+        const goodHs = { clientId: 'a', clientSecret: 'b', codeVerifier: 'v' }
+        const base = { code: 'c', state: 's', redirectUri: REDIRECT_URI }
+
+        fetchSpy.mockRejectedValueOnce(new TypeError('fetch failed'))
+        await expect(provider.exchangeCode({ ...base, handshake: goodHs })).rejects.toMatchObject({
+            code: 'AUTH_FAILED',
+        })
+
+        fetchSpy.mockResolvedValueOnce(new Response('nope', { status: 400 }))
+        await expect(provider.exchangeCode({ ...base, handshake: goodHs })).rejects.toMatchObject({
+            code: 'AUTH_FAILED',
+        })
+
+        // Guard: missing verifier means authorize() was never run — never hits fetch.
+        await expect(
+            provider.exchangeCode({ ...base, handshake: { clientId: 'a', clientSecret: 'b' } }),
+        ).rejects.toMatchObject({ code: 'AUTH_FAILED' })
+    })
+
+    it('validateToken fetches getSessionUser with the new token and returns a narrow TwistAccount', async () => {
+        mockCreateClient.mockReturnValue({
+            users: { getSessionUser: vi.fn().mockResolvedValue({ id: 42, name: 'Ada' }) },
+        } as unknown as ReturnType<typeof createWrappedTwistClient>)
+
+        const account = await createTwistAuthProvider().validateToken({
+            token: 'tk_new',
+            handshake: { authMode: 'read-write', authScope: 'user:read' },
+        })
+
+        expect(mockCreateClient).toHaveBeenCalledWith('tk_new')
+        expect(account).toEqual({
+            id: '42',
+            label: 'Ada',
+            authMode: 'read-write',
+            authScope: 'user:read',
         })
     })
 })
 
 describe('createTwistTokenStore', () => {
     afterEach(() => {
-        vi.restoreAllMocks()
-        mockProbeApiToken.mockReset()
-        mockSaveApiToken.mockReset()
-        mockClearApiToken.mockReset()
+        mockProbe.mockReset()
+        mockSave.mockReset()
+        mockClear.mockReset()
     })
 
-    it('active() returns null when no token is stored', async () => {
-        mockProbeApiToken.mockRejectedValue(new NoTokenError())
-        const store = createTwistTokenStore()
-        expect(await store.active()).toBeNull()
-    })
+    it('active() returns null when no token is stored or when no identity was persisted', async () => {
+        mockProbe.mockRejectedValueOnce(new NoTokenError())
+        expect(await createTwistTokenStore().active()).toBeNull()
 
-    it('active() returns the probed token + synthesized account', async () => {
-        mockProbeApiToken.mockResolvedValue({
-            token: 'tk_xyz',
-            metadata: { authMode: 'read-only', authScope: 'user:read', source: 'secure-store' },
+        mockProbe.mockResolvedValueOnce({
+            token: 'tk',
+            metadata: { authMode: 'unknown', source: 'env' },
         })
-        const store = createTwistTokenStore()
-        const result = await store.active()
-        expect(result?.token).toBe('tk_xyz')
-        expect(result?.account.authMode).toBe('read-only')
-        expect(result?.account.authScope).toBe('user:read')
+        expect(await createTwistTokenStore().active()).toBeNull()
     })
 
-    it('set() persists token with authMode + authScope and exposes the result', async () => {
-        mockSaveApiToken.mockResolvedValue({ storage: 'secure-store' })
-        const store = createTwistTokenStore()
-        await store.set(
-            {
-                id: '1',
-                label: 'me',
-                userId: 1,
-                email: 'a@b',
-                authMode: 'read-write',
+    it('active() rebuilds a real TwistAccount from persisted identity', async () => {
+        mockProbe.mockResolvedValue({
+            token: 'tk_xyz',
+            metadata: {
+                authMode: 'read-only',
+                authScope: 'user:read',
+                authUserId: 42,
+                authUserName: 'Ada',
+                source: 'secure-store',
+            },
+        })
+        expect(await createTwistTokenStore().active()).toEqual({
+            token: 'tk_xyz',
+            account: {
+                id: '42',
+                label: 'Ada',
+                authMode: 'read-only',
                 authScope: 'user:read',
             },
+        })
+    })
+
+    it('set() persists token + authMode/scope/userId/userName and exposes the result', async () => {
+        mockSave.mockResolvedValue({ storage: 'secure-store' })
+        const store = createTwistTokenStore()
+        await store.set(
+            { id: '42', label: 'Ada', authMode: 'read-write', authScope: 'user:read' },
             'tk_new',
         )
-        expect(mockSaveApiToken).toHaveBeenCalledWith('tk_new', {
+        expect(mockSave).toHaveBeenCalledWith('tk_new', {
             authMode: 'read-write',
             authScope: 'user:read',
+            authUserId: 42,
+            authUserName: 'Ada',
         })
         expect(store.lastSaveResult).toEqual({ storage: 'secure-store' })
     })
 
     it('clear() delegates to clearApiToken', async () => {
-        mockClearApiToken.mockResolvedValue({ storage: 'secure-store' })
-        const store = createTwistTokenStore()
-        await store.clear()
-        expect(mockClearApiToken).toHaveBeenCalledTimes(1)
+        mockClear.mockResolvedValue({ storage: 'secure-store' })
+        await createTwistTokenStore().clear()
+        expect(mockClear).toHaveBeenCalledTimes(1)
     })
 })

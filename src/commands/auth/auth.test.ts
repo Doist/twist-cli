@@ -47,6 +47,7 @@ vi.mock('node:readline', () => ({
 vi.mock('chalk')
 
 import { createInterface, type Interface } from 'node:readline'
+import { attachLoginCommand } from '@doist/cli-core/auth'
 import { type User } from '@doist/twist-sdk'
 import { getSessionUser } from '../../lib/api.js'
 import { clearApiToken, getAuthMetadata, saveApiToken } from '../../lib/auth.js'
@@ -58,6 +59,7 @@ const mockSaveApiToken = vi.mocked(saveApiToken)
 const mockClearApiToken = vi.mocked(clearApiToken)
 const mockGetAuthMetadata = vi.mocked(getAuthMetadata)
 const mockGetSessionUser = vi.mocked(getSessionUser)
+const mockAttachLoginCommand = vi.mocked(attachLoginCommand)
 
 function createProgram() {
     const program = new Command()
@@ -318,6 +320,38 @@ describe('auth command', () => {
             await expect(program.parseAsync(['node', 'tw', 'auth', 'status'])).rejects.toThrow(
                 'No API token found',
             )
+        })
+    })
+
+    describe('login subcommand wiring', () => {
+        it('passes the twist provider, store, port, and renderers to cli-core attachLoginCommand', async () => {
+            createProgram()
+
+            expect(mockAttachLoginCommand).toHaveBeenCalledTimes(1)
+            const [, options] = mockAttachLoginCommand.mock.calls[0]
+            expect(options.preferredPort).toBe(8766)
+            expect(typeof options.provider.prepare).toBe('function')
+            expect(typeof options.provider.authorize).toBe('function')
+            expect(typeof options.provider.exchangeCode).toBe('function')
+            expect(typeof options.provider.validateToken).toBe('function')
+            expect(typeof options.store.active).toBe('function')
+            expect(typeof options.store.set).toBe('function')
+            expect(typeof options.store.clear).toBe('function')
+            expect(typeof options.renderSuccess).toBe('function')
+            expect(typeof options.renderError).toBe('function')
+            expect(options.renderSuccess()).toContain("You're connected")
+            expect(options.renderError('boom')).toContain('Authentication failed')
+        })
+
+        it('resolveScopes returns the read-write scope list by default and read-only when --read-only is set', () => {
+            createProgram()
+
+            const [, options] = mockAttachLoginCommand.mock.calls[0]
+            const writeScopes = options.resolveScopes({ readOnly: false, flags: {} })
+            const readScopes = options.resolveScopes({ readOnly: true, flags: {} })
+            expect(writeScopes).toContain('threads:write')
+            expect(readScopes).not.toContain('threads:write')
+            expect(readScopes).toContain('threads:read')
         })
     })
 
