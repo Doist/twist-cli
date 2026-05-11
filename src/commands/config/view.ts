@@ -108,7 +108,7 @@ function formatConfigView(
     lines.push('')
 
     lines.push(chalk.bold('Updates'))
-    lines.push(`  Channel:       ${formatValue(config.update_channel)}`)
+    lines.push(`  Channel:       ${formatValue(config.updateChannel)}`)
     lines.push('')
 
     lines.push(chalk.bold('User settings'))

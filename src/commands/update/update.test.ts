@@ -178,7 +178,7 @@ describe('update command', () => {
         })
 
         it('shows pre-release channel with --check when configured', async () => {
-            mockGetConfig.mockResolvedValue({ update_channel: 'pre-release' })
+            mockGetConfig.mockResolvedValue({ updateChannel: 'pre-release' })
             mockFetch('99.0.0-rc.1')
 
             const program = createProgram()
@@ -188,7 +188,7 @@ describe('update command', () => {
         })
 
         it('falls back to stable when the configured channel is invalid', async () => {
-            mockGetConfig.mockResolvedValue({ update_channel: 'beta' as never })
+            mockGetConfig.mockResolvedValue({ updateChannel: 'beta' as never })
             mockFetch(pkg.version)
 
             const program = createProgram()
@@ -285,7 +285,7 @@ describe('update command', () => {
 
     describe('pre-release channel', () => {
         beforeEach(() => {
-            mockGetConfig.mockResolvedValue({ update_channel: 'pre-release' })
+            mockGetConfig.mockResolvedValue({ updateChannel: 'pre-release' })
         })
 
         it('fetches from /next when on pre-release channel', async () => {
@@ -355,13 +355,13 @@ describe('update command', () => {
 
     describe('switch subcommand', () => {
         it('switches to stable', async () => {
-            mockGetConfig.mockResolvedValue({ update_channel: 'pre-release' })
+            mockGetConfig.mockResolvedValue({ updateChannel: 'pre-release' })
 
             const program = createProgram()
             await program.parseAsync(['node', 'tw', 'update', 'switch', '--stable'])
 
             expect(mockSetConfig).toHaveBeenCalledWith(
-                expect.objectContaining({ update_channel: 'stable' }),
+                expect.objectContaining({ updateChannel: 'stable' }),
             )
             expect(consoleSpy).toHaveBeenCalledWith('✓', 'Update channel set to stable')
         })
@@ -371,7 +371,7 @@ describe('update command', () => {
             await program.parseAsync(['node', 'tw', 'update', 'switch', '--pre-release'])
 
             expect(mockSetConfig).toHaveBeenCalledWith(
-                expect.objectContaining({ update_channel: 'pre-release' }),
+                expect.objectContaining({ updateChannel: 'pre-release' }),
             )
             expect(consoleSpy).toHaveBeenCalledWith('✓', expect.stringContaining('pre-release'))
             expect(consoleSpy).toHaveBeenCalledWith(
@@ -403,7 +403,7 @@ describe('update command', () => {
         it('preserves existing config fields', async () => {
             mockGetConfig.mockResolvedValue({
                 currentWorkspace: 42,
-                update_channel: 'stable',
+                updateChannel: 'stable',
             })
 
             const program = createProgram()
@@ -412,7 +412,7 @@ describe('update command', () => {
             expect(mockSetConfig).toHaveBeenCalledWith(
                 expect.objectContaining({
                     currentWorkspace: 42,
-                    update_channel: 'pre-release',
+                    updateChannel: 'pre-release',
                 }),
             )
         })
@@ -430,7 +430,7 @@ describe('update command', () => {
         })
 
         it('shows pre-release when configured', async () => {
-            mockGetConfig.mockResolvedValue({ update_channel: 'pre-release' })
+            mockGetConfig.mockResolvedValue({ updateChannel: 'pre-release' })
 
             const program = createProgram()
             await program.parseAsync(['node', 'tw', 'update', '--channel'])

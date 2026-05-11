@@ -2,6 +2,7 @@ import {
     getConfigPath as getConfigPathCore,
     readConfig as readConfigCore,
     readConfigStrict as readConfigStrictCore,
+    updateConfig as updateConfigCore,
     writeConfig as writeConfigCore,
 } from '@doist/cli-core'
 import { CliError } from './errors.js'
@@ -27,11 +28,11 @@ const KNOWN_CONFIG_KEYS: ReadonlySet<string> = new Set([
     'currentWorkspace',
     'authMode',
     'authScope',
-    'update_channel',
-    // Legacy alias. Read-seam migration (see `migrateLegacyKeys`) renames it to
-    // `update_channel`; kept in the known-keys set so `tw doctor` doesn't flag
-    // an unmigrated config file as having unrecognized keys.
     'updateChannel',
+    // Snake_case alias persisted on disk so cli-core's update command can read
+    // it directly. The in-memory `Config` type only exposes `updateChannel` —
+    // see `fromDiskShape` / `toDiskShape` for the persistence-seam translation.
+    'update_channel',
     'userSettings',
 ])
 
@@ -53,27 +54,45 @@ export interface Config {
     // Auth metadata persisted alongside the token to track OAuth scope.
     authMode?: AuthMode
     authScope?: string
-    // Snake_case to match cli-core's update command, which reads this key
-    // directly. The rest of twist's config keys remain camelCase; the
-    // exception is contained to one field via the read-seam migration in
-    // `migrateLegacyKeys`.
-    update_channel?: UpdateChannel
+    updateChannel?: UpdateChannel
     userSettings?: UserSettings
 }
 
 /**
- * Rename twist's legacy `updateChannel` field to the canonical
- * `update_channel` (the shape cli-core's update command expects). Runs on
- * every read so the in-memory `Config` is always canonical, even when the
- * on-disk file is still in the old shape — the file is rewritten with the
- * canonical key on the next `setConfig` / `updateConfig` call.
+ * Read-seam translation: normalise the persisted shape to the in-memory
+ * `Config` shape. cli-core's update command writes the channel under
+ * `update_channel`; older twist builds wrote it under `updateChannel`.
+ * We accept both and expose only `updateChannel` to twist callers.
+ *
+ * `update_channel` wins if both are present (cli-core just wrote, so the
+ * snake_case value is freshest). Non-object inputs (a manually-edited
+ * config containing `null` or a primitive) are returned untouched so the
+ * downstream `Record<string, unknown>` cast doesn't blow up on `in`.
  */
-function migrateLegacyKeys(raw: Record<string, unknown>): Record<string, unknown> {
-    if (!('updateChannel' in raw)) return raw
-    const { updateChannel, ...rest } = raw
-    // Canonical key wins if both are present (shouldn't happen in practice).
-    if ('update_channel' in rest) return rest
-    return { ...rest, update_channel: updateChannel }
+function fromDiskShape(raw: unknown): Record<string, unknown> {
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+        return {}
+    }
+    const record = raw as Record<string, unknown>
+    const hasCanonical = 'update_channel' in record
+    const hasLegacy = 'updateChannel' in record
+    if (!hasCanonical && !hasLegacy) return record
+    const { update_channel, updateChannel, ...rest } = record
+    const channel = hasCanonical ? update_channel : updateChannel
+    return channel === undefined ? rest : { ...rest, updateChannel: channel }
+}
+
+/**
+ * Write-seam translation: dual-write `updateChannel` and `update_channel`
+ * to disk when a channel is set, so older twist builds keep reading the
+ * camelCase key while cli-core's update command reads the snake_case key.
+ * Once all deployed twist versions read `update_channel`, drop the
+ * camelCase write (likely a release or two after this lands).
+ */
+function toDiskShape(config: Partial<Config>): Record<string, unknown> {
+    const { updateChannel, ...rest } = config
+    if (updateChannel === undefined) return rest
+    return { ...rest, updateChannel, update_channel: updateChannel }
 }
 
 /**
@@ -83,11 +102,8 @@ function migrateLegacyKeys(raw: Record<string, unknown>): Record<string, unknown
  * commands that need to distinguish failure modes.
  */
 export async function getConfig(): Promise<Config> {
-    const raw = (await readConfigCore<Record<string, unknown>>(getConfigPath())) as Record<
-        string,
-        unknown
-    >
-    return migrateLegacyKeys(raw) as Config
+    const raw = await readConfigCore<Record<string, unknown>>(getConfigPath())
+    return fromDiskShape(raw) as Config
 }
 
 export type StrictReadResult = { state: 'missing' } | { state: 'present'; config: Config }
@@ -106,7 +122,7 @@ export async function readConfigStrict(): Promise<StrictReadResult> {
         case 'present':
             return {
                 state: 'present',
-                config: migrateLegacyKeys(result.config as Record<string, unknown>) as Config,
+                config: fromDiskShape(result.config) as Config,
             }
         case 'read-failed':
             throw new CliError(
@@ -133,21 +149,19 @@ export async function readConfigStrict(): Promise<StrictReadResult> {
     }
 }
 
-/** Thin wrapper around cli-core's `writeConfig`. */
+/** Thin wrapper around cli-core's `writeConfig`. Dual-writes the channel field. */
 export async function setConfig(config: Config): Promise<void> {
-    await writeConfigCore(getConfigPath(), config)
+    await writeConfigCore(getConfigPath(), toDiskShape(config))
 }
 
 /**
- * Read-merge-write wrapper around cli-core's `updateConfig`. Inlines the
- * read+write rather than calling cli-core's atomic variant so the on-disk
- * file is rewritten in the canonical snake_case shape (the legacy
- * `updateChannel` field is dropped here rather than lingering across update
- * calls). Race-free in practice — the config file is single-user.
+ * Atomic partial-write wrapper around cli-core's `updateConfig`. Preserves
+ * cli-core's read-merge-write atomicity so two concurrent `tw` processes
+ * can't lose each other's updates. Channel field is translated to disk
+ * shape (dual-written) before the merge.
  */
 export async function updateConfig(updates: Partial<Config>): Promise<void> {
-    const current = await getConfig()
-    await writeConfigCore(getConfigPath(), { ...current, ...updates })
+    await updateConfigCore<Record<string, unknown>>(getConfigPath(), toDiskShape(updates))
 }
 
 export function validateConfigForDoctor(config: Record<string, unknown>): string[] {
@@ -189,17 +203,19 @@ export function validateConfigForDoctor(config: Record<string, unknown>): string
     }
 
     if (
+        config.updateChannel !== undefined &&
+        (typeof config.updateChannel !== 'string' ||
+            !UPDATE_CHANNELS.has(config.updateChannel as UpdateChannel))
+    ) {
+        issues.push('updateChannel must be one of: stable, pre-release')
+    }
+
+    if (
         config.update_channel !== undefined &&
         (typeof config.update_channel !== 'string' ||
             !UPDATE_CHANNELS.has(config.update_channel as UpdateChannel))
     ) {
         issues.push('update_channel must be one of: stable, pre-release')
-    }
-
-    if (config.updateChannel !== undefined) {
-        issues.push(
-            'updateChannel is a legacy key — will be migrated to update_channel automatically on next config write',
-        )
     }
 
     if (config.userSettings !== undefined) {
