@@ -10,11 +10,16 @@ export type { ErrorType } from '@doist/cli-core'
  */
 export type ErrorCode =
     // Auth & permissions
+    | 'ACCOUNT_NOT_FOUND'
     | 'AUTH_FAILED'
+    | 'CONFIG_WRITE_FAILED'
     | 'INSUFFICIENT_SCOPE'
+    | 'INVALID_ACCOUNT'
     | 'INVALID_TOKEN'
+    | 'NO_ACCOUNT_SELECTED'
     | 'NO_TOKEN'
     | 'READ_ONLY'
+    | 'USER_FLAG_INVALID'
     // Validation
     | 'CONFLICTING_OPTIONS'
     | 'INVALID_CURSOR'
@@ -28,6 +33,7 @@ export type ErrorCode =
     | 'INVALID_URL'
     | 'INVALID_VALUE'
     | 'MISSING_CONTENT'
+    | 'MISSING_REF'
     | 'MISSING_YES_FLAG'
     | 'UNKNOWN_KEY'
     | 'INVALID_NAME'

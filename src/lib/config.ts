@@ -22,47 +22,97 @@ export function getConfigPath(): string {
 export type AuthMode = 'read-only' | 'read-write' | 'unknown'
 export type UpdateChannel = 'stable' | 'pre-release'
 
+export const CONFIG_VERSION = 2 as const
+
 const KNOWN_CONFIG_KEYS: ReadonlySet<string> = new Set([
-    'token',
-    'pendingSecureStoreClear',
-    'currentWorkspace',
-    'authMode',
-    'authScope',
-    'authUserId',
-    'authUserName',
+    'config_version',
+    'user',
+    'users',
     'updateChannel',
     // Snake_case alias persisted on disk so cli-core's update command can read
     // it directly. The in-memory `Config` type only exposes `updateChannel` —
     // see `fromDiskShape` / `toDiskShape` for the persistence-seam translation.
     'update_channel',
     'userSettings',
+    // ---- Legacy v1 keys tolerated until migration runs ----
+    'token',
+    'pendingSecureStoreClear',
+    'authMode',
+    'authScope',
+    'currentWorkspace',
 ])
 
 const KNOWN_USER_SETTINGS_KEYS: ReadonlySet<string> = new Set(['unarchiveNewThreads'])
+const KNOWN_USER_CONFIG_KEYS: ReadonlySet<string> = new Set(['default_user'])
+const KNOWN_STORED_USER_KEYS: ReadonlySet<string> = new Set([
+    'id',
+    'email',
+    'name',
+    'auth_mode',
+    'auth_scope',
+    'api_token',
+    'pending_secure_store_clear',
+    'current_workspace',
+])
 
 const AUTH_MODES: ReadonlySet<AuthMode> = new Set(['read-only', 'read-write', 'unknown'])
 export const UPDATE_CHANNELS: ReadonlySet<UpdateChannel> = new Set(['stable', 'pre-release'])
 
-export interface UserSettings {
+export type UserSettings = {
     unarchiveNewThreads?: boolean
 }
 
-export interface Config {
-    // Legacy plaintext token storage retained for migration and secure-store fallback only.
-    token?: string
-    // Non-secret state used to finish logout after transient secure-store failures.
-    pendingSecureStoreClear?: boolean
-    currentWorkspace?: number
-    // Auth metadata persisted alongside the token to track OAuth scope.
-    authMode?: AuthMode
-    authScope?: string
-    // Identity of the authenticated user — captured after a successful OAuth
-    // login so the cli-core `TokenStore.active()` adapter can round-trip a
-    // real `TwistAccount` without re-fetching the session user.
-    authUserId?: number
-    authUserName?: string
+export type UserConfig = {
+    /** Twist user id of the default user, used when `--user` is not given. */
+    default_user?: string
+}
+
+/**
+ * Per-user record stored in `config.users`. Each entry represents one
+ * authenticated Twist user identity. The token itself lives in the OS
+ * credential manager under account `user-<id>`; `api_token` only appears
+ * here when the credential manager was unavailable at save time (plaintext
+ * fallback). Snake_case field names match the todoist-cli schema so a
+ * future cli-core extraction is a drop-in.
+ */
+export type StoredUser = {
+    id: string
+    email: string
+    name?: string
+    auth_mode?: AuthMode
+    auth_scope?: string
+    api_token?: string
+    pending_secure_store_clear?: boolean
+    /**
+     * Twist workspace id this user is currently scoped to. Per-user so
+     * that `tw --user <other> ...` doesn't try to use the previous user's
+     * workspace (which the other user may not be a member of).
+     */
+    current_workspace?: number
+}
+
+export type Config = {
+    /** Schema marker — present on v2+ configs. Absent on legacy v1 installs. */
+    config_version?: number
+    /** Selection state — which stored user is the default. */
+    user?: UserConfig
+    /** All authenticated Twist users. */
+    users?: StoredUser[]
+
     updateChannel?: UpdateChannel
     userSettings?: UserSettings
+
+    // ---- Legacy v1 fields, read for one-time migration ----
+    token?: string
+    pendingSecureStoreClear?: boolean
+    authMode?: AuthMode
+    authScope?: string
+    /**
+     * Legacy: pre-multi-account installs stored a single workspace id at the
+     * top level. Migrated onto the default account on first read; never
+     * written by current code.
+     */
+    currentWorkspace?: number
 }
 
 /**
@@ -180,6 +230,84 @@ export function validateConfigForDoctor(config: Record<string, unknown>): string
         }
     }
 
+    if (
+        config.config_version !== undefined &&
+        (typeof config.config_version !== 'number' || config.config_version < 1)
+    ) {
+        issues.push('config_version must be a positive number')
+    }
+
+    if (config.user !== undefined) {
+        if (!isObject(config.user)) {
+            issues.push('user must be an object')
+        } else {
+            for (const key of Object.keys(config.user)) {
+                if (!KNOWN_USER_CONFIG_KEYS.has(key)) {
+                    issues.push(`user contains unrecognized key "${key}"`)
+                }
+            }
+            const defaultUser = (config.user as Record<string, unknown>).default_user
+            if (defaultUser !== undefined && typeof defaultUser !== 'string') {
+                issues.push('user.default_user must be a string')
+            }
+        }
+    }
+
+    if (config.users !== undefined) {
+        if (!Array.isArray(config.users)) {
+            issues.push('users must be an array')
+        } else {
+            for (const [i, entry] of config.users.entries()) {
+                if (!isObject(entry)) {
+                    issues.push(`users[${i}] must be an object`)
+                    continue
+                }
+                for (const key of Object.keys(entry)) {
+                    if (!KNOWN_STORED_USER_KEYS.has(key)) {
+                        issues.push(`users[${i}] contains unrecognized key "${key}"`)
+                    }
+                }
+                if (typeof entry.id !== 'string' || !entry.id) {
+                    issues.push(`users[${i}].id must be a non-empty string`)
+                }
+                if (typeof entry.email !== 'string' || !entry.email) {
+                    issues.push(`users[${i}].email must be a non-empty string`)
+                }
+                if (entry.name !== undefined && typeof entry.name !== 'string') {
+                    issues.push(`users[${i}].name must be a string`)
+                }
+                if (
+                    entry.auth_mode !== undefined &&
+                    (typeof entry.auth_mode !== 'string' ||
+                        !AUTH_MODES.has(entry.auth_mode as AuthMode))
+                ) {
+                    issues.push(
+                        `users[${i}].auth_mode must be one of: read-only, read-write, unknown`,
+                    )
+                }
+                if (entry.auth_scope !== undefined && typeof entry.auth_scope !== 'string') {
+                    issues.push(`users[${i}].auth_scope must be a string`)
+                }
+                if (entry.api_token !== undefined && typeof entry.api_token !== 'string') {
+                    issues.push(`users[${i}].api_token must be a string`)
+                }
+                if (
+                    entry.pending_secure_store_clear !== undefined &&
+                    typeof entry.pending_secure_store_clear !== 'boolean'
+                ) {
+                    issues.push(`users[${i}].pending_secure_store_clear must be a boolean`)
+                }
+                if (
+                    entry.current_workspace !== undefined &&
+                    (!Number.isInteger(entry.current_workspace) ||
+                        Number(entry.current_workspace) <= 0)
+                ) {
+                    issues.push(`users[${i}].current_workspace must be a positive integer`)
+                }
+            }
+        }
+    }
+
     if (config.token !== undefined && typeof config.token !== 'string') {
         issues.push('token must be a string')
     }
@@ -227,11 +355,7 @@ export function validateConfigForDoctor(config: Record<string, unknown>): string
 
     if (config.userSettings !== undefined) {
         const userSettings = config.userSettings
-        if (
-            userSettings === null ||
-            typeof userSettings !== 'object' ||
-            Array.isArray(userSettings)
-        ) {
+        if (!isObject(userSettings)) {
             issues.push('userSettings must be an object')
         } else {
             const settingsRecord = userSettings as Record<string, unknown>
@@ -250,4 +374,8 @@ export function validateConfigForDoctor(config: Record<string, unknown>): string
     }
 
     return issues
+}
+
+function isObject(value: unknown): value is Record<string, unknown> {
+    return value !== null && typeof value === 'object' && !Array.isArray(value)
 }
