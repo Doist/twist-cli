@@ -22,19 +22,19 @@ export class NoTokenError extends CliError {
 export const TOKEN_ENV_VAR = 'TWIST_API_TOKEN'
 export type TokenStorageLocation = 'secure-store' | 'config-file'
 
-export interface TokenStorageResult {
+export type TokenStorageResult = {
     storage: TokenStorageLocation
     warning?: string
 }
 
-export interface SaveApiTokenOptions {
+export type SaveApiTokenOptions = {
     authMode?: AuthMode
     authScope?: string
     authUserId?: number
     authUserName?: string
 }
 
-export interface AuthMetadata {
+export type AuthMetadata = {
     authMode: AuthMode
     authScope?: string
     authUserId?: number
@@ -42,7 +42,7 @@ export interface AuthMetadata {
     source: 'env' | 'config'
 }
 
-export interface AuthProbeMetadata {
+export type AuthProbeMetadata = {
     authMode: AuthMode
     authScope?: string
     authUserId?: number
@@ -50,7 +50,7 @@ export interface AuthProbeMetadata {
     source: 'env' | 'config-file' | 'secure-store'
 }
 
-export interface AuthProbeResult {
+export type AuthProbeResult = {
     token: string
     metadata: AuthProbeMetadata
 }

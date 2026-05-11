@@ -65,14 +65,14 @@ const AUTH_HINTS = ['Try again: tw auth login', 'Or set TWIST_API_TOKEN environm
  * name. Richer session-user details are fetched on demand via the API
  * rather than threaded through the auth flow.
  */
-export interface TwistAccount extends AuthAccount {
+export type TwistAccount = AuthAccount & {
     id: string
     label: string
     authMode: AuthMode
     authScope: string
 }
 
-interface TwistHandshake extends Record<string, unknown> {
+type TwistHandshake = Record<string, unknown> & {
     clientId: string
     clientSecret: string
     codeVerifier?: string
@@ -265,7 +265,7 @@ export function createTwistAuthProvider(): AuthProvider<TwistAccount> {
     }
 }
 
-export interface TwistTokenStore extends TokenStore<TwistAccount> {
+export type TwistTokenStore = TokenStore<TwistAccount> & {
     readonly lastSaveResult: TokenStorageResult | null
 }
 
