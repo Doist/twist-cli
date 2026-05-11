@@ -1,273 +1,220 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-const mocks = vi.hoisted(() => {
-    class MockSecureStoreUnavailableError extends Error {}
+const configState: { current: import('./config.js').Config } = { current: {} }
 
+vi.mock('./config.js', async (importOriginal) => {
+    const actual = await importOriginal<typeof import('./config.js')>()
     return {
-        MockSecureStoreUnavailableError,
-        getConfig: vi.fn(),
-        getConfigPath: vi.fn(() => '/home/user/.config/twist-cli/config.json'),
-        secureTokenStore: {
-            getSecret: vi.fn(),
-            setSecret: vi.fn(),
-            deleteSecret: vi.fn(),
-        },
-        setConfig: vi.fn(),
-        unlink: vi.fn(),
-        updateConfig: vi.fn(),
+        ...actual,
+        getConfig: vi.fn(async () => configState.current),
+        setConfig: vi.fn(async (next: import('./config.js').Config) => {
+            configState.current = next
+        }),
     }
 })
 
-vi.mock('./config.js', () => ({
-    getConfig: mocks.getConfig,
-    getConfigPath: mocks.getConfigPath,
-    setConfig: mocks.setConfig,
-    updateConfig: mocks.updateConfig,
-}))
+vi.mock('./secure-store.js', async (importOriginal) => {
+    const actual = await importOriginal<typeof import('./secure-store.js')>()
+    return {
+        ...actual,
+        createSecureStore: vi.fn(),
+    }
+})
 
-vi.mock('./secure-store.js', () => ({
-    createSecureStore: () => mocks.secureTokenStore,
-    SECURE_STORE_DESCRIPTION: 'system credential manager',
-    SecureStoreUnavailableError: mocks.MockSecureStoreUnavailableError,
-}))
+import {
+    clearApiToken,
+    listStoredUsers,
+    NoTokenError,
+    removeUserById,
+    resolveActiveUser,
+    setDefaultUserId,
+    upsertUser,
+} from './auth.js'
+import type { Config } from './config.js'
+import { createSecureStore } from './secure-store.js'
+import { AccountNotFoundError, NoAccountSelectedError } from './users.js'
 
-vi.mock('node:fs/promises', () => ({
-    unlink: mocks.unlink,
-}))
+const mockCreateSecureStore = vi.mocked(createSecureStore)
 
-describe('auth token storage', () => {
+function setConfigState(next: Config) {
+    configState.current = next
+}
+
+function memorySecureStore() {
+    let secret: string | null = null
+    return {
+        getSecret: vi.fn(async () => secret),
+        setSecret: vi.fn(async (v: string) => {
+            secret = v
+        }),
+        deleteSecret: vi.fn(async () => {
+            const had = secret !== null
+            secret = null
+            return had
+        }),
+    }
+}
+
+describe('resolveActiveUser', () => {
+    const originalEnv = process.env.TWIST_API_TOKEN
+
     beforeEach(() => {
-        vi.resetModules()
-        vi.clearAllMocks()
-        mocks.getConfig.mockReset()
-        mocks.setConfig.mockReset()
-        mocks.updateConfig.mockReset()
-        mocks.unlink.mockReset()
-        mocks.secureTokenStore.getSecret.mockReset()
-        mocks.secureTokenStore.setSecret.mockReset()
-        mocks.secureTokenStore.deleteSecret.mockReset()
         delete process.env.TWIST_API_TOKEN
+        setConfigState({})
+        mockCreateSecureStore.mockImplementation(() => memorySecureStore())
     })
 
     afterEach(() => {
+        if (originalEnv !== undefined) process.env.TWIST_API_TOKEN = originalEnv
+    })
+
+    it('TWIST_API_TOKEN short-circuits to source: env', async () => {
+        process.env.TWIST_API_TOKEN = 'env-token'
+        const resolved = await resolveActiveUser()
+        expect(resolved).toEqual({ token: 'env-token', authMode: 'unknown', source: 'env' })
+    })
+
+    it('throws NoTokenError on a clean v2 install with no users', async () => {
+        setConfigState({ config_version: 2, users: [] })
+        await expect(resolveActiveUser()).rejects.toBeInstanceOf(NoTokenError)
+    })
+
+    it('uses single stored user when no ref / default is set', async () => {
+        const store = memorySecureStore()
+        await store.setSecret('tk-1')
+        mockCreateSecureStore.mockReturnValue(store)
+        setConfigState({
+            config_version: 2,
+            users: [{ id: '1', email: 'a@a' }],
+        })
+        const resolved = await resolveActiveUser()
+        expect(resolved.id).toBe('1')
+        expect(resolved.token).toBe('tk-1')
+        expect(resolved.source).toBe('secure-store')
+    })
+
+    it('NoAccountSelectedError when multiple users + no default + no ref', async () => {
+        setConfigState({
+            config_version: 2,
+            users: [
+                { id: '1', email: 'a@a' },
+                { id: '2', email: 'b@b' },
+            ],
+        })
+        await expect(resolveActiveUser()).rejects.toBeInstanceOf(NoAccountSelectedError)
+    })
+
+    it('uses --user <ref> over the default', async () => {
+        const stores = new Map<string, ReturnType<typeof memorySecureStore>>()
+        mockCreateSecureStore.mockImplementation((slot?: string) => {
+            const key = slot ?? 'api-token'
+            let s = stores.get(key)
+            if (!s) {
+                s = memorySecureStore()
+                stores.set(key, s)
+            }
+            return s
+        })
+        const s1 = stores.get('user-1') ?? memorySecureStore()
+        stores.set('user-1', s1)
+        await s1.setSecret('tk-1')
+        const s2 = stores.get('user-2') ?? memorySecureStore()
+        stores.set('user-2', s2)
+        await s2.setSecret('tk-2')
+
+        setConfigState({
+            config_version: 2,
+            user: { default_user: '1' },
+            users: [
+                { id: '1', email: 'a@a' },
+                { id: '2', email: 'b@b' },
+            ],
+        })
+
+        expect((await resolveActiveUser()).id).toBe('1')
+        expect((await resolveActiveUser({ ref: 'b@b' })).id).toBe('2')
+        expect((await resolveActiveUser({ ref: '2' })).id).toBe('2')
+    })
+
+    it('AccountNotFoundError when --user matches nothing', async () => {
+        setConfigState({
+            config_version: 2,
+            users: [{ id: '1', email: 'a@a' }],
+        })
+        await expect(resolveActiveUser({ ref: 'unknown' })).rejects.toBeInstanceOf(
+            AccountNotFoundError,
+        )
+    })
+
+    it('legacy v1 fallback returns token with legacy: true when no users key present', async () => {
+        setConfigState({ token: 'legacy-plain-token', authMode: 'read-write' })
+        const resolved = await resolveActiveUser()
+        expect(resolved.token).toBe('legacy-plain-token')
+        expect(resolved.legacy).toBe(true)
+        expect(resolved.authMode).toBe('read-write')
+        expect(resolved.id).toBeUndefined()
+    })
+
+    it('legacy fallback is gated on absence of users key (empty array != legacy)', async () => {
+        setConfigState({ users: [], token: 'legacy-token' })
+        await expect(resolveActiveUser()).rejects.toBeInstanceOf(NoTokenError)
+    })
+})
+
+describe('upsertUser + clearApiToken + removeUserById + setDefaultUserId + listStoredUsers', () => {
+    beforeEach(() => {
         delete process.env.TWIST_API_TOKEN
+        setConfigState({})
+        mockCreateSecureStore.mockImplementation(() => memorySecureStore())
     })
 
-    it('prefers TWIST_API_TOKEN over stored credentials', async () => {
-        process.env.TWIST_API_TOKEN = 'env_token_123456'
-
-        const { getApiToken } = await import('./auth.js')
-
-        await expect(getApiToken()).resolves.toBe('env_token_123456')
-        expect(mocks.secureTokenStore.getSecret).not.toHaveBeenCalled()
-        expect(mocks.getConfig).not.toHaveBeenCalled()
-    })
-
-    it('migrates a legacy plaintext config token into the secure store', async () => {
-        mocks.secureTokenStore.setSecret.mockResolvedValue(undefined)
-        mocks.getConfig.mockResolvedValue({
-            token: 'legacy_token_123456',
-            currentWorkspace: 42,
-        })
-
-        const { getApiToken } = await import('./auth.js')
-
-        await expect(getApiToken()).resolves.toBe('legacy_token_123456')
-        expect(mocks.secureTokenStore.setSecret).toHaveBeenCalledWith('legacy_token_123456')
-        expect(mocks.setConfig).toHaveBeenCalledWith({ currentWorkspace: 42 })
-        expect(mocks.unlink).not.toHaveBeenCalled()
-    })
-
-    it('prefers the fallback config token over a stale secure-store token', async () => {
-        mocks.secureTokenStore.getSecret.mockResolvedValue('stale_secure_token_123456')
-        mocks.secureTokenStore.setSecret.mockResolvedValue(undefined)
-        mocks.getConfig.mockResolvedValue({
-            token: 'fresh_config_token_123456',
-            currentWorkspace: 42,
-        })
-
-        const { getApiToken } = await import('./auth.js')
-
-        await expect(getApiToken()).resolves.toBe('fresh_config_token_123456')
-        expect(mocks.secureTokenStore.setSecret).toHaveBeenCalledWith('fresh_config_token_123456')
-        expect(mocks.secureTokenStore.getSecret).not.toHaveBeenCalled()
-    })
-
-    it('returns the migrated token even when config cleanup fails', async () => {
-        mocks.secureTokenStore.getSecret.mockResolvedValue(null)
-        mocks.secureTokenStore.setSecret.mockResolvedValue(undefined)
-        mocks.getConfig.mockResolvedValue({
-            token: 'legacy_token_123456',
-            currentWorkspace: 42,
-        })
-        mocks.setConfig.mockRejectedValue(new Error('EACCES'))
-        const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
-
-        const { getApiToken } = await import('./auth.js')
-
-        await expect(getApiToken()).resolves.toBe('legacy_token_123456')
-        expect(errorSpy).toHaveBeenCalledWith(
-            'Warning: Token was migrated to secure storage, but could not remove legacy plaintext token from /home/user/.config/twist-cli/config.json (EACCES)',
-        )
-
-        errorSpy.mockRestore()
-    })
-
-    it('writes tokens to the secure store by default', async () => {
-        mocks.secureTokenStore.setSecret.mockResolvedValue(undefined)
-        mocks.getConfig.mockResolvedValue({})
-
-        const { saveApiToken } = await import('./auth.js')
-
-        await expect(saveApiToken(' secure_token_123456 ')).resolves.toEqual({
-            storage: 'secure-store',
-        })
-        expect(mocks.secureTokenStore.setSecret).toHaveBeenCalledWith('secure_token_123456')
-    })
-
-    it('keeps secure-store success when plaintext cleanup fails after saving', async () => {
-        mocks.secureTokenStore.setSecret.mockResolvedValue(undefined)
-        mocks.getConfig.mockResolvedValue({
-            token: 'legacy_token_123456',
-            currentWorkspace: 42,
-        })
-        mocks.setConfig.mockRejectedValue(new Error('EACCES'))
-
-        const { saveApiToken } = await import('./auth.js')
-
-        await expect(saveApiToken('secure_token_123456')).resolves.toEqual({
-            storage: 'secure-store',
-            warning:
-                'Token was stored securely, but could not remove legacy plaintext token from /home/user/.config/twist-cli/config.json (EACCES)',
-        })
-    })
-
-    it('deletes tokens from the secure store and removes any legacy config token', async () => {
-        mocks.secureTokenStore.deleteSecret.mockResolvedValue(true)
-        mocks.getConfig.mockResolvedValue({
-            token: 'legacy_token_123456',
-            currentWorkspace: 7,
-        })
-
-        const { clearApiToken } = await import('./auth.js')
-
-        await expect(clearApiToken()).resolves.toEqual({ storage: 'secure-store' })
-        expect(mocks.secureTokenStore.deleteSecret).toHaveBeenCalled()
-        expect(mocks.setConfig).toHaveBeenCalledWith({ currentWorkspace: 7 })
-    })
-
-    it('persists pending secure-store clear state when logout falls back to config', async () => {
-        mocks.secureTokenStore.deleteSecret.mockRejectedValue(
-            new mocks.MockSecureStoreUnavailableError('No keychain access'),
-        )
-        mocks.getConfig.mockResolvedValue({
-            token: 'legacy_token_123456',
-            currentWorkspace: 7,
-        })
-
-        const { clearApiToken } = await import('./auth.js')
-
-        await expect(clearApiToken()).resolves.toEqual({
-            storage: 'config-file',
-            warning:
-                'system credential manager unavailable; local auth state cleared in /home/user/.config/twist-cli/config.json',
-        })
-        expect(mocks.setConfig).toHaveBeenCalledWith({
-            currentWorkspace: 7,
-            pendingSecureStoreClear: true,
-        })
-    })
-
-    it('falls back to plaintext config storage when the secure store is unavailable', async () => {
-        mocks.secureTokenStore.setSecret.mockRejectedValue(
-            new mocks.MockSecureStoreUnavailableError('No keychain access'),
-        )
-        mocks.getConfig.mockResolvedValue({})
-
-        const { saveApiToken } = await import('./auth.js')
-
-        await expect(saveApiToken('fallback_token_123456')).resolves.toEqual({
-            storage: 'config-file',
-            warning:
-                'system credential manager unavailable; token saved as plaintext in /home/user/.config/twist-cli/config.json',
-        })
-        expect(mocks.setConfig).toHaveBeenCalledWith({
-            token: 'fallback_token_123456',
-            authMode: 'unknown',
-            authScope: undefined,
-        })
-    })
-
-    it('reads from plaintext config silently when the secure store is unavailable', async () => {
-        mocks.secureTokenStore.setSecret.mockRejectedValue(
-            new mocks.MockSecureStoreUnavailableError('No keychain access'),
-        )
-        mocks.getConfig.mockResolvedValue({ token: 'legacy_token_123456' })
-        const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
-
-        const { getApiToken } = await import('./auth.js')
-
-        await expect(getApiToken()).resolves.toBe('legacy_token_123456')
-        expect(errorSpy).not.toHaveBeenCalled()
-
-        errorSpy.mockRestore()
-    })
-
-    it('probes a legacy config token without migrating it', async () => {
-        mocks.getConfig.mockResolvedValue({
-            token: 'legacy_token_123456',
+    it('upsertUser persists a v2 user record and auto-defaults the first one', async () => {
+        const result = await upsertUser({
+            id: '1',
+            email: 'a@a',
+            token: 'tk-aaaaaaaaaa',
             authMode: 'read-write',
-            currentWorkspace: 42,
         })
-
-        const { probeApiToken } = await import('./auth.js')
-
-        await expect(probeApiToken()).resolves.toEqual({
-            token: 'legacy_token_123456',
-            metadata: {
-                authMode: 'read-write',
-                source: 'config-file',
-            },
-        })
-        expect(mocks.secureTokenStore.setSecret).not.toHaveBeenCalled()
-        expect(mocks.setConfig).not.toHaveBeenCalled()
+        expect(result.replaced).toBe(false)
+        expect(result.storage).toBe('secure-store')
+        expect(configState.current.users).toHaveLength(1)
+        expect(configState.current.user?.default_user).toBe('1')
+        expect(configState.current.config_version).toBe(2)
     })
 
-    it('probes a secure-store token without mutating config', async () => {
-        mocks.secureTokenStore.getSecret.mockResolvedValue('secure_token_123456')
-        mocks.getConfig.mockResolvedValue({
-            authMode: 'read-only',
-            authScope: 'user:read',
-            currentWorkspace: 42,
-        })
-
-        const { probeApiToken } = await import('./auth.js')
-
-        await expect(probeApiToken()).resolves.toEqual({
-            token: 'secure_token_123456',
-            metadata: {
-                authMode: 'read-only',
-                authScope: 'user:read',
-                source: 'secure-store',
-            },
-        })
-        expect(mocks.secureTokenStore.getSecret).toHaveBeenCalled()
-        expect(mocks.setConfig).not.toHaveBeenCalled()
+    it('upsertUser does not flip default on the second user', async () => {
+        await upsertUser({ id: '1', email: 'a@a', token: 'tk-aaaaaaaaaa' })
+        await upsertUser({ id: '2', email: 'b@b', token: 'tk-bbbbbbbbbb' })
+        expect(configState.current.user?.default_user).toBe('1')
+        expect(configState.current.users).toHaveLength(2)
     })
 
-    it('treats pending secure-store clear as logged out and does not reuse stale secure tokens', async () => {
-        mocks.secureTokenStore.deleteSecret.mockResolvedValue(true)
-        mocks.secureTokenStore.getSecret.mockResolvedValue('stale_secure_token_123456')
-        mocks.getConfig.mockResolvedValue({
-            pendingSecureStoreClear: true,
-            currentWorkspace: 7,
-        })
+    it('setDefaultUserId switches default and returns the resolved user', async () => {
+        await upsertUser({ id: '1', email: 'a@a', token: 'tk-aaaaaaaaaa' })
+        await upsertUser({ id: '2', email: 'b@b', token: 'tk-bbbbbbbbbb' })
+        const user = await setDefaultUserId('b@b')
+        expect(user.id).toBe('2')
+        expect(configState.current.user?.default_user).toBe('2')
+    })
 
-        const { getApiToken } = await import('./auth.js')
+    it('removeUserById drops the record and clears default if it pointed there', async () => {
+        await upsertUser({ id: '1', email: 'a@a', token: 'tk-aaaaaaaaaa' })
+        await removeUserById('1')
+        expect(configState.current.users).toEqual([])
+        expect(configState.current.user).toBeUndefined()
+    })
 
-        await expect(getApiToken()).rejects.toThrow('No API token found')
-        expect(mocks.secureTokenStore.deleteSecret).toHaveBeenCalled()
-        expect(mocks.secureTokenStore.getSecret).not.toHaveBeenCalled()
-        expect(mocks.setConfig).toHaveBeenCalledWith({ currentWorkspace: 7 })
+    it('clearApiToken({ ref }) removes the matching user', async () => {
+        await upsertUser({ id: '1', email: 'a@a', token: 'tk-aaaaaaaaaa' })
+        await upsertUser({ id: '2', email: 'b@b', token: 'tk-bbbbbbbbbb' })
+        await clearApiToken({ ref: 'a@a' })
+        expect(configState.current.users?.map((u) => u.id)).toEqual(['2'])
+    })
+
+    it('listStoredUsers reports current array', async () => {
+        await upsertUser({ id: '1', email: 'a@a', token: 'tk-aaaaaaaaaa' })
+        expect(await listStoredUsers()).toEqual([
+            expect.objectContaining({ id: '1', email: 'a@a' }),
+        ])
     })
 })

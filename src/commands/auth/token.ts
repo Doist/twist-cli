@@ -1,6 +1,7 @@
 import { createInterface } from 'node:readline'
 import chalk from 'chalk'
-import { saveApiToken } from '../../lib/auth.js'
+import { createWrappedTwistClient } from '../../lib/api.js'
+import { upsertUser } from '../../lib/auth.js'
 import { CliError } from '../../lib/errors.js'
 import { isNonInteractive } from '../../lib/global-args.js'
 import { logTokenStorageResult } from './helpers.js'
@@ -44,7 +45,30 @@ export async function loginWithToken(token?: string): Promise<void> {
             ])
         }
     }
-    const saveResult = await saveApiToken(token.trim(), { authMode: 'unknown' })
-    console.log(chalk.green('✓'), 'API token saved successfully!')
-    logTokenStorageResult(saveResult, 'Token stored securely in the system credential manager')
+    const trimmed = token.trim()
+
+    // Identify the user behind the token so it lands in the right slot.
+    let user: { id: number; name: string; email: string }
+    try {
+        const probe = createWrappedTwistClient(trimmed)
+        user = await probe.users.getSessionUser()
+    } catch (error) {
+        const detail = error instanceof Error && error.message ? `: ${error.message}` : ''
+        throw new CliError('INVALID_TOKEN', `Could not verify the token against Twist${detail}`, [
+            'Check the token is correct',
+            'Use `tw auth login` for OAuth instead',
+        ])
+    }
+
+    const result = await upsertUser({
+        id: String(user.id),
+        email: user.email,
+        name: user.name,
+        token: trimmed,
+        authMode: 'unknown',
+    })
+
+    const verb = result.replaced ? 'Updated stored token for' : 'Saved token for'
+    console.log(chalk.green('✓'), `${verb} ${user.email}`)
+    logTokenStorageResult(result, 'Token stored securely in the system credential manager')
 }

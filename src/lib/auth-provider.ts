@@ -10,8 +10,8 @@ import {
     clearApiToken,
     NoTokenError,
     probeApiToken,
-    saveApiToken,
     type TokenStorageResult,
+    upsertUser,
 } from './auth.js'
 import type { AuthMode } from './config.js'
 import { CliError } from './errors.js'
@@ -59,15 +59,18 @@ export const READ_ONLY_SCOPES = [
 const AUTH_HINTS = ['Try again: tw auth login', 'Or set TWIST_API_TOKEN environment variable']
 
 /**
- * Narrow account shape: only fields that round-trip through the local token
- * store. `id` is the stringified numeric Twist user id (so cli-core's
- * `AuthAccount.id` string contract holds), `label` is the user's display
- * name. Richer session-user details are fetched on demand via the API
- * rather than threaded through the auth flow.
+ * Account shape that round-trips through the local multi-user store.
+ * `id` is the stringified numeric Twist user id (so cli-core's
+ * `AuthAccount.id` string contract holds), `label` is the display name,
+ * `email` is the account email (used as the secondary lookup key for
+ * `--user`). Authentication mode and scope are carried alongside so the
+ * `tw auth status` / permission code can reconstruct them without
+ * re-fetching the session user.
  */
 export type TwistAccount = AuthAccount & {
     id: string
     label: string
+    email: string
     authMode: AuthMode
     authScope: string
 }
@@ -258,6 +261,7 @@ export function createTwistAuthProvider(): AuthProvider<TwistAccount> {
             return {
                 id: String(user.id),
                 label: user.name,
+                email: user.email,
                 authMode: hs.authMode ?? 'unknown',
                 authScope: hs.authScope ?? '',
             }
@@ -278,16 +282,17 @@ export function createTwistTokenStore(): TwistTokenStore {
         async active() {
             try {
                 const { token, metadata } = await probeApiToken()
-                if (metadata.authUserId === undefined || metadata.authUserName === undefined) {
-                    // Stored token predates this adapter (env var, manual `tw auth token`,
-                    // or pre-upgrade config) — no persisted identity to round-trip.
+                if (!metadata.accountId || !metadata.email) {
+                    // Stored token comes from an env var or a legacy v1
+                    // install — no v2 identity to round-trip.
                     return null
                 }
                 return {
                     token,
                     account: {
-                        id: String(metadata.authUserId),
-                        label: metadata.authUserName,
+                        id: metadata.accountId,
+                        label: metadata.email,
+                        email: metadata.email,
                         authMode: metadata.authMode,
                         authScope: metadata.authScope ?? '',
                     },
@@ -298,13 +303,15 @@ export function createTwistTokenStore(): TwistTokenStore {
             }
         },
         async set(account, token) {
-            const userId = Number(account.id)
-            lastSaveResult = await saveApiToken(token, {
+            const result = await upsertUser({
+                id: account.id,
+                email: account.email,
+                name: account.label,
+                token,
                 authMode: account.authMode,
                 authScope: account.authScope,
-                authUserId: Number.isFinite(userId) ? userId : undefined,
-                authUserName: account.label,
             })
+            lastSaveResult = { storage: result.storage, warning: result.warning }
         },
         async clear() {
             await clearApiToken()
