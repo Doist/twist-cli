@@ -39,7 +39,7 @@ const KNOWN_CONFIG_KEYS: ReadonlySet<string> = new Set([
 const KNOWN_USER_SETTINGS_KEYS: ReadonlySet<string> = new Set(['unarchiveNewThreads'])
 
 const AUTH_MODES: ReadonlySet<AuthMode> = new Set(['read-only', 'read-write', 'unknown'])
-const UPDATE_CHANNELS: ReadonlySet<UpdateChannel> = new Set(['stable', 'pre-release'])
+export const UPDATE_CHANNELS: ReadonlySet<UpdateChannel> = new Set(['stable', 'pre-release'])
 
 export interface UserSettings {
     unarchiveNewThreads?: boolean

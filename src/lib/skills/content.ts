@@ -293,10 +293,12 @@ User preferences are stored under \`userSettings\` in the config file. Currently
 tw update                        # Update CLI to latest version
 tw update --check                # Check for updates without installing, show channel
 tw update --check --json         # Same, JSON envelope
+tw update --check --ndjson       # Same, newline-delimited JSON envelope
 tw update --channel              # Show current update channel
 tw update switch --stable        # Switch to stable release channel
 tw update switch --pre-release   # Switch to pre-release (next) channel
-tw update switch --pre-release --json   # Same, JSON envelope
+tw update switch --pre-release --json    # Same, JSON envelope
+tw update switch --pre-release --ndjson  # Same, newline-delimited JSON envelope
 \`\`\`
 
 ### Changelog
