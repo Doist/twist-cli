@@ -22,29 +22,35 @@ export class NoTokenError extends CliError {
 export const TOKEN_ENV_VAR = 'TWIST_API_TOKEN'
 export type TokenStorageLocation = 'secure-store' | 'config-file'
 
-export interface TokenStorageResult {
+export type TokenStorageResult = {
     storage: TokenStorageLocation
     warning?: string
 }
 
-export interface SaveApiTokenOptions {
+export type SaveApiTokenOptions = {
     authMode?: AuthMode
     authScope?: string
+    authUserId?: number
+    authUserName?: string
 }
 
-export interface AuthMetadata {
+export type AuthMetadata = {
     authMode: AuthMode
     authScope?: string
+    authUserId?: number
+    authUserName?: string
     source: 'env' | 'config'
 }
 
-export interface AuthProbeMetadata {
+export type AuthProbeMetadata = {
     authMode: AuthMode
     authScope?: string
+    authUserId?: number
+    authUserName?: string
     source: 'env' | 'config-file' | 'secure-store'
 }
 
-export interface AuthProbeResult {
+export type AuthProbeResult = {
     token: string
     metadata: AuthProbeMetadata
 }
@@ -129,6 +135,8 @@ export async function probeApiToken(): Promise<AuthProbeResult> {
             metadata: {
                 authMode: config.authMode ?? 'unknown',
                 authScope: config.authScope,
+                authUserId: config.authUserId,
+                authUserName: config.authUserName,
                 source: 'config-file',
             },
         }
@@ -147,6 +155,8 @@ export async function probeApiToken(): Promise<AuthProbeResult> {
                 metadata: {
                     authMode: config.authMode ?? 'unknown',
                     authScope: config.authScope,
+                    authUserId: config.authUserId,
+                    authUserName: config.authUserName,
                     source: 'secure-store',
                 },
             }
@@ -171,6 +181,8 @@ export async function getAuthMetadata(): Promise<AuthMetadata> {
     return {
         authMode: config.authMode ?? 'unknown',
         authScope: config.authScope,
+        authUserId: config.authUserId,
+        authUserName: config.authUserName,
         source: 'config',
     }
 }
@@ -216,6 +228,8 @@ export async function saveApiToken(
     delete config.pendingSecureStoreClear
     config.authMode = options.authMode ?? 'unknown'
     config.authScope = options.authScope
+    config.authUserId = options.authUserId
+    config.authUserName = options.authUserName
     await writeConfig(config)
     return {
         storage: 'config-file',
@@ -232,6 +246,8 @@ export async function clearApiToken(): Promise<TokenStorageResult> {
     // the removal atomically alongside other state changes.
     delete config.authMode
     delete config.authScope
+    delete config.authUserId
+    delete config.authUserName
 
     try {
         await secureStore.deleteSecret()
@@ -254,6 +270,8 @@ async function saveAuthMetadata(options: SaveApiTokenOptions): Promise<void> {
     const config = await getConfig()
     config.authMode = options.authMode ?? 'unknown'
     config.authScope = options.authScope
+    config.authUserId = options.authUserId
+    config.authUserName = options.authUserName
     await setConfig(config)
 }
 

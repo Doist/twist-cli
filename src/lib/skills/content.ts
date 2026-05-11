@@ -20,6 +20,9 @@ Access Twist messaging via the \`tw\` CLI. Use when the user asks about their Tw
 \`\`\`bash
 tw auth login                    # OAuth login (opens browser, read-write)
 tw auth login --read-only        # OAuth login with read-only scope
+tw auth login --callback-port <n># Override the local OAuth callback port (default 8766)
+tw auth login --json             # Emit a JSON envelope for scripted / agent use
+tw auth login --ndjson           # Emit an NDJSON envelope for scripted / agent use
 tw auth token                    # Save API token manually (prompts securely; scope unknown, assumed write-capable)
 tw auth status                   # Verify authentication + show mode
 tw auth status --json            # JSON output: { id, email, name }
