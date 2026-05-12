@@ -43,8 +43,8 @@ async function showInbox(workspaceRef: string | undefined, options: InboxOptions
         client.inbox.getInbox(
             {
                 workspaceId,
-                since: options.since ? new Date(options.since) : undefined,
-                until: options.until ? new Date(options.until) : undefined,
+                newerThan: options.since ? new Date(options.since) : undefined,
+                olderThan: options.until ? new Date(options.until) : undefined,
                 limit,
                 archiveFilter: options.archiveFilter ?? 'active',
             },

@@ -87,6 +87,31 @@ describe('inbox --archive-filter', () => {
             { batch: true },
         )
     })
+
+    it('maps --since to newerThan and --until to olderThan for getInbox', async () => {
+        const program = createProgram()
+        await program.parseAsync([
+            'node',
+            'tw',
+            'inbox',
+            '--since',
+            '2026-01-01',
+            '--until',
+            '2026-02-01',
+            '--json',
+        ])
+
+        expect(mockGetInbox).toHaveBeenCalledWith(
+            expect.objectContaining({
+                newerThan: new Date('2026-01-01'),
+                olderThan: new Date('2026-02-01'),
+            }),
+            { batch: true },
+        )
+        const [args] = mockGetInbox.mock.calls[0] as [Record<string, unknown>]
+        expect(args).not.toHaveProperty('since')
+        expect(args).not.toHaveProperty('until')
+    })
 })
 
 const emptyInboxMockBatch = vi.fn()
