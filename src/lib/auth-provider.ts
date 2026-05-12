@@ -266,15 +266,14 @@ export function createTwistAuthProvider(): AuthProvider<TwistAccount> {
 }
 
 export type TwistTokenStore = TokenStore<TwistAccount> & {
-    readonly lastSaveResult: TokenStorageResult | null
+    getLastStorageResult(): TokenStorageResult | undefined
+    getLastClearResult(): TokenStorageResult | undefined
 }
 
 export function createTwistTokenStore(): TwistTokenStore {
-    let lastSaveResult: TokenStorageResult | null = null
+    let lastStorageResult: TokenStorageResult | undefined
+    let lastClearResult: TokenStorageResult | undefined
     return {
-        get lastSaveResult() {
-            return lastSaveResult
-        },
         async active() {
             try {
                 const { token, metadata } = await probeApiToken()
@@ -299,7 +298,7 @@ export function createTwistTokenStore(): TwistTokenStore {
         },
         async set(account, token) {
             const userId = Number(account.id)
-            lastSaveResult = await saveApiToken(token, {
+            lastStorageResult = await saveApiToken(token, {
                 authMode: account.authMode,
                 authScope: account.authScope,
                 authUserId: Number.isFinite(userId) ? userId : undefined,
@@ -307,7 +306,13 @@ export function createTwistTokenStore(): TwistTokenStore {
             })
         },
         async clear() {
-            await clearApiToken()
+            lastClearResult = await clearApiToken()
+        },
+        getLastStorageResult() {
+            return lastStorageResult
+        },
+        getLastClearResult() {
+            return lastClearResult
         },
     }
 }

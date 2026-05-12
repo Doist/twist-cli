@@ -221,12 +221,14 @@ describe('createTwistTokenStore', () => {
             authUserId: 42,
             authUserName: 'Ada',
         })
-        expect(store.lastSaveResult).toEqual({ storage: 'secure-store' })
+        expect(store.getLastStorageResult()).toEqual({ storage: 'secure-store' })
     })
 
-    it('clear() delegates to clearApiToken', async () => {
+    it('clear() delegates to clearApiToken and exposes the result', async () => {
         mockClear.mockResolvedValue({ storage: 'secure-store' })
-        await createTwistTokenStore().clear()
+        const store = createTwistTokenStore()
+        await store.clear()
         expect(mockClear).toHaveBeenCalledTimes(1)
+        expect(store.getLastClearResult()).toEqual({ storage: 'secure-store' })
     })
 })

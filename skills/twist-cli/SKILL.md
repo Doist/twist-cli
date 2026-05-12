@@ -21,8 +21,9 @@ tw auth login --json             # Emit a JSON envelope for scripted / agent use
 tw auth login --ndjson           # Emit an NDJSON envelope for scripted / agent use
 tw auth token                    # Save API token manually (prompts securely; scope unknown, assumed write-capable)
 tw auth status                   # Verify authentication + show mode
-tw auth status --json            # JSON output: { id, email, name }
+tw auth status --json            # Full status payload as JSON (--ndjson also supported)
 tw auth logout                   # Remove saved token and auth metadata
+tw auth logout --json            # Emits `{"ok": true}` (--ndjson is silent)
 tw workspaces                    # List available workspaces
 tw workspace use <ref>           # Set current workspace
 tw completion install            # Install shell completions
