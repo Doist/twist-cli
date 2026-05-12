@@ -483,6 +483,46 @@ describe('thread view --unread', () => {
     })
 })
 
+describe('thread view --since', () => {
+    beforeEach(() => {
+        vi.resetAllMocks()
+    })
+
+    it('maps --since to newerThan for getComments', async () => {
+        const client = createClient({
+            comments: [createComment(1, 1)],
+            users: { 1: { id: 1, name: 'Alice' }, 2: { id: 2, name: 'Bob' } },
+        })
+        apiMocks.getTwistClient.mockResolvedValue(client)
+
+        const program = createProgram()
+        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+        await program.parseAsync([
+            'node',
+            'tw',
+            'thread',
+            'view',
+            '500',
+            '--since',
+            '2026-01-01',
+            '--json',
+        ])
+
+        expect(client.comments.getComments).toHaveBeenCalledWith(
+            expect.objectContaining({
+                threadId: 500,
+                newerThan: new Date('2026-01-01'),
+            }),
+            { batch: true },
+        )
+        const [args] = client.comments.getComments.mock.calls[0] as [Record<string, unknown>]
+        expect(args).not.toHaveProperty('from')
+
+        consoleSpy.mockRestore()
+    })
+})
+
 describe('thread view with failed batch response', () => {
     beforeEach(() => {
         vi.resetAllMocks()
