@@ -17,7 +17,6 @@ vi.mock('../../lib/api.js', async (importOriginal) => {
     const actual = await importOriginal<typeof import('../../lib/api.js')>()
     return {
         ...actual,
-        getSessionUser: vi.fn(),
         createWrappedTwistClient: vi.fn(),
     }
 })
@@ -55,8 +54,8 @@ vi.mock('chalk')
 
 import { createInterface, type Interface } from 'node:readline'
 import { attachLoginCommand } from '@doist/cli-core/auth'
-import { type User } from '@doist/twist-sdk'
-import { createWrappedTwistClient, getSessionUser } from '../../lib/api.js'
+import { TwistRequestError, type User } from '@doist/twist-sdk'
+import { createWrappedTwistClient } from '../../lib/api.js'
 import { type TwistAccount, type TwistTokenStore } from '../../lib/auth-provider.js'
 import { clearApiToken, getAuthMetadata, saveApiToken } from '../../lib/auth.js'
 import { registerAuthCommand } from './index.js'
@@ -67,7 +66,6 @@ const mockCreateInterface = vi.mocked(createInterface)
 const mockSaveApiToken = vi.mocked(saveApiToken)
 const mockClearApiToken = vi.mocked(clearApiToken)
 const mockGetAuthMetadata = vi.mocked(getAuthMetadata)
-const mockGetSessionUser = vi.mocked(getSessionUser)
 const mockCreateWrappedTwistClient = vi.mocked(createWrappedTwistClient)
 const mockAttachLoginCommand = vi.mocked(attachLoginCommand)
 
@@ -273,35 +271,60 @@ describe('auth command', () => {
     })
 
     describe('status subcommand', () => {
-        it('shows authenticated status when logged in', async () => {
-            const program = createProgram()
+        // All happy-path tests drive a controllable snapshot store directly
+        // into `attachTwistStatusCommand` so the `fetchLive` →
+        // `renderText` / `renderJson` path is covered without relying on
+        // process state (env vars, secure store) leaking from the host. The
+        // `onNotAuthenticated` branch is exercised below via `createProgram()`,
+        // which reaches it because no token resolves in the test environment.
+        const SNAPSHOT_ACCOUNT: TwistAccount = {
+            id: String(TEST_USER.id),
+            label: TEST_USER.name,
+            authMode: 'read-write',
+            authScope: 'user:read threads:read',
+        }
 
-            mockGetSessionUser.mockResolvedValue(TEST_USER)
+        function programWithSnapshot(): Command {
+            const program = new Command()
+            program.exitOverride()
+            const auth = program.command('auth')
+            const snapshotStore: TwistTokenStore = {
+                async active() {
+                    return { token: 'snapshot_token', account: SNAPSHOT_ACCOUNT }
+                },
+                async set() {},
+                async clear() {},
+                getLastStorageResult: () => undefined,
+                getLastClearResult: () => undefined,
+            }
+            attachTwistStatusCommand(auth, snapshotStore)
+            return program
+        }
+
+        beforeEach(() => {
+            mockCreateWrappedTwistClient.mockReturnValue({
+                users: { getSessionUser: vi.fn().mockResolvedValue(TEST_USER) },
+                // biome-ignore lint/suspicious/noExplicitAny: only the methods used in this test matter
+            } as any)
             mockGetAuthMetadata.mockResolvedValue({
                 authMode: 'read-write',
+                authScope: 'user:read threads:read',
                 source: 'config',
             })
+        })
 
-            await program.parseAsync(['node', 'tw', 'auth', 'status'])
+        it('renders text status from the snapshot', async () => {
+            await programWithSnapshot().parseAsync(['node', 'tw', 'auth', 'status'])
 
-            expect(mockGetSessionUser).toHaveBeenCalled()
+            expect(mockCreateWrappedTwistClient).toHaveBeenCalledWith('snapshot_token')
             expect(consoleSpy).toHaveBeenCalledWith('✓ Authenticated')
             expect(consoleSpy).toHaveBeenCalledWith('  Email: test@example.com')
             expect(consoleSpy).toHaveBeenCalledWith('  Name:  Test User')
             expect(consoleSpy).toHaveBeenCalledWith('  Mode:  read-write')
         })
 
-        it('outputs JSON when --json flag is used', async () => {
-            const program = createProgram()
-
-            mockGetSessionUser.mockResolvedValue(TEST_USER)
-            mockGetAuthMetadata.mockResolvedValue({
-                authMode: 'read-write',
-                authScope: 'user:read threads:read',
-                source: 'config',
-            })
-
-            await program.parseAsync(['node', 'tw', 'auth', 'status', '--json'])
+        it('emits the JSON envelope from the snapshot path', async () => {
+            await programWithSnapshot().parseAsync(['node', 'tw', 'auth', 'status', '--json'])
 
             const printed = consoleSpy.mock.calls[0][0] as string
             expect(JSON.parse(printed)).toEqual({
@@ -314,101 +337,65 @@ describe('auth command', () => {
             })
         })
 
-        it('outputs NDJSON when --ndjson flag is used', async () => {
-            const program = createProgram()
+        it('emits a single newline-free NDJSON line from the snapshot path', async () => {
+            await programWithSnapshot().parseAsync(['node', 'tw', 'auth', 'status', '--ndjson'])
 
-            mockGetSessionUser.mockResolvedValue(TEST_USER)
-            mockGetAuthMetadata.mockResolvedValue({
-                authMode: 'read-write',
-                source: 'config',
-            })
-
-            await program.parseAsync(['node', 'tw', 'auth', 'status', '--ndjson'])
-
+            // NDJSON must be one JSON value per line — assert one console.log
+            // call whose payload contains no embedded newline (would slip
+            // through a pretty-printed JSON regression).
+            expect(consoleSpy).toHaveBeenCalledTimes(1)
             const printed = consoleSpy.mock.calls[0][0] as string
+            expect(printed).not.toContain('\n')
             expect(JSON.parse(printed)).toEqual({
                 id: 1,
                 email: 'test@example.com',
                 name: 'Test User',
                 authMode: 'read-write',
+                authScope: 'user:read threads:read',
                 source: 'config',
             })
         })
 
-        it('throws when not authenticated', async () => {
-            const program = createProgram()
-            mockGetSessionUser.mockRejectedValue(new Error('No API token found'))
+        it('translates a 401 from the live API into a NO_TOKEN CliError', async () => {
+            // Snapshot exists (e.g. a stored token), but the API rejects it
+            // with 401 — the shared `gatherStatusData` 401 branch must wrap
+            // it in the standard `NO_TOKEN` envelope so users see the
+            // "re-authenticate" hint, not a raw `TwistRequestError`.
+            mockCreateWrappedTwistClient.mockReturnValue({
+                users: {
+                    getSessionUser: vi
+                        .fn()
+                        .mockRejectedValue(new TwistRequestError('Authentication required', 401)),
+                },
+                // biome-ignore lint/suspicious/noExplicitAny: only the methods used in this test matter
+            } as any)
 
-            await expect(program.parseAsync(['node', 'tw', 'auth', 'status'])).rejects.toThrow(
-                'No API token found',
-            )
+            await expect(
+                programWithSnapshot().parseAsync(['node', 'tw', 'auth', 'status']),
+            ).rejects.toHaveProperty('code', 'NO_TOKEN')
         })
 
-        // The default tests above exercise the `onNotAuthenticated` branch (real
-        // `store.active()` resolves to null in the test env because no token /
-        // identity is persisted). This block drives a controllable snapshot
-        // store directly into `attachTwistStatusCommand` so the `fetchLive` →
-        // `renderText` / `renderJson` path is also covered.
-        describe('persisted-account snapshot path (fetchLive)', () => {
-            const SNAPSHOT_ACCOUNT: TwistAccount = {
-                id: String(TEST_USER.id),
-                label: TEST_USER.name,
-                authMode: 'read-write',
-                authScope: 'user:read threads:read',
+        it('throws NoTokenError when no token is stored at all', async () => {
+            // Drive a store whose `active()` returns null so the
+            // `onNotAuthenticated` branch fires regardless of any keyring /
+            // env state on the host running the tests.
+            const program = new Command()
+            program.exitOverride()
+            const auth = program.command('auth')
+            const emptyStore: TwistTokenStore = {
+                async active() {
+                    return null
+                },
+                async set() {},
+                async clear() {},
+                getLastStorageResult: () => undefined,
+                getLastClearResult: () => undefined,
             }
+            attachTwistStatusCommand(auth, emptyStore)
 
-            function programWithSnapshot(): Command {
-                const program = new Command()
-                program.exitOverride()
-                const auth = program.command('auth')
-                const snapshotStore: TwistTokenStore = {
-                    async active() {
-                        return { token: 'snapshot_token', account: SNAPSHOT_ACCOUNT }
-                    },
-                    async set() {},
-                    async clear() {},
-                    getLastStorageResult: () => undefined,
-                    getLastClearResult: () => undefined,
-                }
-                attachTwistStatusCommand(auth, snapshotStore)
-                return program
-            }
-
-            beforeEach(() => {
-                mockCreateWrappedTwistClient.mockReturnValue({
-                    users: { getSessionUser: vi.fn().mockResolvedValue(TEST_USER) },
-                    // biome-ignore lint/suspicious/noExplicitAny: only the methods used in this test matter
-                } as any)
-                mockGetAuthMetadata.mockResolvedValue({
-                    authMode: 'read-write',
-                    authScope: 'user:read threads:read',
-                    source: 'config',
-                })
-            })
-
-            it('renders text status from the snapshot', async () => {
-                await programWithSnapshot().parseAsync(['node', 'tw', 'auth', 'status'])
-
-                expect(mockCreateWrappedTwistClient).toHaveBeenCalledWith('snapshot_token')
-                expect(consoleSpy).toHaveBeenCalledWith('✓ Authenticated')
-                expect(consoleSpy).toHaveBeenCalledWith('  Email: test@example.com')
-                expect(consoleSpy).toHaveBeenCalledWith('  Name:  Test User')
-                expect(consoleSpy).toHaveBeenCalledWith('  Mode:  read-write')
-            })
-
-            it('emits the JSON envelope from the snapshot path', async () => {
-                await programWithSnapshot().parseAsync(['node', 'tw', 'auth', 'status', '--json'])
-
-                const printed = consoleSpy.mock.calls[0][0] as string
-                expect(JSON.parse(printed)).toEqual({
-                    id: 1,
-                    email: 'test@example.com',
-                    name: 'Test User',
-                    authMode: 'read-write',
-                    authScope: 'user:read threads:read',
-                    source: 'config',
-                })
-            })
+            await expect(
+                program.parseAsync(['node', 'tw', 'auth', 'status']),
+            ).rejects.toHaveProperty('code', 'NO_TOKEN')
         })
     })
 
@@ -481,7 +468,8 @@ describe('auth command', () => {
             await program.parseAsync(['node', 'tw', 'auth', 'logout', '--json'])
 
             const stdoutLines = consoleSpy.mock.calls.map((c: unknown[]) => String(c[0]))
-            expect(stdoutLines).toEqual([JSON.stringify({ ok: true }, null, 2)])
+            expect(stdoutLines).toHaveLength(1)
+            expect(JSON.parse(stdoutLines[0])).toEqual({ ok: true })
             // Plain "Stored token removed" confirmation must be suppressed under --json.
             expect(stdoutLines.join('\n')).not.toContain('Stored token removed')
             expect(errorSpy).toHaveBeenCalledWith('Warning:', WARNING_RESULT.warning)

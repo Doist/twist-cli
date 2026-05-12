@@ -15,6 +15,7 @@ import {
 } from './auth.js'
 import type { AuthMode } from './config.js'
 import { CliError } from './errors.js'
+import { SecureStoreUnavailableError } from './secure-store.js'
 
 export const AUTHORIZATION_URL = 'https://twist.com/oauth/authorize'
 export const TOKEN_URL = 'https://twist.com/oauth/access_token'
@@ -275,24 +276,34 @@ export function createTwistTokenStore(): TwistTokenStore {
     let lastClearResult: TokenStorageResult | undefined
     return {
         async active() {
+            // Return a snapshot whenever a token resolves — even if the
+            // persisted identity is missing (env var, manual `tw auth token`,
+            // pre-upgrade config). Callers downstream (e.g. status's
+            // `fetchLive`) will re-derive the canonical account from the live
+            // API, so the placeholder fields below are intentionally empty.
+            // Returning a snapshot here also avoids a second credential read
+            // in those code paths — the token discovered during `probeApiToken`
+            // is reused rather than re-resolved through `getApiToken`.
+            //
+            // `SecureStoreUnavailableError` is downgraded to `null` (no
+            // snapshot) so headless / keyring-less environments fall back to
+            // the standard `NoTokenError` envelope instead of leaking the raw
+            // secure-store error — matching the legacy `getApiToken`
+            // behaviour the prior `showStatus()` relied on.
             try {
                 const { token, metadata } = await probeApiToken()
-                if (metadata.authUserId === undefined || metadata.authUserName === undefined) {
-                    // Stored token predates this adapter (env var, manual `tw auth token`,
-                    // or pre-upgrade config) — no persisted identity to round-trip.
-                    return null
-                }
                 return {
                     token,
                     account: {
-                        id: String(metadata.authUserId),
-                        label: metadata.authUserName,
+                        id: metadata.authUserId !== undefined ? String(metadata.authUserId) : '',
+                        label: metadata.authUserName ?? '',
                         authMode: metadata.authMode,
                         authScope: metadata.authScope ?? '',
                     },
                 }
             } catch (error) {
                 if (error instanceof NoTokenError) return null
+                if (error instanceof SecureStoreUnavailableError) return null
                 throw error
             }
         },

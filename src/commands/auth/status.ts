@@ -1,9 +1,8 @@
-import { formatJson, formatNdjson } from '@doist/cli-core'
 import { attachStatusCommand } from '@doist/cli-core/auth'
 import { TwistRequestError, type User } from '@doist/twist-sdk'
 import chalk from 'chalk'
 import type { Command } from 'commander'
-import { createWrappedTwistClient, getSessionUser } from '../../lib/api.js'
+import { createWrappedTwistClient } from '../../lib/api.js'
 import type { TwistAccount, TwistTokenStore } from '../../lib/auth-provider.js'
 import { type AuthMetadata, getAuthMetadata, NoTokenError } from '../../lib/auth.js'
 import type { AuthMode } from '../../lib/config.js'
@@ -25,23 +24,20 @@ function formatAuthMode(authMode: AuthMode, authScope?: string): string {
 }
 
 /**
- * `token` shortcut: when the caller already has a resolved token (from the
- * cli-core `store.active()` snapshot), pass it through to skip the redundant
- * keyring round-trip `getSessionUser()` would do via `getApiToken`.
- *
- * 401-translation lives here so both the snapshot path (`fetchLive`) and the
- * legacy path (`onNotAuthenticated`) emit the same `NO_TOKEN` envelope when
- * the token is rejected by the API.
+ * Fetch the live session user (via the snapshot token) and the local auth
+ * metadata concurrently — the API call dominates and the metadata read is
+ * independent. 401-translation lives here so both the snapshot path and any
+ * future callers emit the same `NO_TOKEN` envelope when the token is
+ * rejected by the API.
  */
-async function gatherStatusData(token?: string): Promise<StatusData> {
+async function gatherStatusData(token: string): Promise<StatusData> {
     try {
-        const user = token
-            ? await createWrappedTwistClient(token).users.getSessionUser()
-            : await getSessionUser()
-        const metadata = await getAuthMetadata()
+        const [user, metadata] = await Promise.all([
+            createWrappedTwistClient(token).users.getSessionUser(),
+            getAuthMetadata(),
+        ])
         return { user, metadata }
     } catch (error) {
-        if (error instanceof NoTokenError) throw error
         if (error instanceof TwistRequestError && error.httpStatusCode === 401) {
             throw new CliError('NO_TOKEN', 'Not authenticated (token expired or invalid)', [
                 'Run `tw auth login` to re-authenticate',
@@ -61,7 +57,7 @@ function buildStatusText({ user, metadata }: StatusData): readonly string[] {
     ]
 }
 
-function buildStatusJson({ user, metadata }: StatusData): unknown {
+function buildStatusJson({ user, metadata }: StatusData): Record<string, unknown> {
     return {
         id: user.id,
         email: user.email,
@@ -75,14 +71,14 @@ function buildStatusJson({ user, metadata }: StatusData): unknown {
 /**
  * Attach `tw auth status` via cli-core's generic `attachStatusCommand`.
  *
- * `TwistTokenStore.active()` returns `null` for env-token mode + when no
- * identity is persisted (per the adapter's documented contract — see
- * `auth-provider.ts`). To preserve the existing UX for those cases we route
- * the full status fetch through `onNotAuthenticated`; when `active()` does
- * return a snapshot, `fetchLive` covers the same gather so renderText /
- * renderJson read from a single closure-captured `StatusData` regardless of
- * which path we took. The snapshot path also short-circuits one credential
- * resolve via `gatherStatusData(token)`.
+ * `TwistTokenStore.active()` returns a snapshot whenever a token resolves
+ * (per the adapter's documented contract — see `auth-provider.ts`), so
+ * `fetchLive` covers every token-present path: secure-store, plaintext
+ * config fallback, env-token mode, and manual `tw auth token`. The
+ * snapshot's token is reused inside `gatherStatusData` so credentials are
+ * read once per invocation. `onNotAuthenticated` only fires when nothing
+ * is stored — it throws `NoTokenError` so the standard CliError envelope
+ * reaches the operator unchanged.
  */
 export function attachTwistStatusCommand(auth: Command, store: TwistTokenStore): Command {
     let data: StatusData | null = null
@@ -100,29 +96,19 @@ export function attachTwistStatusCommand(auth: Command, store: TwistTokenStore):
             }
         },
         renderText: () => {
-            if (!data) throw new Error('status renderText called before fetchLive')
+            if (!data) {
+                throw new CliError('INTERNAL_ERROR', 'status renderText called before fetchLive')
+            }
             return buildStatusText(data)
         },
         renderJson: () => {
-            if (!data) throw new Error('status renderJson called before fetchLive')
+            if (!data) {
+                throw new CliError('INTERNAL_ERROR', 'status renderJson called before fetchLive')
+            }
             return buildStatusJson(data)
         },
-        onNotAuthenticated: async ({ view }) => {
-            // active() returned null — env-token mode, manual `tw auth token`
-            // (no persisted identity), or nothing stored. Drive the legacy
-            // resolver (getSessionUser) so all three paths render identically;
-            // getSessionUser throws NoTokenError when nothing resolves,
-            // matching prior UX.
-            data = await gatherStatusData()
-            if (view.json) {
-                console.log(formatJson(buildStatusJson(data)))
-                return
-            }
-            if (view.ndjson) {
-                console.log(formatNdjson([buildStatusJson(data)]))
-                return
-            }
-            for (const line of buildStatusText(data)) console.log(line)
+        onNotAuthenticated: () => {
+            throw new NoTokenError()
         },
     })
 }
