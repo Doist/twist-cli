@@ -13,13 +13,19 @@ vi.mock('../../lib/auth.js', async (importOriginal) => {
 })
 
 // Mock the api module
-vi.mock('../../lib/api.js', () => ({
-    getSessionUser: vi.fn(),
-}))
+vi.mock('../../lib/api.js', async (importOriginal) => {
+    const actual = await importOriginal<typeof import('../../lib/api.js')>()
+    return {
+        ...actual,
+        createWrappedTwistClient: vi.fn(),
+    }
+})
 
 // Mock cli-core's auth subpath so login subcommand wiring doesn't drive a real
 // OAuth flow during tests. The provider + token-store units are exercised in
-// src/lib/auth-provider.test.ts.
+// src/lib/auth-provider.test.ts. attachLogoutCommand + attachStatusCommand
+// fall through to the real cli-core implementations so the integration is
+// exercised end-to-end.
 vi.mock('@doist/cli-core/auth', async (importOriginal) => {
     const actual = await importOriginal<typeof import('@doist/cli-core/auth')>()
     return {
@@ -48,17 +54,19 @@ vi.mock('chalk')
 
 import { createInterface, type Interface } from 'node:readline'
 import { attachLoginCommand } from '@doist/cli-core/auth'
-import { type User } from '@doist/twist-sdk'
-import { getSessionUser } from '../../lib/api.js'
+import { TwistRequestError, type User } from '@doist/twist-sdk'
+import { createWrappedTwistClient } from '../../lib/api.js'
+import { type TwistAccount, type TwistTokenStore } from '../../lib/auth-provider.js'
 import { clearApiToken, getAuthMetadata, saveApiToken } from '../../lib/auth.js'
 import { registerAuthCommand } from './index.js'
+import { attachTwistStatusCommand } from './status.js'
 
 const mockCreateInterface = vi.mocked(createInterface)
 
 const mockSaveApiToken = vi.mocked(saveApiToken)
 const mockClearApiToken = vi.mocked(clearApiToken)
 const mockGetAuthMetadata = vi.mocked(getAuthMetadata)
-const mockGetSessionUser = vi.mocked(getSessionUser)
+const mockCreateWrappedTwistClient = vi.mocked(createWrappedTwistClient)
 const mockAttachLoginCommand = vi.mocked(attachLoginCommand)
 
 function createProgram() {
@@ -66,6 +74,17 @@ function createProgram() {
     program.exitOverride()
     registerAuthCommand(program)
     return program
+}
+
+const TEST_USER: User = {
+    id: 1,
+    name: 'Test User',
+    shortName: 'test',
+    bot: false,
+    timezone: 'UTC',
+    removed: false,
+    email: 'test@example.com',
+    lang: 'en',
 }
 
 describe('auth command', () => {
@@ -252,74 +271,131 @@ describe('auth command', () => {
     })
 
     describe('status subcommand', () => {
-        it('shows authenticated status when logged in', async () => {
-            const program = createProgram()
+        // All happy-path tests drive a controllable snapshot store directly
+        // into `attachTwistStatusCommand` so the `fetchLive` →
+        // `renderText` / `renderJson` path is covered without relying on
+        // process state (env vars, secure store) leaking from the host. The
+        // `onNotAuthenticated` branch is exercised below via `createProgram()`,
+        // which reaches it because no token resolves in the test environment.
+        const SNAPSHOT_ACCOUNT: TwistAccount = {
+            id: String(TEST_USER.id),
+            label: TEST_USER.name,
+            authMode: 'read-write',
+            authScope: 'user:read threads:read',
+        }
 
-            const mockUser: User = {
-                id: 1,
-                name: 'Test User',
-                shortName: 'test',
-                bot: false,
-                timezone: 'UTC',
-                removed: false,
-                email: 'test@example.com',
-                lang: 'en',
+        function programWithSnapshot(): Command {
+            const program = new Command()
+            program.exitOverride()
+            const auth = program.command('auth')
+            const snapshotStore: TwistTokenStore = {
+                async active() {
+                    return { token: 'snapshot_token', account: SNAPSHOT_ACCOUNT }
+                },
+                async set() {},
+                async clear() {},
+                getLastStorageResult: () => undefined,
+                getLastClearResult: () => undefined,
             }
+            attachTwistStatusCommand(auth, snapshotStore)
+            return program
+        }
 
-            mockGetSessionUser.mockResolvedValue(mockUser)
+        beforeEach(() => {
+            mockCreateWrappedTwistClient.mockReturnValue({
+                users: { getSessionUser: vi.fn().mockResolvedValue(TEST_USER) },
+                // biome-ignore lint/suspicious/noExplicitAny: only the methods used in this test matter
+            } as any)
             mockGetAuthMetadata.mockResolvedValue({
                 authMode: 'read-write',
+                authScope: 'user:read threads:read',
                 source: 'config',
             })
+        })
 
-            await program.parseAsync(['node', 'tw', 'auth', 'status'])
+        it('renders text status from the snapshot', async () => {
+            await programWithSnapshot().parseAsync(['node', 'tw', 'auth', 'status'])
 
-            expect(mockGetSessionUser).toHaveBeenCalled()
-            expect(consoleSpy).toHaveBeenCalledWith('✓', 'Authenticated')
+            expect(mockCreateWrappedTwistClient).toHaveBeenCalledWith('snapshot_token')
+            expect(consoleSpy).toHaveBeenCalledWith('✓ Authenticated')
             expect(consoleSpy).toHaveBeenCalledWith('  Email: test@example.com')
             expect(consoleSpy).toHaveBeenCalledWith('  Name:  Test User')
             expect(consoleSpy).toHaveBeenCalledWith('  Mode:  read-write')
         })
 
-        it('outputs JSON when --json flag is used', async () => {
-            const program = createProgram()
+        it('emits the JSON envelope from the snapshot path', async () => {
+            await programWithSnapshot().parseAsync(['node', 'tw', 'auth', 'status', '--json'])
 
-            const mockUser: User = {
+            const printed = consoleSpy.mock.calls[0][0] as string
+            expect(JSON.parse(printed)).toEqual({
                 id: 1,
-                name: 'Test User',
-                shortName: 'test',
-                bot: false,
-                timezone: 'UTC',
-                removed: false,
                 email: 'test@example.com',
-                lang: 'en',
-            }
-
-            mockGetSessionUser.mockResolvedValue(mockUser)
-
-            await program.parseAsync(['node', 'tw', 'auth', 'status', '--json'])
-
-            expect(consoleSpy).toHaveBeenCalledWith(
-                JSON.stringify({ id: 1, email: 'test@example.com', name: 'Test User' }, null, 2),
-            )
+                name: 'Test User',
+                authMode: 'read-write',
+                authScope: 'user:read threads:read',
+                source: 'config',
+            })
         })
 
-        it('outputs JSON error when --json flag is used and not authenticated', async () => {
-            const program = createProgram()
-            mockGetSessionUser.mockRejectedValue(new Error('No API token found'))
+        it('emits a single newline-free NDJSON line from the snapshot path', async () => {
+            await programWithSnapshot().parseAsync(['node', 'tw', 'auth', 'status', '--ndjson'])
+
+            // NDJSON must be one JSON value per line — assert one console.log
+            // call whose payload contains no embedded newline (would slip
+            // through a pretty-printed JSON regression).
+            expect(consoleSpy).toHaveBeenCalledTimes(1)
+            const printed = consoleSpy.mock.calls[0][0] as string
+            expect(printed).not.toContain('\n')
+            expect(JSON.parse(printed)).toEqual({
+                id: 1,
+                email: 'test@example.com',
+                name: 'Test User',
+                authMode: 'read-write',
+                authScope: 'user:read threads:read',
+                source: 'config',
+            })
+        })
+
+        it('translates a 401 from the live API into a NO_TOKEN CliError', async () => {
+            // Snapshot exists (e.g. a stored token), but the API rejects it
+            // with 401 — the shared `gatherStatusData` 401 branch must wrap
+            // it in the standard `NO_TOKEN` envelope so users see the
+            // "re-authenticate" hint, not a raw `TwistRequestError`.
+            mockCreateWrappedTwistClient.mockReturnValue({
+                users: {
+                    getSessionUser: vi
+                        .fn()
+                        .mockRejectedValue(new TwistRequestError('Authentication required', 401)),
+                },
+                // biome-ignore lint/suspicious/noExplicitAny: only the methods used in this test matter
+            } as any)
 
             await expect(
-                program.parseAsync(['node', 'tw', 'auth', 'status', '--json']),
-            ).rejects.toThrow('No API token found')
+                programWithSnapshot().parseAsync(['node', 'tw', 'auth', 'status']),
+            ).rejects.toHaveProperty('code', 'NO_TOKEN')
         })
 
-        it('shows not authenticated when no token', async () => {
-            const program = createProgram()
-            mockGetSessionUser.mockRejectedValue(new Error('No API token found'))
+        it('throws NoTokenError when no token is stored at all', async () => {
+            // Drive a store whose `active()` returns null so the
+            // `onNotAuthenticated` branch fires regardless of any keyring /
+            // env state on the host running the tests.
+            const program = new Command()
+            program.exitOverride()
+            const auth = program.command('auth')
+            const emptyStore: TwistTokenStore = {
+                async active() {
+                    return null
+                },
+                async set() {},
+                async clear() {},
+                getLastStorageResult: () => undefined,
+                getLastClearResult: () => undefined,
+            }
+            attachTwistStatusCommand(auth, emptyStore)
 
-            await expect(program.parseAsync(['node', 'tw', 'auth', 'status'])).rejects.toThrow(
-                'No API token found',
-            )
+            await expect(
+                program.parseAsync(['node', 'tw', 'auth', 'status']),
+            ).rejects.toHaveProperty('code', 'NO_TOKEN')
         })
     })
 
@@ -356,6 +432,12 @@ describe('auth command', () => {
     })
 
     describe('logout subcommand', () => {
+        const WARNING_RESULT = {
+            storage: 'config-file' as const,
+            warning:
+                'system credential manager unavailable; local auth state cleared in /home/user/.config/twist-cli/config.json',
+        }
+
         it('clears the API token', async () => {
             const program = createProgram()
             mockClearApiToken.mockResolvedValue({ storage: 'secure-store' })
@@ -363,10 +445,44 @@ describe('auth command', () => {
             await program.parseAsync(['node', 'tw', 'auth', 'logout'])
 
             expect(mockClearApiToken).toHaveBeenCalled()
-            expect(consoleSpy).toHaveBeenCalledWith('✓', 'Logged out')
+            expect(consoleSpy).toHaveBeenCalledWith('✓ Logged out')
             expect(consoleSpy).toHaveBeenCalledWith(
                 'Stored token removed from the system credential manager',
             )
+        })
+
+        it('surfaces keyring-fallback warning to stderr in plain mode', async () => {
+            const program = createProgram()
+            mockClearApiToken.mockResolvedValue(WARNING_RESULT)
+
+            await program.parseAsync(['node', 'tw', 'auth', 'logout'])
+
+            expect(consoleSpy).toHaveBeenCalledWith('✓ Logged out')
+            expect(errorSpy).toHaveBeenCalledWith('Warning:', WARNING_RESULT.warning)
+        })
+
+        it('routes warning to stderr and emits JSON envelope on stdout in --json mode', async () => {
+            const program = createProgram()
+            mockClearApiToken.mockResolvedValue(WARNING_RESULT)
+
+            await program.parseAsync(['node', 'tw', 'auth', 'logout', '--json'])
+
+            const stdoutLines = consoleSpy.mock.calls.map((c: unknown[]) => String(c[0]))
+            expect(stdoutLines).toHaveLength(1)
+            expect(JSON.parse(stdoutLines[0])).toEqual({ ok: true })
+            // Plain "Stored token removed" confirmation must be suppressed under --json.
+            expect(stdoutLines.join('\n')).not.toContain('Stored token removed')
+            expect(errorSpy).toHaveBeenCalledWith('Warning:', WARNING_RESULT.warning)
+        })
+
+        it('routes warning to stderr and keeps stdout silent in --ndjson mode', async () => {
+            const program = createProgram()
+            mockClearApiToken.mockResolvedValue(WARNING_RESULT)
+
+            await program.parseAsync(['node', 'tw', 'auth', 'logout', '--ndjson'])
+
+            expect(consoleSpy).not.toHaveBeenCalled()
+            expect(errorSpy).toHaveBeenCalledWith('Warning:', WARNING_RESULT.warning)
         })
     })
 })

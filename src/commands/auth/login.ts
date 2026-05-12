@@ -4,17 +4,16 @@ import type { Command } from 'commander'
 import { renderError, renderSuccess } from '../../lib/auth-pages.js'
 import {
     createTwistAuthProvider,
-    createTwistTokenStore,
     READ_ONLY_SCOPES,
     READ_WRITE_SCOPES,
+    type TwistTokenStore,
 } from '../../lib/auth-provider.js'
 import { logTokenStorageResult } from './helpers.js'
 
 const PREFERRED_CALLBACK_PORT = 8766
 
-export function attachTwistLoginCommand(parent: Command): Command {
+export function attachTwistLoginCommand(parent: Command, store: TwistTokenStore): Command {
     const provider = createTwistAuthProvider()
-    const store = createTwistTokenStore()
 
     return attachLoginCommand(parent, {
         provider,
@@ -24,16 +23,17 @@ export function attachTwistLoginCommand(parent: Command): Command {
         renderSuccess,
         renderError,
         onSuccess({ view, account }) {
-            // Keep stdout clean for machine consumers — cli-core's `attachLoginCommand`
-            // already wrote the JSON / NDJSON success envelope before this hook runs.
-            if (view.json || view.ndjson) return
-            console.log(chalk.green('✓'), 'OAuth authentication successful!')
-            console.log(chalk.dim(`Logged in as ${account.label}`))
-            const result = store.lastSaveResult
+            const isMachineOutput = view.json || view.ndjson
+            if (!isMachineOutput) {
+                console.log(chalk.green('✓'), 'OAuth authentication successful!')
+                console.log(chalk.dim(`Logged in as ${account.label}`))
+            }
+            const result = store.getLastStorageResult()
             if (result) {
                 logTokenStorageResult(
                     result,
                     'Token stored securely in the system credential manager',
+                    isMachineOutput,
                 )
             }
         },

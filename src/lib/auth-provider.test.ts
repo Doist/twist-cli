@@ -175,15 +175,31 @@ describe('createTwistTokenStore', () => {
         mockClear.mockReset()
     })
 
-    it('active() returns null when no token is stored or when no identity was persisted', async () => {
+    it('active() returns null when no token is stored', async () => {
         mockProbe.mockRejectedValueOnce(new NoTokenError())
         expect(await createTwistTokenStore().active()).toBeNull()
+    })
 
+    it('active() returns null when the system keyring is unavailable', async () => {
+        const { SecureStoreUnavailableError } = await import('./secure-store.js')
+        mockProbe.mockRejectedValueOnce(new SecureStoreUnavailableError('no keyring'))
+        expect(await createTwistTokenStore().active()).toBeNull()
+    })
+
+    it('active() returns a token-only snapshot with placeholder fields when no identity is persisted', async () => {
         mockProbe.mockResolvedValueOnce({
-            token: 'tk',
+            token: 'tk_env',
             metadata: { authMode: 'unknown', source: 'env' },
         })
-        expect(await createTwistTokenStore().active()).toBeNull()
+        expect(await createTwistTokenStore().active()).toEqual({
+            token: 'tk_env',
+            account: {
+                id: '',
+                label: '',
+                authMode: 'unknown',
+                authScope: '',
+            },
+        })
     })
 
     it('active() rebuilds a real TwistAccount from persisted identity', async () => {
@@ -221,12 +237,14 @@ describe('createTwistTokenStore', () => {
             authUserId: 42,
             authUserName: 'Ada',
         })
-        expect(store.lastSaveResult).toEqual({ storage: 'secure-store' })
+        expect(store.getLastStorageResult()).toEqual({ storage: 'secure-store' })
     })
 
-    it('clear() delegates to clearApiToken', async () => {
+    it('clear() delegates to clearApiToken and exposes the result', async () => {
         mockClear.mockResolvedValue({ storage: 'secure-store' })
-        await createTwistTokenStore().clear()
+        const store = createTwistTokenStore()
+        await store.clear()
         expect(mockClear).toHaveBeenCalledTimes(1)
+        expect(store.getLastClearResult()).toEqual({ storage: 'secure-store' })
     })
 })
