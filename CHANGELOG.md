@@ -1,3 +1,9 @@
+## [2.36.5](https://github.com/Doist/twist-cli/compare/v2.36.4...v2.36.5) (2026-05-13)
+
+### Bug Fixes
+
+- guard unreadResp.data against null in channel threads command ([#224](https://github.com/Doist/twist-cli/issues/224)) ([617a617](https://github.com/Doist/twist-cli/commit/617a61770188615d7ce2bfbc63f0329c5ee8ba2f))
+
 ## [2.36.4](https://github.com/Doist/twist-cli/compare/v2.36.3...v2.36.4) (2026-05-13)
 
 ### Bug Fixes
