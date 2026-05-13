@@ -1,7 +1,12 @@
 import type { ArchiveFilter } from '@doist/twist-sdk'
 import chalk from 'chalk'
 import { Command, Option } from 'commander'
-import { getCurrentWorkspaceId, getTwistClient } from '../lib/api.js'
+import {
+    assertBatchData,
+    buildBatchNameMap,
+    getCurrentWorkspaceId,
+    getTwistClient,
+} from '../lib/api.js'
 import { withCaseInsensitiveChoices } from '../lib/completion.js'
 import { formatRelativeDate } from '../lib/dates.js'
 import { CliError } from '../lib/errors.js'
@@ -39,7 +44,7 @@ async function showInbox(workspaceRef: string | undefined, options: InboxOptions
     const client = await getTwistClient()
     const limit = options.limit ? parseInt(options.limit, 10) : 50
 
-    const [threads, unreadData] = await client.batch(
+    const [threadsResponse, unreadResponse] = await client.batch(
         client.inbox.getInbox(
             {
                 workspaceId,
@@ -53,8 +58,10 @@ async function showInbox(workspaceRef: string | undefined, options: InboxOptions
         client.threads.getUnread(workspaceId, { batch: true }),
     )
 
-    const unreadThreadIds = new Set(unreadData.data.map((u) => u.threadId))
-    let inboxThreads = threads.data.map((t) => ({
+    const threads = assertBatchData(threadsResponse, 'inbox threads')
+    const unreadData = assertBatchData(unreadResponse, 'unread threads')
+    const unreadThreadIds = new Set(unreadData.map((u) => u.threadId))
+    let inboxThreads = threads.map((t) => ({
         ...t,
         isUnread: unreadThreadIds.has(t.id),
     }))
@@ -71,7 +78,7 @@ async function showInbox(workspaceRef: string | undefined, options: InboxOptions
     const channelIds = [...new Set(inboxThreads.map((t) => t.channelId))]
     const channelCalls = channelIds.map((id) => client.channels.getChannel(id, { batch: true }))
     const channelResponses = await client.batch(...channelCalls)
-    const channelMap = new Map(channelResponses.map((r) => [r.data.id, r.data.name]))
+    const channelMap = buildBatchNameMap(channelIds, channelResponses, 'channel')
 
     if (!includePrivateChannels()) {
         const publicIds = await getPublicChannelIds(workspaceId)

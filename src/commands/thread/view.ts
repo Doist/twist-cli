@@ -1,6 +1,6 @@
 import type { TwistApi } from '@doist/twist-sdk'
 import chalk from 'chalk'
-import { assertBatchData, getTwistClient } from '../../lib/api.js'
+import { assertBatchData, buildOptionalBatchNameMap, getTwistClient } from '../../lib/api.js'
 import { formatRelativeDate } from '../../lib/dates.js'
 import { renderMarkdown } from '../../lib/markdown.js'
 import type { PaginatedViewOptions } from '../../lib/options.js'
@@ -29,8 +29,8 @@ async function viewSingleComment(
     const thread = assertBatchData(threadResponse, 'thread')
     const comment = assertBatchData(commentResponse, `comment ${commentId}`)
 
-    const userIds = new Set([thread.creator, comment.creator])
-    const userCalls = [...userIds].map((id) =>
+    const userIds = [...new Set([thread.creator, comment.creator])]
+    const userCalls = userIds.map((id) =>
         client.workspaceUsers.getUserById(
             { workspaceId: thread.workspaceId, userId: id },
             { batch: true },
@@ -42,9 +42,7 @@ async function viewSingleComment(
     )
 
     const channel = assertBatchData(channelResponse, 'channel')
-    const userMap = new Map(
-        userResponses.filter((r) => r.data != null).map((r) => [r.data.id, r.data.name]),
-    )
+    const userMap = buildOptionalBatchNameMap(userIds, userResponses, 'user')
 
     if (options.json) {
         const output = {
@@ -135,12 +133,14 @@ export async function viewThread(ref: string, options: ViewOptions): Promise<voi
         }
     }
 
-    const userIds = new Set<number>([
-        thread.creator,
-        ...displayComments.map((c) => c.creator),
-        ...contextComments.map((c) => c.creator),
-    ])
-    const userCalls = [...userIds].map((id) =>
+    const userIds = [
+        ...new Set<number>([
+            thread.creator,
+            ...displayComments.map((c) => c.creator),
+            ...contextComments.map((c) => c.creator),
+        ]),
+    ]
+    const userCalls = userIds.map((id) =>
         client.workspaceUsers.getUserById(
             { workspaceId: thread.workspaceId, userId: id },
             { batch: true },
@@ -152,9 +152,7 @@ export async function viewThread(ref: string, options: ViewOptions): Promise<voi
     )
 
     const channel = assertBatchData(channelResponse, 'channel')
-    const userMap = new Map(
-        userResponses.filter((r) => r.data != null).map((r) => [r.data.id, r.data.name]),
-    )
+    const userMap = buildOptionalBatchNameMap(userIds, userResponses, 'user')
 
     if (options.json) {
         const output = {

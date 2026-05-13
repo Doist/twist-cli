@@ -1,3 +1,4 @@
+import type { BatchResponse as TwistBatchResponse } from '@doist/twist-sdk'
 import { Command } from 'commander'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -72,6 +73,8 @@ function createComment(id: number, objIndex: number) {
         url: `https://twist.com/a/10/ch/100/t/500/c/${id}`,
     }
 }
+
+type BatchResult = Pick<TwistBatchResponse<unknown>, 'code' | 'data'>
 
 function createClient({
     thread = createThreadFixture(500),
@@ -160,28 +163,34 @@ function createClient({
                 },
             ),
         },
-        batch: vi.fn(async (...requests: Array<{ kind: string; id?: number; userId?: number }>) =>
-            requests.map((request) => {
-                if (request.kind === 'thread') return { code: 200, data: thread }
-                if (request.kind === 'comments') return { code: 200, data: comments }
-                if (request.kind === 'comment')
-                    return {
-                        code: 200,
-                        data: comments.find((c) => c.id === request.id) ?? comments[0],
+        batch: vi.fn(
+            async (
+                ...requests: Array<{ kind: string; id?: number; userId?: number }>
+            ): Promise<BatchResult[]> =>
+                requests.map((request): BatchResult => {
+                    if (request.kind === 'thread') return { code: 200, data: thread }
+                    if (request.kind === 'comments') return { code: 200, data: comments }
+                    if (request.kind === 'comment') {
+                        return {
+                            code: 200,
+                            data: comments.find((c) => c.id === request.id) ?? comments[0],
+                        }
                     }
-                if (request.kind === 'channel') return { code: 200, data: channel }
-                if (request.kind === 'sessionUser') return { code: 200, data: sessionUser }
-                if (request.kind === 'user' && request.userId) {
-                    return {
-                        code: 200,
-                        data: users[request.userId] ?? {
-                            id: request.userId,
-                            name: `user:${request.userId}`,
-                        },
+                    if (request.kind === 'channel') return { code: 200, data: channel }
+                    if (request.kind === 'sessionUser') {
+                        return { code: 200, data: sessionUser }
                     }
-                }
-                throw new Error(`Unexpected batch request: ${JSON.stringify(request)}`)
-            }),
+                    if (request.kind === 'user' && request.userId) {
+                        return {
+                            code: 200,
+                            data: users[request.userId] ?? {
+                                id: request.userId,
+                                name: `user:${request.userId}`,
+                            },
+                        }
+                    }
+                    throw new Error(`Unexpected batch request: ${JSON.stringify(request)}`)
+                }),
         ),
     }
 }
@@ -564,6 +573,70 @@ describe('thread view with failed batch response', () => {
         await expect(program.parseAsync(['node', 'tw', 'thread', 'view', '500'])).rejects.toThrow(
             'Failed to fetch thread.',
         )
+
+        consoleSpy.mockRestore()
+    })
+})
+
+describe('thread view with failed user batch response', () => {
+    beforeEach(() => {
+        vi.resetAllMocks()
+    })
+
+    it('throws a clear error when a batched user lookup fails', async () => {
+        const comments = [createComment(1, 1)]
+        const client = createClient({
+            comments,
+            users: {
+                1: { id: 1, name: 'Alice' },
+                2: { id: 2, name: 'Bob' },
+            },
+        })
+        client.batch
+            .mockResolvedValueOnce([
+                { code: 200, data: createThreadFixture(500) },
+                { code: 200, data: comments },
+            ])
+            .mockResolvedValueOnce([
+                { code: 200, data: { id: 100, name: 'General', workspaceId: 10 } },
+                { code: 200, data: { id: 1, name: 'Alice' } },
+                { code: 403, data: { errorString: 'User lookup failed' } },
+            ])
+        apiMocks.getTwistClient.mockResolvedValue(client)
+
+        const program = createProgram()
+
+        await expect(program.parseAsync(['node', 'tw', 'thread', 'view', '500'])).rejects.toThrow(
+            'Failed to fetch user 2: User lookup failed',
+        )
+    })
+
+    it('renders the thread when a user lookup returns null data with a success code', async () => {
+        const comments = [createComment(1, 1), createComment(2, 2)]
+        const client = createClient({
+            comments,
+            users: { 1: { id: 1, name: 'Alice' } },
+        })
+        client.batch
+            .mockResolvedValueOnce([
+                { code: 200, data: createThreadFixture(500) },
+                { code: 200, data: comments },
+            ])
+            .mockResolvedValueOnce([
+                { code: 200, data: { id: 100, name: 'General', workspaceId: 10 } },
+                { code: 200, data: { id: 1, name: 'Alice' } },
+                { code: 200, data: null },
+            ])
+        apiMocks.getTwistClient.mockResolvedValue(client)
+
+        const program = createProgram()
+        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+        await program.parseAsync(['node', 'tw', 'thread', 'view', '500'])
+
+        const output = consoleSpy.mock.calls.map((c) => c[0]).join('\n')
+        expect(output).toContain('Alice')
+        expect(output).toContain('user:2')
 
         consoleSpy.mockRestore()
     })

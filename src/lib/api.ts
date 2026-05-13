@@ -1,4 +1,5 @@
 import {
+    type BatchResponse,
     type Group,
     TwistApi,
     type User,
@@ -344,17 +345,85 @@ export function clearUserCache(): void {
     sessionUserCache = null
 }
 
+type BatchResult<T> = Pick<BatchResponse<T>, 'code' | 'data'>
+
+function extractBatchErrorMessage(data: unknown): string | null {
+    if (!data || typeof data !== 'object') {
+        return null
+    }
+
+    const record = data as Record<string, unknown>
+
+    if (typeof record.errorString === 'string' && record.errorString.trim()) {
+        return record.errorString.trim()
+    }
+
+    if (typeof record.error_string === 'string' && record.error_string.trim()) {
+        return record.error_string.trim()
+    }
+
+    if (Array.isArray(record.error)) {
+        const [, message] = record.error
+        if (typeof message === 'string' && message.trim()) {
+            return message.trim()
+        }
+    }
+
+    return null
+}
+
 /**
  * Validates a batch response and returns the data, throwing on errors.
  * Also handles the case where the SDK fails to validate the response schema
  * (e.g. when the batch API wraps entities in a key like `{comment: {...}}`).
  * In that case, the raw transformed data is returned — check for expected fields.
  */
-export function assertBatchData<T>(response: { code: number; data: T }, label: string): T {
-    if (response.code >= 400 || response.data == null) {
-        throw new CliError('BATCH_FAILED', `Failed to fetch ${label}.`)
+export function assertBatchData<T>(response: BatchResult<T>, label: string): T {
+    if (response.code < 400 && response.data != null) {
+        return response.data
     }
-    return response.data
+
+    const detail = extractBatchErrorMessage(response.data)
+    if (detail) {
+        throw new CliError('API_ERROR', `Failed to fetch ${label}: ${detail}`)
+    }
+
+    throw new CliError('BATCH_FAILED', `Failed to fetch ${label}.`)
+}
+
+export function buildBatchNameMap<T extends { id: number; name: string }>(
+    ids: readonly number[],
+    responses: readonly BatchResult<T>[],
+    label: string,
+): Map<number, string> {
+    return new Map(
+        ids.map((id, index) => {
+            const entity = assertBatchData(responses[index], `${label} ${id}`)
+            return [entity.id, entity.name] as const
+        }),
+    )
+}
+
+/**
+ * Like `buildBatchNameMap` but skips entries whose `data` is null with a success
+ * code (e.g. a user that no longer exists). Real API errors (`code >= 400`) still
+ * throw via `assertBatchData`. Callers should provide a fallback for missing keys.
+ */
+export function buildOptionalBatchNameMap<T extends { id: number; name: string }>(
+    ids: readonly number[],
+    responses: readonly BatchResult<T>[],
+    label: string,
+): Map<number, string> {
+    const entries: Array<readonly [number, string]> = []
+    ids.forEach((id, index) => {
+        const response = responses[index]
+        if (response.code < 400 && response.data == null) {
+            return
+        }
+        const entity = assertBatchData(response, `${label} ${id}`)
+        entries.push([entity.id, entity.name] as const)
+    })
+    return new Map(entries)
 }
 
 export type { Group, User, Workspace, WorkspaceUser }

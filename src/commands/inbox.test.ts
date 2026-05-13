@@ -7,9 +7,9 @@ const apiMocks = vi.hoisted(() => ({
     getCurrentWorkspaceId: vi.fn(),
 }))
 
-vi.mock('../lib/api.js', () => ({
-    getTwistClient: apiMocks.getTwistClient,
-    getCurrentWorkspaceId: apiMocks.getCurrentWorkspaceId,
+vi.mock('../lib/api.js', async (importOriginal) => ({
+    ...(await importOriginal<typeof import('../lib/api.js')>()),
+    ...apiMocks,
 }))
 
 vi.mock('../lib/refs.js', () => ({
@@ -60,7 +60,10 @@ describe('inbox --archive-filter', () => {
         apiMocks.getCurrentWorkspaceId.mockResolvedValue(1)
         mockGetInbox.mockReturnValue({ data: [] })
         mockGetUnread.mockReturnValue({ data: [] })
-        mockBatch.mockResolvedValue([{ data: [] }, { data: [] }])
+        mockBatch.mockResolvedValue([
+            { code: 200, data: [] },
+            { code: 200, data: [] },
+        ])
         apiMocks.getTwistClient.mockResolvedValue({
             inbox: { getInbox: mockGetInbox },
             threads: { getUnread: mockGetUnread },
@@ -121,7 +124,10 @@ describeEmptyMachineOutput('inbox empty output', {
         vi.clearAllMocks()
         apiMocks.getCurrentWorkspaceId.mockResolvedValue(1)
         emptyInboxMockBatch.mockImplementation((..._calls: unknown[]) =>
-            Promise.resolve([{ data: [] }, { data: [] }]),
+            Promise.resolve([
+                { code: 200, data: [] },
+                { code: 200, data: [] },
+            ]),
         )
         apiMocks.getTwistClient.mockResolvedValue({
             inbox: { getInbox: vi.fn().mockReturnValue({ data: [] }) },
@@ -152,8 +158,11 @@ describe('inbox empty output (channel filter)', () => {
             url: 'http://example/t',
         }
         mockBatch
-            .mockResolvedValueOnce([{ data: [thread] }, { data: [] }])
-            .mockResolvedValueOnce([{ data: { id: 10, name: 'engineering' } }])
+            .mockResolvedValueOnce([
+                { code: 200, data: [thread] },
+                { code: 200, data: [] },
+            ])
+            .mockResolvedValueOnce([{ code: 200, data: { id: 10, name: 'engineering' } }])
         apiMocks.getTwistClient.mockResolvedValue({
             inbox: { getInbox: vi.fn() },
             threads: { getUnread: vi.fn() },
@@ -169,5 +178,38 @@ describe('inbox empty output (channel filter)', () => {
 
         expect(logSpy).toHaveBeenCalledTimes(1)
         expect(logSpy).toHaveBeenCalledWith('[]')
+    })
+})
+
+describe('inbox batch errors', () => {
+    beforeEach(() => {
+        vi.clearAllMocks()
+        apiMocks.getCurrentWorkspaceId.mockResolvedValue(1)
+    })
+
+    it('surfaces the API error instead of crashing when a batch request fails', async () => {
+        const mockBatch = vi.fn().mockResolvedValue([
+            { code: 400, data: { errorString: 'limit must be less than or equal to 500' } },
+            { code: 200, data: [] },
+        ])
+        apiMocks.getTwistClient.mockResolvedValue({
+            inbox: {
+                getInbox: vi.fn((_args: unknown, options?: { batch?: boolean }) =>
+                    options?.batch ? { kind: 'inbox' } : Promise.resolve([]),
+                ),
+            },
+            threads: {
+                getUnread: vi.fn((_workspaceId: number, options?: { batch?: boolean }) =>
+                    options?.batch ? { kind: 'unread' } : Promise.resolve([]),
+                ),
+            },
+            batch: mockBatch,
+        })
+
+        const program = createProgram()
+
+        await expect(
+            program.parseAsync(['node', 'tw', 'inbox', '--unread', '--limit', '1000']),
+        ).rejects.toThrow('Failed to fetch inbox threads: limit must be less than or equal to 500')
     })
 })

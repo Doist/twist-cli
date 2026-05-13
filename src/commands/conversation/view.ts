@@ -1,5 +1,5 @@
 import chalk from 'chalk'
-import { getTwistClient } from '../../lib/api.js'
+import { assertBatchData, buildOptionalBatchNameMap, getTwistClient } from '../../lib/api.js'
 import { formatRelativeDate } from '../../lib/dates.js'
 import { renderMarkdown } from '../../lib/markdown.js'
 import { colors, filterEntityFields } from '../../lib/output.js'
@@ -25,18 +25,23 @@ export async function viewConversation(
         ),
     )
 
-    const conversation = convResponse.data
-    const messages = messagesResponse.data
+    const conversation = assertBatchData(convResponse, `conversation ${conversationId}`)
+    const messages = assertBatchData(
+        messagesResponse,
+        `messages for conversation ${conversationId}`,
+    )
 
-    const userIds = new Set<number>([...conversation.userIds, ...messages.map((m) => m.creator)])
-    const userCalls = [...userIds].map((id) =>
+    const userIds = [
+        ...new Set<number>([...conversation.userIds, ...messages.map((m) => m.creator)]),
+    ]
+    const userCalls = userIds.map((id) =>
         client.workspaceUsers.getUserById(
             { workspaceId: conversation.workspaceId, userId: id },
             { batch: true },
         ),
     )
     const userResponses = await client.batch(...userCalls)
-    const userMap = new Map(userResponses.map((r) => [r.data.id, r.data.name]))
+    const userMap = buildOptionalBatchNameMap(userIds, userResponses, 'user')
     const conversationOutput = {
         ...conversation,
         participantNames: conversation.userIds.map((id) => userMap.get(id)),

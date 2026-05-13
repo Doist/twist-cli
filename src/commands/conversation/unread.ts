@@ -1,5 +1,10 @@
 import chalk from 'chalk'
-import { getCurrentWorkspaceId, getTwistClient } from '../../lib/api.js'
+import {
+    assertBatchData,
+    buildOptionalBatchNameMap,
+    getCurrentWorkspaceId,
+    getTwistClient,
+} from '../../lib/api.js'
 import { CliError } from '../../lib/errors.js'
 import { isAccessible } from '../../lib/global-args.js'
 import { colors, formatJson, formatNdjson, printEmpty } from '../../lib/output.js'
@@ -39,7 +44,12 @@ export async function showUnread(
         client.conversations.getConversation(uc.conversationId, { batch: true }),
     )
     const conversationResponses = await client.batch(...conversationCalls)
-    const conversations = conversationResponses.map((r) => r.data)
+    const conversations = unreadConversations.map((conversation, index) =>
+        assertBatchData(
+            conversationResponses[index],
+            `conversation ${conversation.conversationId}`,
+        ),
+    )
 
     const userIds = new Set<number>()
     for (const conv of conversations) {
@@ -48,11 +58,12 @@ export async function showUnread(
         }
     }
 
-    const userCalls = [...userIds].map((id) =>
+    const userIdList = [...userIds]
+    const userCalls = userIdList.map((id) =>
         client.workspaceUsers.getUserById({ workspaceId, userId: id }, { batch: true }),
     )
     const userResponses = await client.batch(...userCalls)
-    const userMap = new Map(userResponses.map((r) => [r.data.id, r.data.name]))
+    const userMap = buildOptionalBatchNameMap(userIdList, userResponses, 'user')
 
     if (options.json) {
         const output = conversations.map((c) => ({
