@@ -1,3 +1,9 @@
+## [2.36.4](https://github.com/Doist/twist-cli/compare/v2.36.3...v2.36.4) (2026-05-13)
+
+### Bug Fixes
+
+- surface batch API errors in commands ([#159](https://github.com/Doist/twist-cli/issues/159)) ([3b30c3c](https://github.com/Doist/twist-cli/commit/3b30c3ccc17138b257e850562b4e80e500c68d34))
+
 ## [2.36.3](https://github.com/Doist/twist-cli/compare/v2.36.2...v2.36.3) (2026-05-09)
 
 ### Bug Fixes
