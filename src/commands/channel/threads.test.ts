@@ -11,9 +11,9 @@ const refsMocks = vi.hoisted(() => ({
     resolveChannelRef: vi.fn(),
 }))
 
-vi.mock('../../lib/api.js', () => ({
-    getTwistClient: apiMocks.getTwistClient,
-    getCurrentWorkspaceId: apiMocks.getCurrentWorkspaceId,
+vi.mock('../../lib/api.js', async (importOriginal) => ({
+    ...(await importOriginal<typeof import('../../lib/api.js')>()),
+    ...apiMocks,
 }))
 
 vi.mock('../../lib/refs.js', () => ({
@@ -89,11 +89,14 @@ function setupClient({
     unread = [],
 }: {
     threads?: Thread[]
-    unread?: { threadId: number }[]
+    unread?: { threadId: number }[] | null
 } = {}) {
     const mockGetThreads = vi.fn().mockReturnValue('threads-descriptor')
     const mockGetUnread = vi.fn().mockReturnValue('unread-descriptor')
-    const mockBatch = vi.fn().mockResolvedValue([{ data: threads }, { data: unread }])
+    const mockBatch = vi.fn().mockResolvedValue([
+        { code: 200, data: threads },
+        { code: 200, data: unread },
+    ])
 
     apiMocks.getTwistClient.mockResolvedValue({
         threads: { getThreads: mockGetThreads, getUnread: mockGetUnread },
@@ -549,12 +552,7 @@ describe('channel threads', () => {
     })
 
     it('does not crash when unreadResp.data is null (regression: batch getUnread returning null)', async () => {
-        const mockGetThreads = vi.fn().mockReturnValue('threads-descriptor')
-        const mockGetUnread = vi.fn().mockReturnValue('unread-descriptor')
-        apiMocks.getTwistClient.mockResolvedValue({
-            threads: { getThreads: mockGetThreads, getUnread: mockGetUnread },
-            batch: vi.fn().mockResolvedValue([{ data: [createThread(1)] }, { data: null }]),
-        })
+        setupClient({ threads: [createThread(1)], unread: null })
         const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
         const program = createProgram()
 
@@ -567,6 +565,25 @@ describe('channel threads', () => {
         expect(output.results[0].isUnread).toBe(false)
 
         consoleSpy.mockRestore()
+    })
+
+    it('surfaces API error when threads batch sub-request fails', async () => {
+        const mockBatch = vi.fn().mockResolvedValue([
+            { code: 403, data: { errorString: 'Channel access denied' } },
+            { code: 200, data: [] },
+        ])
+        apiMocks.getTwistClient.mockResolvedValue({
+            threads: {
+                getThreads: vi.fn().mockReturnValue('threads-descriptor'),
+                getUnread: vi.fn().mockReturnValue('unread-descriptor'),
+            },
+            batch: mockBatch,
+        })
+        const program = createProgram()
+
+        await expect(
+            program.parseAsync(['node', 'tw', 'channel', 'threads', '12345', '--json']),
+        ).rejects.toThrow('Failed to fetch threads: Channel access denied')
     })
 
     it('--full bypasses the essential-field filter in JSON output', async () => {

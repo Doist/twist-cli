@@ -405,6 +405,19 @@ export function buildBatchNameMap<T extends { id: number; name: string }>(
 }
 
 /**
+ * Like `assertBatchData` but tolerates a null `data` with a success code as a
+ * valid empty state (e.g. `getUnread` returning null when there are no unread
+ * threads). Real API errors (`code >= 400`) still throw. Returns `null` when
+ * the response is a success-but-empty so the caller can fall back (e.g. `?? []`).
+ */
+export function getOptionalBatchData<T>(response: BatchResult<T>, label: string): T | null {
+    if (response.code < 400) {
+        return response.data ?? null
+    }
+    return assertBatchData(response, label)
+}
+
+/**
  * Like `buildBatchNameMap` but skips entries whose `data` is null with a success
  * code (e.g. a user that no longer exists). Real API errors (`code >= 400`) still
  * throw via `assertBatchData`. Callers should provide a fallback for missing keys.
