@@ -5,6 +5,7 @@ import {
     assertBatchData,
     buildBatchNameMap,
     getCurrentWorkspaceId,
+    getOptionalBatchData,
     getTwistClient,
 } from '../lib/api.js'
 import { withCaseInsensitiveChoices } from '../lib/completion.js'
@@ -59,7 +60,7 @@ async function showInbox(workspaceRef: string | undefined, options: InboxOptions
     )
 
     const threads = assertBatchData(threadsResponse, 'inbox threads')
-    const unreadData = assertBatchData(unreadResponse, 'unread threads')
+    const unreadData = getOptionalBatchData(unreadResponse, 'unread threads') ?? []
     const unreadThreadIds = new Set(unreadData.map((u) => u.threadId))
     let inboxThreads = threads.map((t) => ({
         ...t,

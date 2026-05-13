@@ -212,4 +212,45 @@ describe('inbox batch errors', () => {
             program.parseAsync(['node', 'tw', 'inbox', '--unread', '--limit', '1000']),
         ).rejects.toThrow('Failed to fetch inbox threads: limit must be less than or equal to 500')
     })
+
+    it('treats a null unread batch response as no unread threads', async () => {
+        const thread = {
+            id: 1,
+            channelId: 10,
+            title: 't',
+            posted: '2026-05-01T00:00:00Z',
+            url: 'http://example/t',
+        }
+        const mockBatch = vi
+            .fn()
+            .mockResolvedValueOnce([
+                { code: 200, data: [thread] },
+                { code: 200, data: null },
+            ])
+            .mockResolvedValueOnce([{ code: 200, data: { id: 10, name: 'engineering' } }])
+        apiMocks.getTwistClient.mockResolvedValue({
+            inbox: {
+                getInbox: vi.fn((_args: unknown, options?: { batch?: boolean }) =>
+                    options?.batch ? { kind: 'inbox' } : Promise.resolve([]),
+                ),
+            },
+            threads: {
+                getUnread: vi.fn((_workspaceId: number, options?: { batch?: boolean }) =>
+                    options?.batch ? { kind: 'unread' } : Promise.resolve([]),
+                ),
+            },
+            channels: { getChannel: vi.fn() },
+            batch: mockBatch,
+        })
+        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+        const program = createProgram()
+
+        await program.parseAsync(['node', 'tw', 'inbox', '--json'])
+
+        const output = JSON.parse(consoleSpy.mock.calls[0][0])
+        expect(output).toHaveLength(1)
+        expect(output[0]).toMatchObject({ id: 1, isUnread: false })
+
+        consoleSpy.mockRestore()
+    })
 })
