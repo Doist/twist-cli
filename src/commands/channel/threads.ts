@@ -86,7 +86,7 @@ export async function showChannelThreads(
         client.threads.getUnread(workspaceId, { batch: true }),
     )
 
-    const unreadThreadIds = new Set(unreadResp.data.map((u) => u.threadId))
+    const unreadThreadIds = new Set((unreadResp.data ?? []).map((u) => u.threadId))
     let threads: DecoratedThread[] = threadsResp.data.map((t) => ({
         ...t,
         isUnread: unreadThreadIds.has(t.id),

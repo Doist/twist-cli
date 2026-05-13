@@ -548,6 +548,27 @@ describe('channel threads', () => {
         consoleSpy.mockRestore()
     })
 
+    it('does not crash when unreadResp.data is null (regression: batch getUnread returning null)', async () => {
+        const mockGetThreads = vi.fn().mockReturnValue('threads-descriptor')
+        const mockGetUnread = vi.fn().mockReturnValue('unread-descriptor')
+        apiMocks.getTwistClient.mockResolvedValue({
+            threads: { getThreads: mockGetThreads, getUnread: mockGetUnread },
+            batch: vi.fn().mockResolvedValue([{ data: [createThread(1)] }, { data: null }]),
+        })
+        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+        const program = createProgram()
+
+        await expect(
+            program.parseAsync(['node', 'tw', 'channel', 'threads', '12345', '--json']),
+        ).resolves.not.toThrow()
+
+        const output = JSON.parse(consoleSpy.mock.calls[0][0])
+        expect(output.results).toHaveLength(1)
+        expect(output.results[0].isUnread).toBe(false)
+
+        consoleSpy.mockRestore()
+    })
+
     it('--full bypasses the essential-field filter in JSON output', async () => {
         setupClient({
             threads: [createThread(1, { pinned: true })],
