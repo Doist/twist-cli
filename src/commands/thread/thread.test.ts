@@ -610,6 +610,36 @@ describe('thread view with failed user batch response', () => {
             'Failed to fetch user 2: User lookup failed',
         )
     })
+
+    it('renders the thread when a user lookup returns null data with a success code', async () => {
+        const comments = [createComment(1, 1), createComment(2, 2)]
+        const client = createClient({
+            comments,
+            users: { 1: { id: 1, name: 'Alice' } },
+        })
+        client.batch
+            .mockResolvedValueOnce([
+                { code: 200, data: createThreadFixture(500) },
+                { code: 200, data: comments },
+            ])
+            .mockResolvedValueOnce([
+                { code: 200, data: { id: 100, name: 'General', workspaceId: 10 } },
+                { code: 200, data: { id: 1, name: 'Alice' } },
+                { code: 200, data: null },
+            ])
+        apiMocks.getTwistClient.mockResolvedValue(client)
+
+        const program = createProgram()
+        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+        await program.parseAsync(['node', 'tw', 'thread', 'view', '500'])
+
+        const output = consoleSpy.mock.calls.map((c) => c[0]).join('\n')
+        expect(output).toContain('Alice')
+        expect(output).toContain('user:2')
+
+        consoleSpy.mockRestore()
+    })
 })
 
 describe('thread create', () => {

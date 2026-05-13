@@ -1,6 +1,6 @@
 import type { TwistApi } from '@doist/twist-sdk'
 import chalk from 'chalk'
-import { assertBatchData, buildBatchNameMap, getTwistClient } from '../../lib/api.js'
+import { assertBatchData, buildOptionalBatchNameMap, getTwistClient } from '../../lib/api.js'
 import { formatRelativeDate } from '../../lib/dates.js'
 import { renderMarkdown } from '../../lib/markdown.js'
 import type { PaginatedViewOptions } from '../../lib/options.js'
@@ -42,7 +42,7 @@ async function viewSingleComment(
     )
 
     const channel = assertBatchData(channelResponse, 'channel')
-    const userMap = buildBatchNameMap(userIds, userResponses, 'user')
+    const userMap = buildOptionalBatchNameMap(userIds, userResponses, 'user')
 
     if (options.json) {
         const output = {
@@ -152,7 +152,7 @@ export async function viewThread(ref: string, options: ViewOptions): Promise<voi
     )
 
     const channel = assertBatchData(channelResponse, 'channel')
-    const userMap = buildBatchNameMap(userIds, userResponses, 'user')
+    const userMap = buildOptionalBatchNameMap(userIds, userResponses, 'user')
 
     if (options.json) {
         const output = {

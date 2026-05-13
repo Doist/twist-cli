@@ -404,4 +404,26 @@ export function buildBatchNameMap<T extends { id: number; name: string }>(
     )
 }
 
+/**
+ * Like `buildBatchNameMap` but skips entries whose `data` is null with a success
+ * code (e.g. a user that no longer exists). Real API errors (`code >= 400`) still
+ * throw via `assertBatchData`. Callers should provide a fallback for missing keys.
+ */
+export function buildOptionalBatchNameMap<T extends { id: number; name: string }>(
+    ids: readonly number[],
+    responses: readonly BatchResult<T>[],
+    label: string,
+): Map<number, string> {
+    const entries: Array<readonly [number, string]> = []
+    ids.forEach((id, index) => {
+        const response = responses[index]
+        if (response.code < 400 && response.data == null) {
+            return
+        }
+        const entity = assertBatchData(response, `${label} ${id}`)
+        entries.push([entity.id, entity.name] as const)
+    })
+    return new Map(entries)
+}
+
 export type { Group, User, Workspace, WorkspaceUser }

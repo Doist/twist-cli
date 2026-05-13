@@ -1,7 +1,7 @@
 import chalk from 'chalk'
 import {
     assertBatchData,
-    buildBatchNameMap,
+    buildOptionalBatchNameMap,
     getCurrentWorkspaceId,
     getTwistClient,
 } from '../../lib/api.js'
@@ -63,7 +63,7 @@ export async function showUnread(
         client.workspaceUsers.getUserById({ workspaceId, userId: id }, { batch: true }),
     )
     const userResponses = await client.batch(...userCalls)
-    const userMap = buildBatchNameMap(userIdList, userResponses, 'user')
+    const userMap = buildOptionalBatchNameMap(userIdList, userResponses, 'user')
 
     if (options.json) {
         const output = conversations.map((c) => ({

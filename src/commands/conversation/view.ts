@@ -1,5 +1,5 @@
 import chalk from 'chalk'
-import { assertBatchData, buildBatchNameMap, getTwistClient } from '../../lib/api.js'
+import { assertBatchData, buildOptionalBatchNameMap, getTwistClient } from '../../lib/api.js'
 import { formatRelativeDate } from '../../lib/dates.js'
 import { renderMarkdown } from '../../lib/markdown.js'
 import { colors, filterEntityFields } from '../../lib/output.js'
@@ -41,7 +41,7 @@ export async function viewConversation(
         ),
     )
     const userResponses = await client.batch(...userCalls)
-    const userMap = buildBatchNameMap(userIds, userResponses, 'user')
+    const userMap = buildOptionalBatchNameMap(userIds, userResponses, 'user')
     const conversationOutput = {
         ...conversation,
         participantNames: conversation.userIds.map((id) => userMap.get(id)),
