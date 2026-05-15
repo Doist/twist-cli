@@ -37,7 +37,10 @@ type TwSpecificFlags = {
  * Commander — exposing them in the type would lie about what the binary
  * supports.
  */
-export type TwGlobalArgs = Pick<CoreGlobalArgs, 'json' | 'ndjson' | 'accessible' | 'noSpinner'> &
+export type TwGlobalArgs = Pick<
+    CoreGlobalArgs,
+    'json' | 'ndjson' | 'accessible' | 'noSpinner' | 'user'
+> &
     TwSpecificFlags
 
 /** Back-compat alias — pre-cli-core twist code imported `GlobalArgs` from this module. */

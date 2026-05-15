@@ -1,4 +1,5 @@
 import {
+    type AccountRef,
     type AuthAccount,
     type AuthProvider,
     deriveChallenge,
@@ -274,8 +275,29 @@ export type TwistTokenStore = TokenStore<TwistAccount> & {
 export function createTwistTokenStore(): TwistTokenStore {
     let lastStorageResult: TokenStorageResult | undefined
     let lastClearResult: TokenStorageResult | undefined
+    async function loadSnapshot(): Promise<{ token: string; account: TwistAccount } | null> {
+        try {
+            const { token, metadata } = await probeApiToken()
+            return {
+                token,
+                account: {
+                    id: metadata.authUserId !== undefined ? String(metadata.authUserId) : '',
+                    label: metadata.authUserName ?? '',
+                    authMode: metadata.authMode,
+                    authScope: metadata.authScope ?? '',
+                },
+            }
+        } catch (error) {
+            if (error instanceof NoTokenError) return null
+            if (error instanceof SecureStoreUnavailableError) return null
+            throw error
+        }
+    }
+    function matchesRef(account: TwistAccount, ref: AccountRef): boolean {
+        return account.id === ref || account.label === ref
+    }
     return {
-        async active() {
+        async active(ref?: AccountRef) {
             // Return a snapshot whenever a token resolves — even if the
             // persisted identity is missing (env var, manual `tw auth token`,
             // pre-upgrade config). Callers downstream (e.g. status's
@@ -290,22 +312,10 @@ export function createTwistTokenStore(): TwistTokenStore {
             // the standard `NoTokenError` envelope instead of leaking the raw
             // secure-store error — matching the legacy `getApiToken`
             // behaviour the prior `showStatus()` relied on.
-            try {
-                const { token, metadata } = await probeApiToken()
-                return {
-                    token,
-                    account: {
-                        id: metadata.authUserId !== undefined ? String(metadata.authUserId) : '',
-                        label: metadata.authUserName ?? '',
-                        authMode: metadata.authMode,
-                        authScope: metadata.authScope ?? '',
-                    },
-                }
-            } catch (error) {
-                if (error instanceof NoTokenError) return null
-                if (error instanceof SecureStoreUnavailableError) return null
-                throw error
-            }
+            const snapshot = await loadSnapshot()
+            if (!snapshot) return null
+            if (ref !== undefined && !matchesRef(snapshot.account, ref)) return null
+            return snapshot
         },
         async set(account, token) {
             const userId = Number(account.id)
@@ -316,8 +326,26 @@ export function createTwistTokenStore(): TwistTokenStore {
                 authUserName: account.label,
             })
         },
-        async clear() {
+        async clear(ref?: AccountRef) {
+            if (ref !== undefined) {
+                const snapshot = await loadSnapshot()
+                if (!snapshot || !matchesRef(snapshot.account, ref)) {
+                    lastClearResult = undefined
+                    return
+                }
+            }
             lastClearResult = await clearApiToken()
+        },
+        async list() {
+            const snapshot = await loadSnapshot()
+            return snapshot ? [{ account: snapshot.account, isDefault: true }] : []
+        },
+        async setDefault(ref: AccountRef) {
+            const snapshot = await loadSnapshot()
+            if (!snapshot || !matchesRef(snapshot.account, ref)) {
+                throw new CliError('ACCOUNT_NOT_FOUND', `No stored account matches "${ref}".`)
+            }
+            // Single-user store — already the default.
         },
         getLastStorageResult() {
             return lastStorageResult
