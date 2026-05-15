@@ -1,3 +1,9 @@
+## [2.37.0](https://github.com/Doist/twist-cli/compare/v2.36.5...v2.37.0) (2026-05-15)
+
+### Features
+
+- **auth:** adopt cli-core 0.12.0 multi-user TokenStore shape ([#225](https://github.com/Doist/twist-cli/issues/225)) ([f5e806e](https://github.com/Doist/twist-cli/commit/f5e806e766f43aa0d603f7e6b9a3acca08c43ad6))
+
 ## [2.36.5](https://github.com/Doist/twist-cli/compare/v2.36.4...v2.36.5) (2026-05-13)
 
 ### Bug Fixes
