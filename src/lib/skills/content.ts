@@ -26,8 +26,11 @@ tw auth login --ndjson           # Emit an NDJSON envelope for scripted / agent 
 tw auth token                    # Save API token manually (prompts securely; scope unknown, assumed write-capable)
 tw auth status                   # Verify authentication + show mode
 tw auth status --json            # Full status payload as JSON (--ndjson also supported)
+tw auth status --user <ref>      # Target a specific stored account (id, id:<n>, or display name)
 tw auth logout                   # Remove saved token and auth metadata
 tw auth logout --json            # Emits \`{"ok": true}\` (--ndjson is silent)
+tw auth logout --user <ref>      # Target a specific stored account; mismatched ref errors with ACCOUNT_NOT_FOUND
+tw auth token --user <ref>       # Print the saved token for a specific stored account
 tw workspaces                    # List available workspaces
 tw workspace use <ref>           # Set current workspace
 tw completion install            # Install shell completions

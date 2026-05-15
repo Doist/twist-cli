@@ -33,6 +33,7 @@ export type ErrorCode =
     | 'INVALID_NAME'
     | 'MISSING_USERS'
     // Not found
+    | 'ACCOUNT_NOT_FOUND'
     | 'CHANNEL_NOT_FOUND'
     | 'GROUP_NOT_FOUND'
     | 'NOT_FOUND'
