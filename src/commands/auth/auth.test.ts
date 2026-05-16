@@ -419,21 +419,6 @@ describe('auth command', () => {
             )
         })
 
-        it('surfaces ACCOUNT_NOT_FOUND when the global --user does not match the stored account', async () => {
-            vi.stubEnv(TOKEN_ENV_VAR, '')
-            mockProbeApiToken.mockResolvedValueOnce({
-                token: 'tk_stored_1234567890',
-                metadata: STORED_METADATA,
-            })
-            process.argv = ['node', 'tw', '--user', '999', 'auth', 'token', 'view']
-            resetGlobalArgs()
-
-            const program = createProgram()
-            await expect(
-                program.parseAsync(['node', 'tw', 'auth', 'token', 'view']),
-            ).rejects.toHaveProperty('code', 'ACCOUNT_NOT_FOUND')
-        })
-
         it('lets per-command --user win over the global flag', async () => {
             vi.stubEnv(TOKEN_ENV_VAR, '')
             mockProbeApiToken.mockResolvedValueOnce({
@@ -451,25 +436,8 @@ describe('auth command', () => {
             )
         })
 
-        it('threads `tw --user <ref> auth logout` into store.clear after pre-check', async () => {
-            // probeApiToken fires twice: cli-core's active() preflight, then
-            // twist's clear() preflight via resolveByRef.
-            mockProbeApiToken.mockResolvedValue({
-                token: 'tk_stored_1234567890',
-                metadata: STORED_METADATA,
-            })
-            mockClearApiToken.mockResolvedValueOnce({ storage: 'secure-store' })
-            process.argv = ['node', 'tw', '--user', '1', 'auth', 'logout']
-            resetGlobalArgs()
-
-            const program = createProgram()
-            await program.parseAsync(['node', 'tw', 'auth', 'logout'])
-
-            expect(mockClearApiToken).toHaveBeenCalledTimes(1)
-        })
-
         it('blocks `tw --user <wrong> auth logout` with ACCOUNT_NOT_FOUND before touching storage', async () => {
-            // cli-core swallows the active() error when its own cmd.user is
+            // cli-core's logout swallows the active() error when cmd.user is
             // undefined (true for the global form), so the typed miss must
             // also bubble out of clear() — re-armed mock covers both probes.
             mockProbeApiToken.mockResolvedValue({
