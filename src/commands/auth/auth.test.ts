@@ -66,6 +66,7 @@ import {
     saveApiToken,
     TOKEN_ENV_VAR,
 } from '../../lib/auth.js'
+import { resetGlobalArgs } from '../../lib/global-args.js'
 import { registerAuthCommand } from './index.js'
 import { attachTwistStatusCommand } from './status.js'
 
@@ -371,6 +372,131 @@ describe('auth command', () => {
             ).rejects.toHaveProperty('code', 'ACCOUNT_NOT_FOUND')
 
             expect(stdoutPayload()).toBe('')
+        })
+    })
+
+    describe('global --user flag', () => {
+        // The global form (`tw --user <ref> <subcommand>`) is parsed by
+        // cli-core's global-args layer at `src/index.ts` startup time. Tests
+        // simulate that step by mutating `process.argv` + calling
+        // `resetGlobalArgs()` so the cached parser snapshot is rebuilt from
+        // the new argv. The argv passed to `program.parseAsync` is the
+        // already-stripped form commander would actually see — the global
+        // flag must NOT appear there.
+        const STORED_METADATA = {
+            authMode: 'read-write' as const,
+            authScope: 'user:read',
+            authUserId: 1,
+            authUserName: 'Test User',
+            source: 'secure-store' as const,
+        }
+
+        let originalArgv: string[]
+        let writeSpy: ReturnType<typeof vi.spyOn>
+
+        beforeEach(() => {
+            originalArgv = process.argv
+            writeSpy = vi.spyOn(process.stdout, 'write').mockImplementation(() => true)
+        })
+
+        afterEach(() => {
+            process.argv = originalArgv
+            resetGlobalArgs()
+            writeSpy.mockRestore()
+            vi.unstubAllEnvs()
+        })
+
+        it('threads `tw --user <ref> auth token view` into store.active', async () => {
+            vi.stubEnv(TOKEN_ENV_VAR, '')
+            mockProbeApiToken.mockResolvedValueOnce({
+                token: 'tk_stored_1234567890',
+                metadata: STORED_METADATA,
+            })
+            process.argv = ['node', 'tw', '--user', '1', 'auth', 'token', 'view']
+            resetGlobalArgs()
+
+            const program = createProgram()
+            await program.parseAsync(['node', 'tw', 'auth', 'token', 'view'])
+
+            expect(writeSpy.mock.calls.map((c: unknown[]) => String(c[0])).join('')).toBe(
+                'tk_stored_1234567890',
+            )
+        })
+
+        it('surfaces ACCOUNT_NOT_FOUND when the global --user does not match the stored account', async () => {
+            vi.stubEnv(TOKEN_ENV_VAR, '')
+            mockProbeApiToken.mockResolvedValueOnce({
+                token: 'tk_stored_1234567890',
+                metadata: STORED_METADATA,
+            })
+            process.argv = ['node', 'tw', '--user', '999', 'auth', 'token', 'view']
+            resetGlobalArgs()
+
+            const program = createProgram()
+            await expect(
+                program.parseAsync(['node', 'tw', 'auth', 'token', 'view']),
+            ).rejects.toHaveProperty('code', 'ACCOUNT_NOT_FOUND')
+        })
+
+        it('lets per-command --user win over the global flag', async () => {
+            // Global --user=999 (wrong), per-command --user=1 (right). The
+            // wrapper preserves the explicit ref so commander's per-command
+            // value reaches store.active unchanged.
+            vi.stubEnv(TOKEN_ENV_VAR, '')
+            mockProbeApiToken.mockResolvedValueOnce({
+                token: 'tk_stored_1234567890',
+                metadata: STORED_METADATA,
+            })
+            process.argv = ['node', 'tw', '--user', '999', 'auth', 'token', 'view', '--user', '1']
+            resetGlobalArgs()
+
+            const program = createProgram()
+            await program.parseAsync(['node', 'tw', 'auth', 'token', 'view', '--user', '1'])
+
+            expect(writeSpy.mock.calls.map((c: unknown[]) => String(c[0])).join('')).toBe(
+                'tk_stored_1234567890',
+            )
+        })
+
+        it('threads `tw --user <ref> auth logout` into store.clear after pre-check', async () => {
+            // cli-core's logout calls `store.active(ref)` for its preflight
+            // snapshot, then twist's `TwistTokenStore.clear(ref)` calls
+            // `probeApiToken` again via its own `resolveByRef` preflight, so
+            // the underlying probe fires twice on the happy path.
+            mockProbeApiToken.mockResolvedValue({
+                token: 'tk_stored_1234567890',
+                metadata: STORED_METADATA,
+            })
+            mockClearApiToken.mockResolvedValueOnce({ storage: 'secure-store' })
+            process.argv = ['node', 'tw', '--user', '1', 'auth', 'logout']
+            resetGlobalArgs()
+
+            const program = createProgram()
+            await program.parseAsync(['node', 'tw', 'auth', 'logout'])
+
+            expect(mockClearApiToken).toHaveBeenCalledTimes(1)
+        })
+
+        it('blocks `tw --user <wrong> auth logout` with ACCOUNT_NOT_FOUND before touching storage', async () => {
+            // cli-core swallows the snapshot error when its own `ref` is
+            // undefined (true for the global form since `--user` is stripped
+            // from commander's argv), so the typed miss must also bubble out
+            // of `store.clear(ref)`. Twist's `clear(ref)` re-checks via
+            // `resolveByRef` → calls `probeApiToken` again, so the mock has
+            // to stay armed.
+            mockProbeApiToken.mockResolvedValue({
+                token: 'tk_stored_1234567890',
+                metadata: STORED_METADATA,
+            })
+            process.argv = ['node', 'tw', '--user', '999', 'auth', 'logout']
+            resetGlobalArgs()
+
+            const program = createProgram()
+            await expect(
+                program.parseAsync(['node', 'tw', 'auth', 'logout']),
+            ).rejects.toHaveProperty('code', 'ACCOUNT_NOT_FOUND')
+
+            expect(mockClearApiToken).not.toHaveBeenCalled()
         })
     })
 

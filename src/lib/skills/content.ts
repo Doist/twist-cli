@@ -27,6 +27,7 @@ tw auth token                    # Save API token manually (prompts securely; sc
 tw auth status                   # Verify authentication + show mode
 tw auth status --json            # Full status payload as JSON (--ndjson also supported)
 tw auth status --user <ref>      # Target a specific stored account (id, id:<n>, or display name)
+tw --user <ref> <subcommand>     # Same as the per-command --user, but accepted before any subcommand (e.g. tw --user 42 auth status)
 tw auth logout                   # Remove saved token and auth metadata
 tw auth logout --json            # Emits \`{"ok": true}\` (--ndjson is silent)
 tw auth logout --user <ref>      # Target a specific stored account; mismatched ref errors with ACCOUNT_NOT_FOUND

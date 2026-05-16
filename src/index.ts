@@ -1,9 +1,10 @@
 #!/usr/bin/env node
 
+import { stripUserFlag } from '@doist/cli-core'
 import { type Command, program } from 'commander'
 import pkg from '../package.json' with { type: 'json' }
 import { BaseCliError } from './lib/errors.js'
-import { isJsonMode, isNdjsonMode } from './lib/global-args.js'
+import { getRequestedUserRef, isJsonMode, isNdjsonMode } from './lib/global-args.js'
 import { preloadMarkdown } from './lib/markdown.js'
 import { formatError, formatErrorJson } from './lib/output.js'
 import { startEarlySpinner, stopEarlySpinner } from './lib/spinner.js'
@@ -110,6 +111,22 @@ for (const [name, [description]] of Object.entries(commands)) {
     if (alias) {
         cmd.alias(alias)
     }
+}
+
+// Pre-subcommand `tw --user <ref> <subcommand>` is parsed by cli-core's
+// global-args layer, but commander has no root `--user` option, so the flag
+// must be stripped from `process.argv` before commander runs or the parse
+// errors with "unknown option '--user'". Call `getRequestedUserRef()` first
+// so the cached parser snapshot is built from the *original* argv (the
+// stripped form would lose the value); then replace argv with the stripped
+// version that commander will consume.
+{
+    const originalArgs = process.argv.slice(2)
+    const sawUserFlag = originalArgs.some((a) => a === '--user' || a.startsWith('--user='))
+    if (sawUserFlag) {
+        getRequestedUserRef()
+    }
+    process.argv = [process.argv[0], process.argv[1], ...stripUserFlag(originalArgs)]
 }
 
 // completion-server needs the command tree to walk for completions.
