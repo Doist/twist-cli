@@ -290,17 +290,24 @@ describe('auth command', () => {
 
         let writeSpy: ReturnType<typeof vi.spyOn>
 
+        // Capture the full stdout payload so we can assert pipe-safety: any
+        // extra preamble/trailer added by a future change would change this
+        // string and fail the test.
+        function stdoutPayload(): string {
+            return writeSpy.mock.calls.map((call: unknown[]) => String(call[0])).join('')
+        }
+
         beforeEach(() => {
             writeSpy = vi.spyOn(process.stdout, 'write').mockImplementation(() => true)
-            delete process.env[TOKEN_ENV_VAR]
         })
 
         afterEach(() => {
             writeSpy.mockRestore()
-            delete process.env[TOKEN_ENV_VAR]
+            vi.unstubAllEnvs()
         })
 
-        it('prints the stored token to stdout for pipe-safe consumption', async () => {
+        it('prints exactly the stored token to stdout with no envelope (pipe-safe)', async () => {
+            vi.stubEnv(TOKEN_ENV_VAR, '')
             mockProbeApiToken.mockResolvedValueOnce({
                 token: 'tk_stored_1234567890',
                 metadata: STORED_METADATA,
@@ -309,11 +316,12 @@ describe('auth command', () => {
             const program = createProgram()
             await program.parseAsync(['node', 'tw', 'auth', 'token', 'view'])
 
-            expect(writeSpy).toHaveBeenCalledWith('tk_stored_1234567890')
+            expect(stdoutPayload()).toBe('tk_stored_1234567890')
+            expect(consoleSpy).not.toHaveBeenCalled()
         })
 
         it('refuses to print when the env var is set so the CLI does not disclose an unmanaged token', async () => {
-            process.env[TOKEN_ENV_VAR] = 'env_token_supplied_externally'
+            vi.stubEnv(TOKEN_ENV_VAR, 'env_token_supplied_externally')
 
             const program = createProgram()
             await expect(
@@ -321,10 +329,11 @@ describe('auth command', () => {
             ).rejects.toHaveProperty('code', 'TOKEN_FROM_ENV')
 
             expect(mockProbeApiToken).not.toHaveBeenCalled()
-            expect(writeSpy).not.toHaveBeenCalled()
+            expect(stdoutPayload()).toBe('')
         })
 
         it('throws NOT_AUTHENTICATED when no token is stored', async () => {
+            vi.stubEnv(TOKEN_ENV_VAR, '')
             mockProbeApiToken.mockRejectedValueOnce(new NoTokenError())
 
             const program = createProgram()
@@ -332,10 +341,11 @@ describe('auth command', () => {
                 program.parseAsync(['node', 'tw', 'auth', 'token', 'view']),
             ).rejects.toHaveProperty('code', 'NOT_AUTHENTICATED')
 
-            expect(writeSpy).not.toHaveBeenCalled()
+            expect(stdoutPayload()).toBe('')
         })
 
         it('matches --user against the stored account by numeric id', async () => {
+            vi.stubEnv(TOKEN_ENV_VAR, '')
             mockProbeApiToken.mockResolvedValueOnce({
                 token: 'tk_stored_1234567890',
                 metadata: STORED_METADATA,
@@ -344,10 +354,12 @@ describe('auth command', () => {
             const program = createProgram()
             await program.parseAsync(['node', 'tw', 'auth', 'token', 'view', '--user', '1'])
 
-            expect(writeSpy).toHaveBeenCalledWith('tk_stored_1234567890')
+            expect(stdoutPayload()).toBe('tk_stored_1234567890')
+            expect(consoleSpy).not.toHaveBeenCalled()
         })
 
         it('rejects --user with ACCOUNT_NOT_FOUND when the ref does not match the stored account', async () => {
+            vi.stubEnv(TOKEN_ENV_VAR, '')
             mockProbeApiToken.mockResolvedValueOnce({
                 token: 'tk_stored_1234567890',
                 metadata: STORED_METADATA,
@@ -358,7 +370,7 @@ describe('auth command', () => {
                 program.parseAsync(['node', 'tw', 'auth', 'token', 'view', '--user', '999']),
             ).rejects.toHaveProperty('code', 'ACCOUNT_NOT_FOUND')
 
-            expect(writeSpy).not.toHaveBeenCalled()
+            expect(stdoutPayload()).toBe('')
         })
     })
 
