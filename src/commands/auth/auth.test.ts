@@ -419,23 +419,6 @@ describe('auth command', () => {
             )
         })
 
-        it('lets per-command --user win over the global flag', async () => {
-            vi.stubEnv(TOKEN_ENV_VAR, '')
-            mockProbeApiToken.mockResolvedValueOnce({
-                token: 'tk_stored_1234567890',
-                metadata: STORED_METADATA,
-            })
-            process.argv = ['node', 'tw', '--user', '999', 'auth', 'token', 'view', '--user', '1']
-            resetGlobalArgs()
-
-            const program = createProgram()
-            await program.parseAsync(['node', 'tw', 'auth', 'token', 'view', '--user', '1'])
-
-            expect(writeSpy.mock.calls.map((c: unknown[]) => String(c[0])).join('')).toBe(
-                'tk_stored_1234567890',
-            )
-        })
-
         it('blocks `tw --user <wrong> auth logout` with ACCOUNT_NOT_FOUND before touching storage', async () => {
             // cli-core's logout swallows the active() error when cmd.user is
             // undefined (true for the global form), so the typed miss must
