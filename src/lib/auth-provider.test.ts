@@ -1,3 +1,4 @@
+import { SecureStoreUnavailableError } from '@doist/cli-core/auth'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('./auth.js', async (importOriginal) => {
@@ -181,7 +182,6 @@ describe('createTwistTokenStore', () => {
     })
 
     it('active() returns null when the system keyring is unavailable', async () => {
-        const { SecureStoreUnavailableError } = await import('@doist/cli-core/auth')
         mockProbe.mockRejectedValueOnce(new SecureStoreUnavailableError('no keyring'))
         expect(await createTwistTokenStore().active()).toBeNull()
     })

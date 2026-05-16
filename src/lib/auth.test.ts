@@ -3,15 +3,17 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 const mocks = vi.hoisted(() => {
     class MockSecureStoreUnavailableError extends Error {}
 
+    const secureTokenStore = {
+        getSecret: vi.fn(),
+        setSecret: vi.fn(),
+        deleteSecret: vi.fn(),
+    }
     return {
         MockSecureStoreUnavailableError,
+        createSecureStore: vi.fn(() => secureTokenStore),
         getConfig: vi.fn(),
         getConfigPath: vi.fn(() => '/home/user/.config/twist-cli/config.json'),
-        secureTokenStore: {
-            getSecret: vi.fn(),
-            setSecret: vi.fn(),
-            deleteSecret: vi.fn(),
-        },
+        secureTokenStore,
         setConfig: vi.fn(),
         unlink: vi.fn(),
         updateConfig: vi.fn(),
@@ -29,7 +31,7 @@ vi.mock('@doist/cli-core/auth', async (importOriginal) => {
     const actual = await importOriginal<typeof import('@doist/cli-core/auth')>()
     return {
         ...actual,
-        createSecureStore: () => mocks.secureTokenStore,
+        createSecureStore: mocks.createSecureStore,
         SecureStoreUnavailableError: mocks.MockSecureStoreUnavailableError,
     }
 })
@@ -46,6 +48,7 @@ describe('auth token storage', () => {
         mocks.setConfig.mockReset()
         mocks.updateConfig.mockReset()
         mocks.unlink.mockReset()
+        mocks.createSecureStore.mockClear()
         mocks.secureTokenStore.getSecret.mockReset()
         mocks.secureTokenStore.setSecret.mockReset()
         mocks.secureTokenStore.deleteSecret.mockReset()
@@ -54,6 +57,19 @@ describe('auth token storage', () => {
 
     afterEach(() => {
         delete process.env.TWIST_API_TOKEN
+    })
+
+    it('requests the twist-cli/api-token slot from the system keyring', async () => {
+        mocks.getConfig.mockResolvedValue({})
+        mocks.secureTokenStore.getSecret.mockResolvedValue('keychain_token_123456')
+
+        const { getApiToken } = await import('./auth.js')
+        await expect(getApiToken()).resolves.toBe('keychain_token_123456')
+
+        expect(mocks.createSecureStore).toHaveBeenCalledWith({
+            serviceName: 'twist-cli',
+            account: 'api-token',
+        })
     })
 
     it('prefers TWIST_API_TOKEN over stored credentials', async () => {
