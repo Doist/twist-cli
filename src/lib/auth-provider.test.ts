@@ -302,7 +302,6 @@ describe('createTwistTokenStore', () => {
         })
 
         it('active(ref) surfaces a secure-store outage instead of masking it as ACCOUNT_NOT_FOUND', async () => {
-            const { SecureStoreUnavailableError } = await import('@doist/cli-core/auth')
             mockProbe.mockRejectedValueOnce(new SecureStoreUnavailableError('no keyring'))
             await expect(createTwistTokenStore().active('42')).rejects.toBeInstanceOf(
                 SecureStoreUnavailableError,
@@ -340,7 +339,6 @@ describe('createTwistTokenStore', () => {
         })
 
         it('list() propagates secure-store outage rather than collapsing to "no accounts"', async () => {
-            const { SecureStoreUnavailableError } = await import('@doist/cli-core/auth')
             mockProbe.mockRejectedValueOnce(new SecureStoreUnavailableError('no keyring'))
             await expect(createTwistTokenStore().list()).rejects.toBeInstanceOf(
                 SecureStoreUnavailableError,
