@@ -1,3 +1,9 @@
+## [2.38.0](https://github.com/Doist/twist-cli/compare/v2.37.0...v2.38.0) (2026-05-16)
+
+### Features
+
+- **auth:** add `tw auth token view` via cli-core attachTokenViewCommand ([#227](https://github.com/Doist/twist-cli/issues/227)) ([9ae4388](https://github.com/Doist/twist-cli/commit/9ae43882bc3f7d443438cf4469fba1c127f60fab))
+
 ## [2.37.0](https://github.com/Doist/twist-cli/compare/v2.36.5...v2.37.0) (2026-05-15)
 
 ### Features
