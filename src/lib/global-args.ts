@@ -151,16 +151,7 @@ export function isNdjsonMode(): boolean {
     return store.get().ndjson
 }
 
-/**
- * Pre-subcommand `--user <ref>` (parsed by cli-core's global-args layer).
- * `tw --user 42 auth status` and `tw --user=42 auth status` both surface
- * here; per-command `--user` flags declared by cli-core's auth attachers
- * stay on the command itself and are never observed by this accessor.
- *
- * Returns `undefined` when the flag is absent or bare/valueless. Callers
- * pair this with `stripUserFlag` in `src/index.ts` so commander never sees
- * the pre-subcommand form.
- */
+/** Pre-subcommand `tw --user <ref>` (see `stripUserFlag` in `src/index.ts`). */
 export function getRequestedUserRef(): string | undefined {
     return store.get().user
 }

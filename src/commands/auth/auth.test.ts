@@ -376,13 +376,9 @@ describe('auth command', () => {
     })
 
     describe('global --user flag', () => {
-        // The global form (`tw --user <ref> <subcommand>`) is parsed by
-        // cli-core's global-args layer at `src/index.ts` startup time. Tests
-        // simulate that step by mutating `process.argv` + calling
-        // `resetGlobalArgs()` so the cached parser snapshot is rebuilt from
-        // the new argv. The argv passed to `program.parseAsync` is the
-        // already-stripped form commander would actually see — the global
-        // flag must NOT appear there.
+        // Tests simulate `src/index.ts`'s startup: mutate `process.argv` +
+        // `resetGlobalArgs()` to rebuild the parser cache, then hand
+        // commander the already-stripped argv (no `--user` token).
         const STORED_METADATA = {
             authMode: 'read-write' as const,
             authScope: 'user:read',
@@ -439,9 +435,6 @@ describe('auth command', () => {
         })
 
         it('lets per-command --user win over the global flag', async () => {
-            // Global --user=999 (wrong), per-command --user=1 (right). The
-            // wrapper preserves the explicit ref so commander's per-command
-            // value reaches store.active unchanged.
             vi.stubEnv(TOKEN_ENV_VAR, '')
             mockProbeApiToken.mockResolvedValueOnce({
                 token: 'tk_stored_1234567890',
@@ -459,10 +452,8 @@ describe('auth command', () => {
         })
 
         it('threads `tw --user <ref> auth logout` into store.clear after pre-check', async () => {
-            // cli-core's logout calls `store.active(ref)` for its preflight
-            // snapshot, then twist's `TwistTokenStore.clear(ref)` calls
-            // `probeApiToken` again via its own `resolveByRef` preflight, so
-            // the underlying probe fires twice on the happy path.
+            // probeApiToken fires twice: cli-core's active() preflight, then
+            // twist's clear() preflight via resolveByRef.
             mockProbeApiToken.mockResolvedValue({
                 token: 'tk_stored_1234567890',
                 metadata: STORED_METADATA,
@@ -478,12 +469,9 @@ describe('auth command', () => {
         })
 
         it('blocks `tw --user <wrong> auth logout` with ACCOUNT_NOT_FOUND before touching storage', async () => {
-            // cli-core swallows the snapshot error when its own `ref` is
-            // undefined (true for the global form since `--user` is stripped
-            // from commander's argv), so the typed miss must also bubble out
-            // of `store.clear(ref)`. Twist's `clear(ref)` re-checks via
-            // `resolveByRef` → calls `probeApiToken` again, so the mock has
-            // to stay armed.
+            // cli-core swallows the active() error when its own cmd.user is
+            // undefined (true for the global form), so the typed miss must
+            // also bubble out of clear() — re-armed mock covers both probes.
             mockProbeApiToken.mockResolvedValue({
                 token: 'tk_stored_1234567890',
                 metadata: STORED_METADATA,

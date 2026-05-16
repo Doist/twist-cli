@@ -11,15 +11,6 @@ import { loginWithToken } from './token.js'
 export function registerAuthCommand(program: Command): void {
     const auth = program.command('auth').description('Manage authentication')
 
-    // Two views of the same storage:
-    //   - `store` is the raw `TwistTokenStore` — login uses it to `set()`
-    //     (login doesn't accept `--user`).
-    //   - `refAware` substitutes the pre-subcommand `tw --user <ref>` (which
-    //     `src/index.ts` strips from argv before commander runs) when the
-    //     attachers call `active(ref?)` / `clear(ref?)` without an explicit
-    //     ref of their own. Per-command `--user` declared by cli-core's
-    //     attachers still wins because it arrives as the explicit `ref`
-    //     argument and the wrapper short-circuits to that.
     const store = createTwistTokenStore()
     const refAware = withUserRefAware(store)
 

@@ -113,17 +113,12 @@ for (const [name, [description]] of Object.entries(commands)) {
     }
 }
 
-// Pre-subcommand `tw --user <ref> <subcommand>` is parsed by cli-core's
-// global-args layer, but commander has no root `--user` option, so the flag
-// must be stripped from `process.argv` before commander runs or the parse
-// errors with "unknown option '--user'". Call `getRequestedUserRef()` first
-// so the cached parser snapshot is built from the *original* argv (the
-// stripped form would lose the value); then replace argv with the stripped
-// version that commander will consume.
+// Commander has no root `--user` option. Trigger the global-args cache off
+// the original argv before stripping, so the value survives for downstream
+// consumers; then hand commander the stripped form.
 {
     const originalArgs = process.argv.slice(2)
-    const sawUserFlag = originalArgs.some((a) => a === '--user' || a.startsWith('--user='))
-    if (sawUserFlag) {
+    if (originalArgs.some((a) => a === '--user' || a.startsWith('--user='))) {
         getRequestedUserRef()
     }
     process.argv = [process.argv[0], process.argv[1], ...stripUserFlag(originalArgs)]
