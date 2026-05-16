@@ -25,11 +25,14 @@ vi.mock('./config.js', () => ({
     updateConfig: mocks.updateConfig,
 }))
 
-vi.mock('./secure-store.js', () => ({
-    createSecureStore: () => mocks.secureTokenStore,
-    SECURE_STORE_DESCRIPTION: 'system credential manager',
-    SecureStoreUnavailableError: mocks.MockSecureStoreUnavailableError,
-}))
+vi.mock('@doist/cli-core/auth', async (importOriginal) => {
+    const actual = await importOriginal<typeof import('@doist/cli-core/auth')>()
+    return {
+        ...actual,
+        createSecureStore: () => mocks.secureTokenStore,
+        SecureStoreUnavailableError: mocks.MockSecureStoreUnavailableError,
+    }
+})
 
 vi.mock('node:fs/promises', () => ({
     unlink: mocks.unlink,
