@@ -1,3 +1,9 @@
+## [2.39.0](https://github.com/Doist/twist-cli/compare/v2.38.0...v2.39.0) (2026-05-16)
+
+### Features
+
+- **auth:** support pre-subcommand `tw --user <ref> <subcommand>` ([#228](https://github.com/Doist/twist-cli/issues/228)) ([423f429](https://github.com/Doist/twist-cli/commit/423f429622c5589e59e289cda803db84f8091e41))
+
 ## [2.38.0](https://github.com/Doist/twist-cli/compare/v2.37.0...v2.38.0) (2026-05-16)
 
 ### Features
