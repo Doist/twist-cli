@@ -113,16 +113,10 @@ for (const [name, [description]] of Object.entries(commands)) {
     }
 }
 
-// Commander has no root `--user` option. Trigger the global-args cache off
-// the original argv before stripping, so the value survives for downstream
-// consumers; then hand commander the stripped form.
-{
-    const originalArgs = process.argv.slice(2)
-    if (originalArgs.some((a) => a === '--user' || a.startsWith('--user='))) {
-        getRequestedUserRef()
-    }
-    process.argv = [process.argv[0], process.argv[1], ...stripUserFlag(originalArgs)]
-}
+// Commander has no root `--user` option. Warm the global-args cache off
+// the original argv before stripping, then hand commander the stripped form.
+getRequestedUserRef()
+process.argv = [process.argv[0], process.argv[1], ...stripUserFlag(process.argv.slice(2))]
 
 // completion-server needs the command tree to walk for completions.
 // Only load the completion module + the specific command being completed

@@ -2,6 +2,7 @@ import { attachTokenViewCommand } from '@doist/cli-core/auth'
 import { Command } from 'commander'
 import { createTwistTokenStore } from '../../lib/auth-provider.js'
 import { TOKEN_ENV_VAR } from '../../lib/auth.js'
+import { getRequestedUserRef } from '../../lib/global-args.js'
 import { attachTwistLoginCommand } from './login.js'
 import { attachTwistLogoutCommand } from './logout.js'
 import { attachTwistStatusCommand } from './status.js'
@@ -12,7 +13,7 @@ export function registerAuthCommand(program: Command): void {
     const auth = program.command('auth').description('Manage authentication')
 
     const store = createTwistTokenStore()
-    const refAware = withUserRefAware(store)
+    const refAware = withUserRefAware(store, getRequestedUserRef())
 
     attachTwistLoginCommand(auth, store)
     attachTwistLogoutCommand(auth, refAware)

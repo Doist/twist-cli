@@ -114,6 +114,14 @@ describe('auth command', () => {
         errorSpy.mockRestore()
     })
 
+    const STORED_METADATA = {
+        authMode: 'read-write' as const,
+        authScope: 'user:read',
+        authUserId: 1,
+        authUserName: 'Test User',
+        source: 'secure-store' as const,
+    }
+
     describe('token subcommand', () => {
         it('successfully saves a token', async () => {
             const program = createProgram()
@@ -281,14 +289,6 @@ describe('auth command', () => {
     })
 
     describe('token view subcommand', () => {
-        const STORED_METADATA = {
-            authMode: 'read-write' as const,
-            authScope: 'user:read',
-            authUserId: 1,
-            authUserName: 'Test User',
-            source: 'secure-store' as const,
-        }
-
         let writeSpy: ReturnType<typeof vi.spyOn>
 
         // Capture the full stdout payload so we can assert pipe-safety: any
@@ -379,14 +379,6 @@ describe('auth command', () => {
         // Tests simulate `src/index.ts`'s startup: mutate `process.argv` +
         // `resetGlobalArgs()` to rebuild the parser cache, then hand
         // commander the already-stripped argv (no `--user` token).
-        const STORED_METADATA = {
-            authMode: 'read-write' as const,
-            authScope: 'user:read',
-            authUserId: 1,
-            authUserName: 'Test User',
-            source: 'secure-store' as const,
-        }
-
         let originalArgv: string[]
         let writeSpy: ReturnType<typeof vi.spyOn>
 
@@ -417,6 +409,31 @@ describe('auth command', () => {
             expect(writeSpy.mock.calls.map((c: unknown[]) => String(c[0])).join('')).toBe(
                 'tk_stored_1234567890',
             )
+        })
+
+        it('threads `tw --user <ref> auth status` into the snapshot used by fetchLive', async () => {
+            vi.stubEnv(TOKEN_ENV_VAR, '')
+            mockProbeApiToken.mockResolvedValueOnce({
+                token: 'tk_stored_1234567890',
+                metadata: STORED_METADATA,
+            })
+            mockCreateWrappedTwistClient.mockReturnValue({
+                users: { getSessionUser: vi.fn().mockResolvedValue(TEST_USER) },
+                // biome-ignore lint/suspicious/noExplicitAny: only the methods used in this test matter
+            } as any)
+            mockGetAuthMetadata.mockResolvedValue({
+                authMode: 'read-write',
+                authScope: 'user:read',
+                source: 'config',
+            })
+            process.argv = ['node', 'tw', '--user', '1', 'auth', 'status']
+            resetGlobalArgs()
+
+            const program = createProgram()
+            await program.parseAsync(['node', 'tw', 'auth', 'status'])
+
+            expect(mockCreateWrappedTwistClient).toHaveBeenCalledWith('tk_stored_1234567890')
+            expect(consoleSpy).toHaveBeenCalledWith('✓ Authenticated')
         })
 
         it('blocks `tw --user <wrong> auth logout` with ACCOUNT_NOT_FOUND before touching storage', async () => {
