@@ -26,7 +26,8 @@ tw auth status --user <ref>      # Target a specific stored account (id, id:<n>,
 tw auth logout                   # Remove saved token and auth metadata
 tw auth logout --json            # Emits `{"ok": true}` (--ndjson is silent)
 tw auth logout --user <ref>      # Target a specific stored account; mismatched ref errors with ACCOUNT_NOT_FOUND
-tw auth token --user <ref>       # Print the saved token for a specific stored account
+tw auth token view               # Print the saved token to stdout (pipe-safe; refuses if TWIST_API_TOKEN is set)
+tw auth token view --user <ref>  # Print the saved token for a specific stored account
 tw workspaces                    # List available workspaces
 tw workspace use <ref>           # Set current workspace
 tw completion install            # Install shell completions
