@@ -9,6 +9,7 @@ vi.mock('../../lib/auth.js', async (importOriginal) => {
         saveApiToken: vi.fn(),
         clearApiToken: vi.fn(),
         getAuthMetadata: vi.fn(),
+        probeApiToken: vi.fn(),
     }
 })
 
@@ -57,7 +58,14 @@ import { attachLoginCommand } from '@doist/cli-core/auth'
 import { TwistRequestError, type User } from '@doist/twist-sdk'
 import { createWrappedTwistClient } from '../../lib/api.js'
 import { type TwistAccount, type TwistTokenStore } from '../../lib/auth-provider.js'
-import { clearApiToken, getAuthMetadata, saveApiToken } from '../../lib/auth.js'
+import {
+    clearApiToken,
+    getAuthMetadata,
+    NoTokenError,
+    probeApiToken,
+    saveApiToken,
+    TOKEN_ENV_VAR,
+} from '../../lib/auth.js'
 import { registerAuthCommand } from './index.js'
 import { attachTwistStatusCommand } from './status.js'
 
@@ -66,6 +74,7 @@ const mockCreateInterface = vi.mocked(createInterface)
 const mockSaveApiToken = vi.mocked(saveApiToken)
 const mockClearApiToken = vi.mocked(clearApiToken)
 const mockGetAuthMetadata = vi.mocked(getAuthMetadata)
+const mockProbeApiToken = vi.mocked(probeApiToken)
 const mockCreateWrappedTwistClient = vi.mocked(createWrappedTwistClient)
 const mockAttachLoginCommand = vi.mocked(attachLoginCommand)
 
@@ -267,6 +276,89 @@ describe('auth command', () => {
                 value: originalIsTTY,
                 configurable: true,
             })
+        })
+    })
+
+    describe('token view subcommand', () => {
+        const STORED_METADATA = {
+            authMode: 'read-write' as const,
+            authScope: 'user:read',
+            authUserId: 1,
+            authUserName: 'Test User',
+            source: 'secure-store' as const,
+        }
+
+        let writeSpy: ReturnType<typeof vi.spyOn>
+
+        beforeEach(() => {
+            writeSpy = vi.spyOn(process.stdout, 'write').mockImplementation(() => true)
+            delete process.env[TOKEN_ENV_VAR]
+        })
+
+        afterEach(() => {
+            writeSpy.mockRestore()
+            delete process.env[TOKEN_ENV_VAR]
+        })
+
+        it('prints the stored token to stdout for pipe-safe consumption', async () => {
+            mockProbeApiToken.mockResolvedValueOnce({
+                token: 'tk_stored_1234567890',
+                metadata: STORED_METADATA,
+            })
+
+            const program = createProgram()
+            await program.parseAsync(['node', 'tw', 'auth', 'token', 'view'])
+
+            expect(writeSpy).toHaveBeenCalledWith('tk_stored_1234567890')
+        })
+
+        it('refuses to print when the env var is set so the CLI does not disclose an unmanaged token', async () => {
+            process.env[TOKEN_ENV_VAR] = 'env_token_supplied_externally'
+
+            const program = createProgram()
+            await expect(
+                program.parseAsync(['node', 'tw', 'auth', 'token', 'view']),
+            ).rejects.toHaveProperty('code', 'TOKEN_FROM_ENV')
+
+            expect(mockProbeApiToken).not.toHaveBeenCalled()
+            expect(writeSpy).not.toHaveBeenCalled()
+        })
+
+        it('throws NOT_AUTHENTICATED when no token is stored', async () => {
+            mockProbeApiToken.mockRejectedValueOnce(new NoTokenError())
+
+            const program = createProgram()
+            await expect(
+                program.parseAsync(['node', 'tw', 'auth', 'token', 'view']),
+            ).rejects.toHaveProperty('code', 'NOT_AUTHENTICATED')
+
+            expect(writeSpy).not.toHaveBeenCalled()
+        })
+
+        it('matches --user against the stored account by numeric id', async () => {
+            mockProbeApiToken.mockResolvedValueOnce({
+                token: 'tk_stored_1234567890',
+                metadata: STORED_METADATA,
+            })
+
+            const program = createProgram()
+            await program.parseAsync(['node', 'tw', 'auth', 'token', 'view', '--user', '1'])
+
+            expect(writeSpy).toHaveBeenCalledWith('tk_stored_1234567890')
+        })
+
+        it('rejects --user with ACCOUNT_NOT_FOUND when the ref does not match the stored account', async () => {
+            mockProbeApiToken.mockResolvedValueOnce({
+                token: 'tk_stored_1234567890',
+                metadata: STORED_METADATA,
+            })
+
+            const program = createProgram()
+            await expect(
+                program.parseAsync(['node', 'tw', 'auth', 'token', 'view', '--user', '999']),
+            ).rejects.toHaveProperty('code', 'ACCOUNT_NOT_FOUND')
+
+            expect(writeSpy).not.toHaveBeenCalled()
         })
     })
 
