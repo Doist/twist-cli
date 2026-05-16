@@ -151,6 +151,11 @@ export function isNdjsonMode(): boolean {
     return store.get().ndjson
 }
 
+/** Pre-subcommand `tw --user <ref>` (see `stripUserFlag` in `src/index.ts`). */
+export function getRequestedUserRef(): string | undefined {
+    return store.get().user
+}
+
 export function isNonInteractive(): boolean {
     const args = store.get()
     if (args.interactive) return false

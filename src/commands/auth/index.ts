@@ -2,23 +2,22 @@ import { attachTokenViewCommand } from '@doist/cli-core/auth'
 import { Command } from 'commander'
 import { createTwistTokenStore } from '../../lib/auth-provider.js'
 import { TOKEN_ENV_VAR } from '../../lib/auth.js'
+import { getRequestedUserRef } from '../../lib/global-args.js'
 import { attachTwistLoginCommand } from './login.js'
 import { attachTwistLogoutCommand } from './logout.js'
 import { attachTwistStatusCommand } from './status.js'
+import { withUserRefAware } from './store-wrap.js'
 import { loginWithToken } from './token.js'
 
 export function registerAuthCommand(program: Command): void {
     const auth = program.command('auth').description('Manage authentication')
 
-    // Shared store instance: login stashes the post-`set` storage result for
-    // its success handler, logout reads the post-`clear` result for the same
-    // keyring-fallback warning surface. Status uses `active()` as the
-    // authenticated-snapshot gate.
     const store = createTwistTokenStore()
+    const refAware = withUserRefAware(store, getRequestedUserRef())
 
     attachTwistLoginCommand(auth, store)
-    attachTwistLogoutCommand(auth, store)
-    attachTwistStatusCommand(auth, store)
+    attachTwistLogoutCommand(auth, refAware)
+    attachTwistStatusCommand(auth, refAware)
 
     // `token` is a hybrid: the positional `[token]` saves, and the `view`
     // subcommand prints. Commander matches subcommand names before the parent
@@ -32,7 +31,7 @@ export function registerAuthCommand(program: Command): void {
 
     attachTokenViewCommand(tokenCmd, {
         name: 'view',
-        store,
+        store: refAware,
         envVarName: TOKEN_ENV_VAR,
         description:
             'Print the stored API token for the active user (or --user <ref>) to stdout for use in scripts',

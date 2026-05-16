@@ -1,9 +1,10 @@
 #!/usr/bin/env node
 
+import { stripUserFlag } from '@doist/cli-core'
 import { type Command, program } from 'commander'
 import pkg from '../package.json' with { type: 'json' }
 import { BaseCliError } from './lib/errors.js'
-import { isJsonMode, isNdjsonMode } from './lib/global-args.js'
+import { getRequestedUserRef, isJsonMode, isNdjsonMode } from './lib/global-args.js'
 import { preloadMarkdown } from './lib/markdown.js'
 import { formatError, formatErrorJson } from './lib/output.js'
 import { startEarlySpinner, stopEarlySpinner } from './lib/spinner.js'
@@ -111,6 +112,11 @@ for (const [name, [description]] of Object.entries(commands)) {
         cmd.alias(alias)
     }
 }
+
+// Commander has no root `--user` option. Warm the global-args cache off
+// the original argv before stripping, then hand commander the stripped form.
+getRequestedUserRef()
+process.argv = [process.argv[0], process.argv[1], ...stripUserFlag(process.argv.slice(2))]
 
 // completion-server needs the command tree to walk for completions.
 // Only load the completion module + the specific command being completed

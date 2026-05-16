@@ -66,6 +66,7 @@ import {
     saveApiToken,
     TOKEN_ENV_VAR,
 } from '../../lib/auth.js'
+import { resetGlobalArgs } from '../../lib/global-args.js'
 import { registerAuthCommand } from './index.js'
 import { attachTwistStatusCommand } from './status.js'
 
@@ -112,6 +113,14 @@ describe('auth command', () => {
         consoleSpy.mockRestore()
         errorSpy.mockRestore()
     })
+
+    const STORED_METADATA = {
+        authMode: 'read-write' as const,
+        authScope: 'user:read',
+        authUserId: 1,
+        authUserName: 'Test User',
+        source: 'secure-store' as const,
+    }
 
     describe('token subcommand', () => {
         it('successfully saves a token', async () => {
@@ -280,14 +289,6 @@ describe('auth command', () => {
     })
 
     describe('token view subcommand', () => {
-        const STORED_METADATA = {
-            authMode: 'read-write' as const,
-            authScope: 'user:read',
-            authUserId: 1,
-            authUserName: 'Test User',
-            source: 'secure-store' as const,
-        }
-
         let writeSpy: ReturnType<typeof vi.spyOn>
 
         // Capture the full stdout payload so we can assert pipe-safety: any
@@ -371,6 +372,87 @@ describe('auth command', () => {
             ).rejects.toHaveProperty('code', 'ACCOUNT_NOT_FOUND')
 
             expect(stdoutPayload()).toBe('')
+        })
+    })
+
+    describe('global --user flag', () => {
+        // Tests simulate `src/index.ts`'s startup: mutate `process.argv` +
+        // `resetGlobalArgs()` to rebuild the parser cache, then hand
+        // commander the already-stripped argv (no `--user` token).
+        let originalArgv: string[]
+        let writeSpy: ReturnType<typeof vi.spyOn>
+
+        beforeEach(() => {
+            originalArgv = process.argv
+            writeSpy = vi.spyOn(process.stdout, 'write').mockImplementation(() => true)
+        })
+
+        afterEach(() => {
+            process.argv = originalArgv
+            resetGlobalArgs()
+            writeSpy.mockRestore()
+            vi.unstubAllEnvs()
+        })
+
+        it('threads `tw --user <ref> auth token view` into store.active', async () => {
+            vi.stubEnv(TOKEN_ENV_VAR, '')
+            mockProbeApiToken.mockResolvedValueOnce({
+                token: 'tk_stored_1234567890',
+                metadata: STORED_METADATA,
+            })
+            process.argv = ['node', 'tw', '--user', '1', 'auth', 'token', 'view']
+            resetGlobalArgs()
+
+            const program = createProgram()
+            await program.parseAsync(['node', 'tw', 'auth', 'token', 'view'])
+
+            expect(writeSpy.mock.calls.map((c: unknown[]) => String(c[0])).join('')).toBe(
+                'tk_stored_1234567890',
+            )
+        })
+
+        it('threads `tw --user <ref> auth status` into the snapshot used by fetchLive', async () => {
+            vi.stubEnv(TOKEN_ENV_VAR, '')
+            mockProbeApiToken.mockResolvedValueOnce({
+                token: 'tk_stored_1234567890',
+                metadata: STORED_METADATA,
+            })
+            mockCreateWrappedTwistClient.mockReturnValue({
+                users: { getSessionUser: vi.fn().mockResolvedValue(TEST_USER) },
+                // biome-ignore lint/suspicious/noExplicitAny: only the methods used in this test matter
+            } as any)
+            mockGetAuthMetadata.mockResolvedValue({
+                authMode: 'read-write',
+                authScope: 'user:read',
+                source: 'config',
+            })
+            process.argv = ['node', 'tw', '--user', '1', 'auth', 'status']
+            resetGlobalArgs()
+
+            const program = createProgram()
+            await program.parseAsync(['node', 'tw', 'auth', 'status'])
+
+            expect(mockCreateWrappedTwistClient).toHaveBeenCalledWith('tk_stored_1234567890')
+            expect(consoleSpy).toHaveBeenCalledWith('✓ Authenticated')
+        })
+
+        it('blocks `tw --user <wrong> auth logout` with ACCOUNT_NOT_FOUND before touching storage', async () => {
+            // cli-core's logout swallows the active() error when cmd.user is
+            // undefined (true for the global form), so the typed miss must
+            // also bubble out of clear() — re-armed mock covers both probes.
+            mockProbeApiToken.mockResolvedValue({
+                token: 'tk_stored_1234567890',
+                metadata: STORED_METADATA,
+            })
+            process.argv = ['node', 'tw', '--user', '999', 'auth', 'logout']
+            resetGlobalArgs()
+
+            const program = createProgram()
+            await expect(
+                program.parseAsync(['node', 'tw', 'auth', 'logout']),
+            ).rejects.toHaveProperty('code', 'ACCOUNT_NOT_FOUND')
+
+            expect(mockClearApiToken).not.toHaveBeenCalled()
         })
     })
 
