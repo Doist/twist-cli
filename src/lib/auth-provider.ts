@@ -4,6 +4,7 @@ import {
     type AuthProvider,
     deriveChallenge,
     generateVerifier,
+    SecureStoreUnavailableError,
     type TokenStore,
 } from '@doist/cli-core/auth'
 import { createWrappedTwistClient } from './api.js'
@@ -17,7 +18,6 @@ import {
 import type { AuthMode } from './config.js'
 import { CliError } from './errors.js'
 import { parseRef } from './refs.js'
-import { SecureStoreUnavailableError } from './secure-store.js'
 
 export const AUTHORIZATION_URL = 'https://twist.com/oauth/authorize'
 export const TOKEN_URL = 'https://twist.com/oauth/access_token'

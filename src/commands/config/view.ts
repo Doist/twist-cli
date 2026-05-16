@@ -1,12 +1,13 @@
+import { SecureStoreUnavailableError } from '@doist/cli-core/auth'
 import chalk from 'chalk'
 import {
     type AuthProbeMetadata,
     NoTokenError,
     probeApiToken,
+    SECURE_STORE_DESCRIPTION,
     TOKEN_ENV_VAR,
 } from '../../lib/auth.js'
 import { type Config, getConfigPath, readConfigStrict } from '../../lib/config.js'
-import { SECURE_STORE_DESCRIPTION, SecureStoreUnavailableError } from '../../lib/secure-store.js'
 
 export interface ViewConfigOptions {
     json?: boolean

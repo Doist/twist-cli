@@ -1,11 +1,16 @@
 import { unlink } from 'node:fs/promises'
+import { createSecureStore, SecureStoreUnavailableError } from '@doist/cli-core/auth'
 import { type AuthMode, type Config, getConfig, getConfigPath, setConfig } from './config.js'
 import { CliError } from './errors.js'
-import {
-    createSecureStore,
-    SECURE_STORE_DESCRIPTION,
-    SecureStoreUnavailableError,
-} from './secure-store.js'
+
+const SECURE_STORE_SERVICE = 'twist-cli'
+const SECURE_STORE_ACCOUNT = 'api-token'
+
+export const SECURE_STORE_DESCRIPTION = 'system credential manager'
+
+function getSecureStore() {
+    return createSecureStore({ serviceName: SECURE_STORE_SERVICE, account: SECURE_STORE_ACCOUNT })
+}
 
 export class NoTokenError extends CliError {
     constructor() {
@@ -64,7 +69,7 @@ export async function getApiToken(): Promise<string> {
 
     const config = await getConfig()
     const configToken = getConfigToken(config)
-    const secureStore = createSecureStore()
+    const secureStore = getSecureStore()
 
     if (configToken) {
         try {
@@ -146,7 +151,7 @@ export async function probeApiToken(): Promise<AuthProbeResult> {
         throw new NoTokenError()
     }
 
-    const secureStore = createSecureStore()
+    const secureStore = getSecureStore()
     try {
         const storedToken = await secureStore.getSecret()
         if (storedToken?.trim()) {
@@ -200,7 +205,7 @@ export async function saveApiToken(
     }
 
     const trimmedToken = token.trim()
-    const secureStore = createSecureStore()
+    const secureStore = getSecureStore()
 
     try {
         await secureStore.setSecret(trimmedToken)
@@ -239,7 +244,7 @@ export async function saveApiToken(
 
 export async function clearApiToken(): Promise<TokenStorageResult> {
     const config = await getConfig()
-    const secureStore = createSecureStore()
+    const secureStore = getSecureStore()
 
     // Clear auth metadata from the in-memory config object so all subsequent
     // writes (cleanupAuthFallbackState, withPendingSecureStoreClear) persist
