@@ -12,6 +12,7 @@ const keyringMocks = vi.hoisted(() => ({
     createKeyringTokenStore: vi.fn(),
     createSecureStore: vi.fn(),
     secureStoreGetSecret: vi.fn(),
+    secureStoreDeleteSecret: vi.fn(),
     inner: {
         active: vi.fn(),
         set: vi.fn(),
@@ -29,7 +30,7 @@ vi.mock('@doist/cli-core/auth', async (importOriginal) => {
     keyringMocks.createSecureStore.mockImplementation(() => ({
         getSecret: keyringMocks.secureStoreGetSecret,
         setSecret: vi.fn(),
-        deleteSecret: vi.fn(),
+        deleteSecret: keyringMocks.secureStoreDeleteSecret,
     }))
     return {
         ...actual,
@@ -40,6 +41,7 @@ vi.mock('@doist/cli-core/auth', async (importOriginal) => {
 
 const configMocks = vi.hoisted(() => ({
     getConfig: vi.fn(),
+    updateConfig: vi.fn(),
 }))
 
 vi.mock('./config.js', async (importOriginal) => {
@@ -48,6 +50,7 @@ vi.mock('./config.js', async (importOriginal) => {
         ...actual,
         getConfigPath: () => '/home/user/.config/twist-cli/config.json',
         getConfig: configMocks.getConfig,
+        updateConfig: configMocks.updateConfig,
     }
 })
 
@@ -231,15 +234,17 @@ describe('createTwistTokenStore', () => {
         keyringMocks.createKeyringTokenStore.mockClear()
         keyringMocks.createSecureStore.mockClear()
         keyringMocks.secureStoreGetSecret.mockReset().mockResolvedValue(null)
+        keyringMocks.secureStoreDeleteSecret.mockReset().mockResolvedValue(true)
         keyringMocks.inner.active.mockReset()
-        keyringMocks.inner.set.mockReset()
-        keyringMocks.inner.clear.mockReset()
-        keyringMocks.inner.list.mockReset()
-        keyringMocks.inner.setDefault.mockReset()
+        keyringMocks.inner.set.mockReset().mockResolvedValue(undefined)
+        keyringMocks.inner.clear.mockReset().mockResolvedValue(undefined)
+        keyringMocks.inner.list.mockReset().mockResolvedValue([])
+        keyringMocks.inner.setDefault.mockReset().mockResolvedValue(undefined)
         migrateMocks.runMigrateLegacyAuth
             .mockReset()
             .mockResolvedValue({ status: 'no-legacy-state' })
         configMocks.getConfig.mockReset().mockResolvedValue({})
+        configMocks.updateConfig.mockReset().mockResolvedValue(undefined)
     })
 
     afterEach(() => {
@@ -369,6 +374,144 @@ describe('createTwistTokenStore', () => {
 
         expect(snapshot).toEqual({ token: 'tk_v2', account: STORED_ACCOUNT })
         expect(keyringMocks.createSecureStore).not.toHaveBeenCalled()
+    })
+
+    it('falls back to legacy when runMigrateLegacyAuth itself rejects (the catch branch of ensureMigrated)', async () => {
+        // Exercises the `catch(() => null)` swallow inside `ensureMigrated`.
+        // Without this branch a thrown migration would propagate and the CLI
+        // would crash on first invocation post-upgrade for users with a
+        // half-broken keyring / disk.
+        migrateMocks.runMigrateLegacyAuth.mockRejectedValue(new Error('boom'))
+        keyringMocks.secureStoreGetSecret.mockResolvedValue('tk_legacy_keyring')
+        configMocks.getConfig.mockResolvedValue({
+            authUserId: 42,
+            authUserName: 'Ada',
+            authMode: 'read-write',
+            authScope: 'user:read',
+        })
+        const createTwistTokenStore = await loadCreateTwistTokenStore()
+
+        const snapshot = await createTwistTokenStore().active()
+
+        expect(snapshot?.token).toBe('tk_legacy_keyring')
+        expect(snapshot?.account.id).toBe('42')
+        expect(keyringMocks.inner.active).not.toHaveBeenCalled()
+    })
+
+    it('legacy snapshot synthesises account.id = "" for `tw auth token <token>` users with no authUserId (preserves the pre-γ1 single-user adapter behaviour)', async () => {
+        migrateMocks.runMigrateLegacyAuth.mockResolvedValue({
+            status: 'skipped',
+            reason: 'identify-failed',
+            detail: 'offline',
+        })
+        configMocks.getConfig.mockResolvedValue({
+            token: 'tk_token_only',
+            authMode: 'unknown',
+        })
+        const createTwistTokenStore = await loadCreateTwistTokenStore()
+
+        const snapshot = await createTwistTokenStore().active()
+
+        expect(snapshot?.account.id).toBe('')
+        expect(snapshot?.account.label).toBe('')
+    })
+
+    it('active(ref) ignores the legacy snapshot when an explicit --user targets a different account', async () => {
+        // Without this guard `tw <cmd> --user 999` while offline would silently
+        // authenticate as the default legacy user (id 42) instead of failing
+        // with the expected account-not-found outcome.
+        migrateMocks.runMigrateLegacyAuth.mockResolvedValue({
+            status: 'skipped',
+            reason: 'identify-failed',
+            detail: 'offline',
+        })
+        keyringMocks.secureStoreGetSecret.mockResolvedValue('tk_legacy_keyring')
+        configMocks.getConfig.mockResolvedValue({
+            authUserId: 42,
+            authUserName: 'Ada',
+            authMode: 'read-write',
+            authScope: 'user:read',
+        })
+        keyringMocks.inner.active.mockResolvedValue(null)
+        const createTwistTokenStore = await loadCreateTwistTokenStore()
+
+        const snapshot = await createTwistTokenStore().active('999')
+
+        expect(keyringMocks.inner.active).toHaveBeenCalledWith('999')
+        expect(snapshot).toBeNull()
+    })
+
+    it('active(ref) returns the legacy snapshot when the ref matches the legacy account', async () => {
+        migrateMocks.runMigrateLegacyAuth.mockResolvedValue({
+            status: 'skipped',
+            reason: 'identify-failed',
+            detail: 'offline',
+        })
+        keyringMocks.secureStoreGetSecret.mockResolvedValue('tk_legacy_keyring')
+        configMocks.getConfig.mockResolvedValue({
+            authUserId: 42,
+            authUserName: 'Ada',
+            authMode: 'read-write',
+            authScope: 'user:read',
+        })
+        const createTwistTokenStore = await loadCreateTwistTokenStore()
+
+        const snapshot = await createTwistTokenStore().active('42')
+
+        expect(snapshot?.token).toBe('tk_legacy_keyring')
+        expect(keyringMocks.inner.active).not.toHaveBeenCalled()
+    })
+
+    it('set() discharges legacy state on disk before writing v2, when migration is inconclusive', async () => {
+        // Without this, a manual `tw auth token <new>` during the offline
+        // window would land in v2 but the next invocation would still read
+        // the unchanged legacy token via the active() fallback path.
+        migrateMocks.runMigrateLegacyAuth.mockResolvedValue({
+            status: 'skipped',
+            reason: 'identify-failed',
+            detail: 'offline',
+        })
+        const createTwistTokenStore = await loadCreateTwistTokenStore()
+
+        await createTwistTokenStore().set(STORED_ACCOUNT, 'tk_new')
+
+        expect(keyringMocks.secureStoreDeleteSecret).toHaveBeenCalledTimes(1)
+        expect(configMocks.updateConfig).toHaveBeenCalledWith({
+            token: undefined,
+            authMode: undefined,
+            authScope: undefined,
+            authUserId: undefined,
+            authUserName: undefined,
+            pendingSecureStoreClear: undefined,
+        })
+        expect(keyringMocks.inner.set).toHaveBeenCalledWith(STORED_ACCOUNT, 'tk_new')
+    })
+
+    it('clear() discharges legacy state when migration is inconclusive (so logout actually logs the user out)', async () => {
+        migrateMocks.runMigrateLegacyAuth.mockResolvedValue({
+            status: 'skipped',
+            reason: 'identify-failed',
+            detail: 'offline',
+        })
+        const createTwistTokenStore = await loadCreateTwistTokenStore()
+
+        await createTwistTokenStore().clear('42')
+
+        expect(keyringMocks.secureStoreDeleteSecret).toHaveBeenCalledTimes(1)
+        expect(configMocks.updateConfig).toHaveBeenCalled()
+        expect(keyringMocks.inner.clear).toHaveBeenCalledWith('42')
+    })
+
+    it('set() / clear() do NOT touch legacy state when migration is conclusive (no needless writes on the happy path)', async () => {
+        migrateMocks.runMigrateLegacyAuth.mockResolvedValue({ status: 'no-legacy-state' })
+        const createTwistTokenStore = await loadCreateTwistTokenStore()
+        const store = createTwistTokenStore()
+
+        await store.set(STORED_ACCOUNT, 'tk_new')
+        await store.clear('42')
+
+        expect(keyringMocks.secureStoreDeleteSecret).not.toHaveBeenCalled()
+        expect(configMocks.updateConfig).not.toHaveBeenCalled()
     })
 })
 

@@ -1,6 +1,7 @@
 import type { UserRecord, UserRecordStore } from '@doist/cli-core/auth'
 import type { TwistAccount } from './auth-provider.js'
 import { type Config, type StoredUser, getConfig, updateConfig } from './config.js'
+import { makeTwistAccount } from './twist-account.js'
 
 /**
  * v2 adapter — reads/writes the `users[]` array in `config.json`. Multi-account
@@ -66,12 +67,12 @@ export function getDefaultUserRecord(config: Config): UserRecord<TwistAccount> |
 }
 
 function toRecord(user: StoredUser): UserRecord<TwistAccount> {
-    const account: TwistAccount = {
+    const account = makeTwistAccount({
         id: user.id,
         label: user.name,
-        authMode: user.authMode ?? 'unknown',
-        authScope: user.authScope ?? '',
-    }
+        authMode: user.authMode,
+        authScope: user.authScope,
+    })
     const trimmed = user.token?.trim()
     const record: UserRecord<TwistAccount> = { account }
     if (trimmed) record.fallbackToken = trimmed

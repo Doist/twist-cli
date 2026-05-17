@@ -76,12 +76,28 @@ export async function probeApiToken(): Promise<AuthProbeResult> {
     }
 }
 
-/** Lightweight metadata read used by `tw auth status` once a token is confirmed. */
+/**
+ * Lightweight metadata read used by `tw auth status` and `ensureWriteAllowed`.
+ * Falls back to the v1 flat fields when no v2 record exists yet so a legacy
+ * `read-only` token isn't reported as `'unknown'` during the post-upgrade
+ * offline window — that would let mutating commands slip past the local
+ * READ_ONLY guard until migration completes.
+ */
 export async function getAuthMetadata(): Promise<AuthMetadata> {
     if (process.env[TOKEN_ENV_VAR]) return { authMode: 'unknown', source: 'env' }
-    const record = getDefaultUserRecord(await getConfig())
-    if (!record) return { authMode: 'unknown', source: 'config' }
-    return { ...toAccountFields(record.account), source: 'config' }
+    const config = await getConfig()
+    const record = getDefaultUserRecord(config)
+    if (record) return { ...toAccountFields(record.account), source: 'config' }
+    if (config.token?.trim() || config.authUserId !== undefined || config.authMode) {
+        return {
+            authMode: config.authMode ?? 'unknown',
+            authScope: config.authScope,
+            authUserId: config.authUserId,
+            authUserName: config.authUserName,
+            source: 'config',
+        }
+    }
+    return { authMode: 'unknown', source: 'config' }
 }
 
 function toAccountFields(account: TwistAccount): {

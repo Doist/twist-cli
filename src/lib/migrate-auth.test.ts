@@ -29,7 +29,6 @@ vi.mock('./config.js', async (importOriginal) => {
 })
 
 import type { MigrateLegacyAuthOptions } from '@doist/cli-core/auth'
-import { CONFIG_VERSION } from './config.js'
 import { runMigrateLegacyAuth } from './migrate-auth.js'
 
 type Opts = MigrateLegacyAuthOptions<{
@@ -58,8 +57,11 @@ describe('runMigrateLegacyAuth', () => {
         expect(options.silent).toBe(true)
     })
 
-    it('hasMigrated returns true once config_version reaches the current CONFIG_VERSION (one-way gate)', async () => {
-        mocks.getConfig.mockResolvedValueOnce({ config_version: CONFIG_VERSION })
+    it('hasMigrated returns true once config_version reaches 2 (one-way gate)', async () => {
+        // v1 → v2 migration only — the check uses a local schema version so a
+        // future v3 bump doesn't cause this helper to spuriously re-run.
+        mocks.getConfig.mockResolvedValueOnce({ config_version: 2 })
+        mocks.getConfig.mockResolvedValueOnce({ config_version: 3 })
         mocks.getConfig.mockResolvedValueOnce({ config_version: 1 })
         mocks.getConfig.mockResolvedValueOnce({})
 
@@ -67,17 +69,18 @@ describe('runMigrateLegacyAuth', () => {
         const options = mocks.migrateLegacyAuth.mock.calls[0][0] as Opts
 
         expect(await options.hasMigrated()).toBe(true)
+        expect(await options.hasMigrated()).toBe(true)
         expect(await options.hasMigrated()).toBe(false)
         expect(await options.hasMigrated()).toBe(false)
     })
 
-    it('markMigrated writes config_version = CONFIG_VERSION', async () => {
+    it('markMigrated writes config_version = 2 exactly (decoupled from any future CONFIG_VERSION bump)', async () => {
         await runMigrateLegacyAuth({ silent: true })
         const options = mocks.migrateLegacyAuth.mock.calls[0][0] as Opts
 
         await options.markMigrated()
 
-        expect(mocks.updateConfig).toHaveBeenCalledWith({ config_version: CONFIG_VERSION })
+        expect(mocks.updateConfig).toHaveBeenCalledWith({ config_version: 2 })
     })
 
     it('loadLegacyPlaintextToken returns trimmed config.token, or null when blank/absent', async () => {
@@ -108,6 +111,33 @@ describe('runMigrateLegacyAuth', () => {
             authScope: 'user:read',
         })
         expect(mocks.twistApiCtor).toHaveBeenCalledWith('tk_legacy')
+    })
+
+    it('identifyAccount runs the API call and the local getConfig() concurrently', async () => {
+        // The two reads are independent; firing them sequentially adds an
+        // avoidable round-trip on every postinstall migration. Resolve the
+        // API call first and assert getConfig was already in flight by then.
+        let resolveApi: (value: { id: number; name: string }) => void = () => {}
+        const apiPromise = new Promise<{ id: number; name: string }>((res) => {
+            resolveApi = res
+        })
+        mocks.getSessionUserMock.mockReturnValueOnce(apiPromise)
+        mocks.getConfig.mockResolvedValueOnce({ authMode: 'read-only', authScope: 'user:read' })
+
+        await runMigrateLegacyAuth({ silent: true })
+        const options = mocks.migrateLegacyAuth.mock.calls[0][0] as Opts
+
+        const identifyPromise = options.identifyAccount('tk_legacy')
+        // getConfig should have been kicked off before we resolved the API.
+        expect(mocks.getConfig).toHaveBeenCalledTimes(1)
+        resolveApi({ id: 42, name: 'Ada' })
+
+        await expect(identifyPromise).resolves.toEqual({
+            id: '42',
+            label: 'Ada',
+            authMode: 'read-only',
+            authScope: 'user:read',
+        })
     })
 
     it('identifyAccount falls back to unknown/empty metadata for `tw auth token` users with no authMode on disk', async () => {

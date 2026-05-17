@@ -1,15 +1,18 @@
 import { type MigrateAuthResult, migrateLegacyAuth } from '@doist/cli-core/auth'
 import { TwistApi } from '@doist/twist-sdk'
+import { LEGACY_KEYRING_ACCOUNT, SECURE_STORE_SERVICE } from './auth-constants.js'
 import type { TwistAccount } from './auth-provider.js'
-import { CONFIG_VERSION, getConfig, updateConfig } from './config.js'
+import { getConfig, updateConfig } from './config.js'
 import { toTwistAccount } from './twist-account.js'
 import { createTwistUserRecordStore } from './user-records.js'
 
-const SERVICE_NAME = 'twist-cli'
-// Legacy pre-γ1 keyring slot. cli-core's `migrateLegacyAuth` deletes the secret
-// stored under this slug after a successful migration. After γ1, the runtime
-// uses cli-core's default `user-${id}` slug.
-const LEGACY_KEYRING_ACCOUNT = 'api-token'
+/**
+ * Schema version this migration targets. Kept local (not the exported
+ * `CONFIG_VERSION` from `config.ts`) so a future schema bump to v3 doesn't
+ * cause this v1→v2 helper to spuriously re-run for already-migrated users:
+ * `hasMigrated()` reads `>= 2`, `markMigrated()` writes exactly `2`.
+ */
+const V2_SCHEMA_VERSION = 2
 
 /**
  * One-time v1 → v2 auth state migration. Both wakeup paths (postinstall + the
@@ -25,23 +28,27 @@ export async function runMigrateLegacyAuth(
     options: { silent: boolean } = { silent: true },
 ): Promise<MigrateAuthResult<TwistAccount>> {
     return migrateLegacyAuth<TwistAccount>({
-        serviceName: SERVICE_NAME,
+        serviceName: SECURE_STORE_SERVICE,
         legacyAccount: LEGACY_KEYRING_ACCOUNT,
         userRecords: createTwistUserRecordStore(),
         hasMigrated: async () => {
             const config = await getConfig()
-            return config.config_version === CONFIG_VERSION
+            return (config.config_version ?? 0) >= V2_SCHEMA_VERSION
         },
         markMigrated: async () => {
-            await updateConfig({ config_version: CONFIG_VERSION })
+            await updateConfig({ config_version: V2_SCHEMA_VERSION })
         },
         loadLegacyPlaintextToken: async () => {
             const config = await getConfig()
             return config.token?.trim() || null
         },
         identifyAccount: async (token) => {
-            const user = await new TwistApi(token).users.getSessionUser()
-            const config = await getConfig()
+            // Network call + config read are independent — fire them together
+            // to shave a round trip off the first-run / postinstall path.
+            const [user, config] = await Promise.all([
+                new TwistApi(token).users.getSessionUser(),
+                getConfig(),
+            ])
             // Legacy `tw auth token` users have no `authMode` / `authScope` on
             // disk; `toTwistAccount` falls through to the same defaults
             // `validateToken` would have written.
