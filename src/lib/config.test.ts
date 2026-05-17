@@ -97,70 +97,48 @@ describe('validateConfigForDoctor', () => {
             config_version: 2,
             defaultUserId: '42',
             users: [
-                {
-                    id: '42',
-                    name: 'Ada',
-                    authMode: 'read-write',
-                    authScope: 'user:read',
-                },
+                { id: '42', name: 'Ada', authMode: 'read-write', authScope: 'user:read' },
                 { id: '99', name: 'Bob' },
             ],
         })
         expect(issues).toEqual([])
     })
 
-    it('rejects config_version that is not an integer', () => {
+    it('rejects malformed top-level v2 fields', () => {
         expect(validateConfigForDoctor({ config_version: 'two' })).toContain(
             'config_version must be an integer',
         )
         expect(validateConfigForDoctor({ config_version: 2.5 })).toContain(
             'config_version must be an integer',
         )
-    })
-
-    it('rejects defaultUserId that is not a string', () => {
         expect(validateConfigForDoctor({ defaultUserId: 42 })).toContain(
             'defaultUserId must be a string',
         )
-    })
-
-    it('rejects users that is not an array', () => {
         expect(validateConfigForDoctor({ users: { id: '42' } })).toContain('users must be an array')
     })
 
-    it('rejects malformed StoredUser entries (missing required keys + wrong types)', () => {
+    it('rejects malformed StoredUser entries (shape, types, unknown keys, invalid authMode)', () => {
         const issues = validateConfigForDoctor({
             users: [
-                { id: 42, name: 'Ada' }, // numeric id (must be string)
-                { id: '99', name: 5 }, // numeric name (must be string)
+                { id: 42, name: 'Ada' },
+                { id: '99', name: 5 },
                 'not-an-object',
+                { id: '7', name: 'Carl', somethingElse: true },
+                { id: '8', name: 'Dora', authMode: 'bogus' },
+                { id: '9', name: 'Eve', authScope: 1, token: false },
             ],
         })
-        expect(issues).toContain('users[0].id must be a string')
-        expect(issues).toContain('users[1].name must be a string')
-        expect(issues).toContain('users[2] must be an object')
-    })
-
-    it('rejects unknown keys on a StoredUser', () => {
-        const issues = validateConfigForDoctor({
-            users: [{ id: '42', name: 'Ada', somethingElse: true }],
-        })
-        expect(issues).toContain('users[0] contains unrecognized key "somethingElse"')
-    })
-
-    it('rejects an invalid StoredUser.authMode', () => {
-        const issues = validateConfigForDoctor({
-            users: [{ id: '42', name: 'Ada', authMode: 'bogus' }],
-        })
-        expect(issues).toContain('users[0].authMode must be one of: read-only, read-write, unknown')
-    })
-
-    it('rejects non-string StoredUser.authScope and StoredUser.token', () => {
-        const issues = validateConfigForDoctor({
-            users: [{ id: '42', name: 'Ada', authScope: 1, token: false }],
-        })
-        expect(issues).toContain('users[0].authScope must be a string')
-        expect(issues).toContain('users[0].token must be a string')
+        expect(issues).toEqual(
+            expect.arrayContaining([
+                'users[0].id must be a string',
+                'users[1].name must be a string',
+                'users[2] must be an object',
+                'users[3] contains unrecognized key "somethingElse"',
+                'users[4].authMode must be one of: read-only, read-write, unknown',
+                'users[5].authScope must be a string',
+                'users[5].token must be a string',
+            ]),
+        )
     })
 })
 

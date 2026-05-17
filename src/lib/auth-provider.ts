@@ -288,26 +288,21 @@ function migrationIsConclusive(result: MigrateAuthResult<TwistAccount>): boolean
 
 /**
  * Synthesise a snapshot from v1 state still on disk (legacy keyring slot,
- * then plaintext `config.token`). Used only as a fallback when migration
- * can't complete. Token-only users with no `authUserId` get `account.id =
- * ''` so callers can detect the unidentified-account state.
+ * then plaintext `config.token`). Fallback for when migration can't complete.
+ * Token-only users with no `authUserId` get `account.id = ''`.
  */
 async function readLegacyTokenSnapshot(): Promise<{
     token: string
     account: TwistAccount
 } | null> {
-    let token: string | null = null
-    try {
-        const secureStore = createSecureStore({
-            serviceName: SECURE_STORE_SERVICE,
-            account: LEGACY_KEYRING_ACCOUNT,
-        })
-        token = await secureStore.getSecret()
-    } catch {
-        // Keyring unreachable — fall through to plaintext.
-    }
+    const fromKeyring = await createSecureStore({
+        serviceName: SECURE_STORE_SERVICE,
+        account: LEGACY_KEYRING_ACCOUNT,
+    })
+        .getSecret()
+        .catch(() => null)
     const config = await getConfig()
-    if (!token) token = config.token?.trim() || null
+    const token = fromKeyring || config.token?.trim() || null
     if (!token) return null
     return {
         token,
@@ -323,26 +318,23 @@ async function readLegacyTokenSnapshot(): Promise<{
 /**
  * Clear the legacy keyring slot + v1 flat config fields. Runs before a
  * write/clear when migration is inconclusive so v2 writes aren't shadowed
- * by a stale legacy token on the next read. Best-effort: a failure here
- * leaves the legacy entry put, which is harmless once migration completes.
+ * by a stale legacy token. Best-effort — failures leave legacy in place.
  */
 async function dischargeLegacyState(): Promise<void> {
-    try {
-        await createSecureStore({
+    await Promise.allSettled([
+        createSecureStore({
             serviceName: SECURE_STORE_SERVICE,
             account: LEGACY_KEYRING_ACCOUNT,
-        }).deleteSecret()
-    } catch {}
-    try {
-        await updateConfig({
+        }).deleteSecret(),
+        updateConfig({
             token: undefined,
             authMode: undefined,
             authScope: undefined,
             authUserId: undefined,
             authUserName: undefined,
             pendingSecureStoreClear: undefined,
-        })
-    } catch {}
+        }),
+    ])
 }
 
 /**

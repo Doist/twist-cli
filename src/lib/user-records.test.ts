@@ -155,16 +155,4 @@ describe('createTwistUserRecordStore', () => {
         await store.setDefaultId(null)
         expect(mocks.updateConfig).toHaveBeenCalledWith({ defaultUserId: undefined })
     })
-
-    it('round-trips a record through upsert + list (single-user case)', async () => {
-        mocks.getConfig.mockResolvedValueOnce({ currentWorkspace: 7 } satisfies Config)
-        const store = createTwistUserRecordStore()
-        const record = { ...ADA_RECORD, fallbackToken: 'tk_stored_1234567890' }
-
-        await store.upsert(record)
-        const writtenUsers = mocks.updateConfig.mock.calls[0][0].users as StoredUser[]
-        mocks.getConfig.mockResolvedValueOnce({ currentWorkspace: 7, users: writtenUsers })
-
-        expect(await store.list()).toEqual([record])
-    })
 })

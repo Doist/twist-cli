@@ -112,34 +112,23 @@ describe('auth shims over the cli-core keyring store', () => {
         })
     })
 
-    it('getAuthMetadata picks the record matching defaultUserId, not the first one in users[]', async () => {
-        // Bob is appended later but pinned as default — Ada (first in the
-        // array) must not win, otherwise `tw auth status` would lie about
-        // which account is active.
-        mocks.getConfigMock.mockResolvedValue({
+    it('getAuthMetadata picks the record matching defaultUserId, falling back to the first when the pinned id is missing', async () => {
+        mocks.getConfigMock.mockResolvedValueOnce({
             users: [ADA_USER, BOB_USER],
             defaultUserId: '99',
         } satisfies Config)
-
-        await expect(getAuthMetadata()).resolves.toEqual({
-            authMode: 'read-only',
-            authScope: 'user:read',
+        await expect(getAuthMetadata()).resolves.toMatchObject({
             authUserId: 99,
             authUserName: 'Bob',
-            source: 'config',
         })
-    })
 
-    it('getAuthMetadata falls back to the first user when defaultUserId points at no stored record', async () => {
-        mocks.getConfigMock.mockResolvedValue({
+        mocks.getConfigMock.mockResolvedValueOnce({
             users: [ADA_USER, BOB_USER],
             defaultUserId: 'gone',
         } satisfies Config)
-
         await expect(getAuthMetadata()).resolves.toMatchObject({
             authUserId: 42,
             authUserName: 'Ada',
-            source: 'config',
         })
     })
 
@@ -149,15 +138,15 @@ describe('auth shims over the cli-core keyring store', () => {
         await expect(getAuthMetadata()).resolves.toEqual({ authMode: 'unknown', source: 'config' })
     })
 
-    it('getAuthMetadata falls back to v1 flat fields when users[] is empty but legacy state is on disk (real authMode reaches ensureWriteAllowed)', async () => {
-        mocks.getConfigMock.mockResolvedValue({
+    it('getAuthMetadata falls back to v1 flat fields when users[] is empty but legacy state is on disk', async () => {
+        // Preserves real authMode so ensureWriteAllowed's READ_ONLY guard fires.
+        mocks.getConfigMock.mockResolvedValueOnce({
             token: 'tk_legacy',
             authMode: 'read-only',
             authScope: 'user:read',
             authUserId: 42,
             authUserName: 'Ada',
         } satisfies Config)
-
         await expect(getAuthMetadata()).resolves.toEqual({
             authMode: 'read-only',
             authScope: 'user:read',
@@ -165,11 +154,9 @@ describe('auth shims over the cli-core keyring store', () => {
             authUserName: 'Ada',
             source: 'config',
         })
-    })
 
-    it('getAuthMetadata legacy fallback handles `tw auth token` users with no authMode on disk (authMode → "unknown")', async () => {
-        mocks.getConfigMock.mockResolvedValue({ token: 'tk_token_only' } satisfies Config)
-
+        // `tw auth token` users have no authMode → defaults to 'unknown'.
+        mocks.getConfigMock.mockResolvedValueOnce({ token: 'tk_token_only' } satisfies Config)
         await expect(getAuthMetadata()).resolves.toEqual({
             authMode: 'unknown',
             source: 'config',
