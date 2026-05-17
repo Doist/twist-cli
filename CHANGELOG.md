@@ -1,3 +1,9 @@
+## [2.40.0](https://github.com/Doist/twist-cli/compare/v2.39.0...v2.40.0) (2026-05-17)
+
+### Features
+
+- **auth:** schema v2 + multi-account migration foundation ([#232](https://github.com/Doist/twist-cli/issues/232)) ([8ca3382](https://github.com/Doist/twist-cli/commit/8ca3382378506ddb27cdcb521103d06bd567a3fb))
+
 ## [2.39.0](https://github.com/Doist/twist-cli/compare/v2.38.0...v2.39.0) (2026-05-16)
 
 ### Features
