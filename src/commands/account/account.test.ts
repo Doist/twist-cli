@@ -26,6 +26,7 @@ vi.mock('../../lib/auth-provider.js', async (importOriginal) => {
 
 vi.mock('chalk')
 
+import { ACCOUNT_ALAN, ACCOUNT_ELLIE } from '../../lib/__fixtures__/accounts.js'
 import { type TwistAccount } from '../../lib/auth-provider.js'
 import { TOKEN_ENV_VAR } from '../../lib/auth.js'
 import { registerAccountCommand } from './index.js'
@@ -37,18 +38,22 @@ function createProgram() {
     return program
 }
 
-const ACCOUNT_A: TwistAccount = {
-    id: '1',
-    label: 'Ada Lovelace',
-    authMode: 'read-write',
-    authScope: 'user:read',
+/** Seed `store.list()` and `store.setDefault/clear` resolvers in one call. */
+function seedStore(...records: Array<TwistAccount | [TwistAccount, 'default']>): void {
+    const list = records.map((spec) =>
+        Array.isArray(spec)
+            ? { account: spec[0], isDefault: true }
+            : { account: spec, isDefault: false },
+    )
+    storeMocks.list.mockResolvedValue(list)
+    storeMocks.setDefault.mockResolvedValue(undefined)
+    storeMocks.clear.mockResolvedValue(undefined)
+    storeMocks.getLastClearResult.mockReturnValue({ storage: 'secure-store' })
 }
 
-const ACCOUNT_B: TwistAccount = {
-    id: '2',
-    label: 'Bob Smith',
-    authMode: 'read-only',
-    authScope: 'user:read',
+const LEGACY_SNAPSHOT = {
+    token: 'tk_legacy',
+    account: { id: '', label: '', authMode: 'unknown' as const, authScope: '' },
 }
 
 describe('account command', () => {
@@ -72,24 +77,21 @@ describe('account command', () => {
 
     describe('list', () => {
         it('renders all stored accounts with the default marker', async () => {
-            storeMocks.list.mockResolvedValue([
-                { account: ACCOUNT_A, isDefault: true },
-                { account: ACCOUNT_B, isDefault: false },
-            ])
+            seedStore([ACCOUNT_ALAN, 'default'], ACCOUNT_ELLIE)
 
             await createProgram().parseAsync(['node', 'tw', 'account', 'list'])
 
             const output = stdout()
             expect(output).toContain('Stored accounts (2)')
             expect(output).toContain('id:1')
-            expect(output).toContain('Ada Lovelace')
+            expect(output).toContain('Alan Grant')
             expect(output).toContain('id:2')
-            expect(output).toContain('Bob Smith')
-            expect(output).toContain('Default: id:1  Ada Lovelace')
+            expect(output).toContain('Ellie Sattler')
+            expect(output).toContain('Default: id:1  Alan Grant')
         })
 
         it('reports the empty state when no accounts are stored', async () => {
-            storeMocks.list.mockResolvedValue([])
+            seedStore()
 
             await createProgram().parseAsync(['node', 'tw', 'account', 'list'])
 
@@ -99,16 +101,13 @@ describe('account command', () => {
         })
 
         it('emits a JSON envelope with id, label, isDefault', async () => {
-            storeMocks.list.mockResolvedValue([
-                { account: ACCOUNT_A, isDefault: true },
-                { account: ACCOUNT_B, isDefault: false },
-            ])
+            seedStore([ACCOUNT_ALAN, 'default'], ACCOUNT_ELLIE)
 
             await createProgram().parseAsync(['node', 'tw', 'account', 'list', '--json'])
 
             expect(JSON.parse(consoleSpy.mock.calls[0][0] as string)).toEqual([
-                { id: '1', label: 'Ada Lovelace', isDefault: true },
-                { id: '2', label: 'Bob Smith', isDefault: false },
+                { id: '1', label: 'Alan Grant', isDefault: true },
+                { id: '2', label: 'Ellie Sattler', isDefault: false },
             ])
         })
     })
@@ -116,12 +115,12 @@ describe('account command', () => {
     describe('current', () => {
         it('renders the active account from store.active()', async () => {
             vi.stubEnv(TOKEN_ENV_VAR, '')
-            storeMocks.active.mockResolvedValue({ token: 'tk_abc', account: ACCOUNT_A })
+            storeMocks.active.mockResolvedValue({ token: 'tk_abc', account: ACCOUNT_ALAN })
 
             await createProgram().parseAsync(['node', 'tw', 'account', 'current'])
 
             const output = stdout()
-            expect(output).toContain('Active account: id:1  Ada Lovelace')
+            expect(output).toContain('Active account: id:1  Alan Grant')
             expect(output).toContain('Mode:  read-write')
             expect(output).toContain('Scope: user:read')
         })
@@ -141,10 +140,7 @@ describe('account command', () => {
 
         it('renders a legacy-session notice when active() returns an empty-id snapshot', async () => {
             vi.stubEnv(TOKEN_ENV_VAR, '')
-            storeMocks.active.mockResolvedValue({
-                token: 'tk_legacy',
-                account: { id: '', label: '', authMode: 'unknown', authScope: '' },
-            })
+            storeMocks.active.mockResolvedValue(LEGACY_SNAPSHOT)
 
             await createProgram().parseAsync(['node', 'tw', 'account', 'current'])
 
@@ -153,10 +149,7 @@ describe('account command', () => {
 
         it('emits {source:"legacy"} in --json mode for legacy snapshots', async () => {
             vi.stubEnv(TOKEN_ENV_VAR, '')
-            storeMocks.active.mockResolvedValue({
-                token: 'tk_legacy',
-                account: { id: '', label: '', authMode: 'unknown', authScope: '' },
-            })
+            storeMocks.active.mockResolvedValue(LEGACY_SNAPSHOT)
 
             await createProgram().parseAsync(['node', 'tw', 'account', 'current', '--json'])
 
@@ -174,13 +167,13 @@ describe('account command', () => {
 
         it('emits a JSON envelope with the active account fields', async () => {
             vi.stubEnv(TOKEN_ENV_VAR, '')
-            storeMocks.active.mockResolvedValue({ token: 'tk_abc', account: ACCOUNT_A })
+            storeMocks.active.mockResolvedValue({ token: 'tk_abc', account: ACCOUNT_ALAN })
 
             await createProgram().parseAsync(['node', 'tw', 'account', 'current', '--json'])
 
             expect(JSON.parse(consoleSpy.mock.calls[0][0] as string)).toEqual({
                 id: '1',
-                label: 'Ada Lovelace',
+                label: 'Alan Grant',
                 authMode: 'read-write',
                 authScope: 'user:read',
                 source: 'config',
@@ -190,11 +183,7 @@ describe('account command', () => {
 
     describe('use', () => {
         it('sets the default account by canonical id when the ref matches', async () => {
-            storeMocks.list.mockResolvedValue([
-                { account: ACCOUNT_A, isDefault: false },
-                { account: ACCOUNT_B, isDefault: true },
-            ])
-            storeMocks.setDefault.mockResolvedValue(undefined)
+            seedStore(ACCOUNT_ALAN, [ACCOUNT_ELLIE, 'default'])
 
             await createProgram().parseAsync(['node', 'tw', 'account', 'use', '1'])
 
@@ -202,11 +191,11 @@ describe('account command', () => {
             expect(storeMocks.setDefault).toHaveBeenCalledWith('1')
             const output = stdout()
             expect(output).toContain('Default account set to')
-            expect(output).toContain('Ada Lovelace')
+            expect(output).toContain('Alan Grant')
         })
 
         it('rejects unknown refs with ACCOUNT_NOT_FOUND before touching the store', async () => {
-            storeMocks.list.mockResolvedValue([{ account: ACCOUNT_A, isDefault: true }])
+            seedStore([ACCOUNT_ALAN, 'default'])
 
             await expect(
                 createProgram().parseAsync(['node', 'tw', 'account', 'use', '999']),
@@ -216,41 +205,32 @@ describe('account command', () => {
         })
 
         it('matches refs by display name and resolves to the canonical id', async () => {
-            storeMocks.list.mockResolvedValue([
-                { account: ACCOUNT_A, isDefault: false },
-                { account: ACCOUNT_B, isDefault: true },
-            ])
-            storeMocks.setDefault.mockResolvedValue(undefined)
+            seedStore(ACCOUNT_ALAN, [ACCOUNT_ELLIE, 'default'])
 
-            await createProgram().parseAsync(['node', 'tw', 'account', 'use', 'ada lovelace'])
+            await createProgram().parseAsync(['node', 'tw', 'account', 'use', 'alan grant'])
 
             expect(storeMocks.setDefault).toHaveBeenCalledTimes(1)
             const output = stdout()
-            expect(output).toContain('Ada Lovelace')
-            expect(output).not.toContain('Bob Smith')
+            expect(output).toContain('Alan Grant')
+            expect(output).not.toContain('Ellie Sattler')
         })
     })
 
     describe('remove', () => {
         it('clears the account by canonical id and prints the removed label', async () => {
-            storeMocks.list.mockResolvedValue([
-                { account: ACCOUNT_A, isDefault: true },
-                { account: ACCOUNT_B, isDefault: false },
-            ])
-            storeMocks.clear.mockResolvedValue(undefined)
-            storeMocks.getLastClearResult.mockReturnValue({ storage: 'secure-store' })
+            seedStore([ACCOUNT_ALAN, 'default'], ACCOUNT_ELLIE)
 
-            await createProgram().parseAsync(['node', 'tw', 'account', 'remove', 'bob smith'])
+            await createProgram().parseAsync(['node', 'tw', 'account', 'remove', 'ellie sattler'])
 
             expect(storeMocks.clear).toHaveBeenCalledTimes(1)
             expect(storeMocks.clear).toHaveBeenCalledWith('2')
             const output = stdout()
             expect(output).toContain('Removed account')
-            expect(output).toContain('Bob Smith')
+            expect(output).toContain('Ellie Sattler')
         })
 
         it('rejects unknown refs with ACCOUNT_NOT_FOUND before clearing', async () => {
-            storeMocks.list.mockResolvedValue([{ account: ACCOUNT_A, isDefault: true }])
+            seedStore([ACCOUNT_ALAN, 'default'])
 
             await expect(
                 createProgram().parseAsync(['node', 'tw', 'account', 'remove', '999']),
@@ -260,8 +240,7 @@ describe('account command', () => {
         })
 
         it('surfaces keyring-fallback warnings on stderr', async () => {
-            storeMocks.list.mockResolvedValue([{ account: ACCOUNT_A, isDefault: true }])
-            storeMocks.clear.mockResolvedValue(undefined)
+            seedStore([ACCOUNT_ALAN, 'default'])
             storeMocks.getLastClearResult.mockReturnValue({
                 storage: 'config-file',
                 warning: 'system credential manager unavailable; local auth state cleared',
@@ -276,16 +255,14 @@ describe('account command', () => {
         })
 
         it('emits a JSON envelope and suppresses the plain confirmation', async () => {
-            storeMocks.list.mockResolvedValue([{ account: ACCOUNT_A, isDefault: true }])
-            storeMocks.clear.mockResolvedValue(undefined)
-            storeMocks.getLastClearResult.mockReturnValue({ storage: 'secure-store' })
+            seedStore([ACCOUNT_ALAN, 'default'])
 
             await createProgram().parseAsync(['node', 'tw', 'account', 'remove', '1', '--json'])
 
             expect(consoleSpy).toHaveBeenCalledTimes(1)
             expect(JSON.parse(consoleSpy.mock.calls[0][0] as string)).toEqual({
                 id: '1',
-                label: 'Ada Lovelace',
+                label: 'Alan Grant',
                 removed: true,
             })
         })
