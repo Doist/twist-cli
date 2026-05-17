@@ -4,15 +4,9 @@ import { type Config, type StoredUser, getConfig, updateConfig } from './config.
 import { makeTwistAccount } from './twist-account.js'
 
 /**
- * v2 adapter — reads/writes the `users[]` array in `config.json`. Multi-account
- * capable: `list()` returns one `UserRecord<TwistAccount>` per stored user;
- * `upsert` replaces or appends keyed by `account.id`; `setDefaultId` writes
- * `defaultUserId`. `migrateLegacyAuth` (see `migrate-auth.ts`) is responsible
- * for promoting v1 flat fields into this shape on first run.
- *
- * `token` on a `StoredUser` is surfaced as `fallbackToken` (cli-core's name
- * for the plaintext copy persisted only when the keyring is unreachable at
- * write time).
+ * `UserRecordStore` adapter over `config.users[]`. `StoredUser.token` is
+ * surfaced as `fallbackToken` — cli-core's name for the plaintext copy
+ * persisted only when the keyring is unreachable.
  */
 export function createTwistUserRecordStore(): UserRecordStore<TwistAccount> {
     return {
@@ -52,11 +46,8 @@ export function createTwistUserRecordStore(): UserRecordStore<TwistAccount> {
 }
 
 /**
- * Resolve the active (default-or-first) `UserRecord` directly from an
- * already-loaded `Config` — avoids the double `getConfig()` that
- * `store.list()` + `store.getDefaultId()` would otherwise incur, and gives
- * callers one canonical place to derive the default. Returns `null` when no
- * users are stored.
+ * Resolve the default-or-first `UserRecord` from an already-loaded config.
+ * Returns `null` when no users are stored.
  */
 export function getDefaultUserRecord(config: Config): UserRecord<TwistAccount> | null {
     const users = config.users ?? []
@@ -80,9 +71,8 @@ function toRecord(user: StoredUser): UserRecord<TwistAccount> {
 }
 
 function fromRecord(record: UserRecord<TwistAccount>): StoredUser {
-    // REPLACE semantics (cli-core contract): absent / blank `fallbackToken`
-    // strips the plaintext slot so a stale token can't survive a fresh
-    // keyring-backed write.
+    // Replace, don't merge: an absent `fallbackToken` strips the plaintext
+    // slot so it can't shadow a fresh keyring-backed write. cli-core contract.
     const trimmed = record.fallbackToken?.trim()
     const next: StoredUser = {
         id: record.account.id,

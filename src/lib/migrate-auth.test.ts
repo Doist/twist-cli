@@ -47,7 +47,7 @@ describe('runMigrateLegacyAuth', () => {
         mocks.updateConfig.mockReset().mockResolvedValue(undefined)
     })
 
-    it('passes twist-cli wiring to cli-core: serviceName, the api-token legacy slot, silent flag, and no accountForUser override (cli-core default user-${id} is used)', async () => {
+    it('passes twist-cli wiring to cli-core: serviceName, legacy api-token slot, silent flag, no accountForUser override', async () => {
         await runMigrateLegacyAuth({ silent: true })
 
         const options = mocks.migrateLegacyAuth.mock.calls[0][0] as Opts
@@ -57,9 +57,7 @@ describe('runMigrateLegacyAuth', () => {
         expect(options.silent).toBe(true)
     })
 
-    it('hasMigrated returns true once config_version reaches 2 (one-way gate)', async () => {
-        // v1 → v2 migration only — the check uses a local schema version so a
-        // future v3 bump doesn't cause this helper to spuriously re-run.
+    it('hasMigrated returns true once config_version reaches 2 (one-way gate; >= 2 so future bumps still count)', async () => {
         mocks.getConfig.mockResolvedValueOnce({ config_version: 2 })
         mocks.getConfig.mockResolvedValueOnce({ config_version: 3 })
         mocks.getConfig.mockResolvedValueOnce({ config_version: 1 })
@@ -74,7 +72,7 @@ describe('runMigrateLegacyAuth', () => {
         expect(await options.hasMigrated()).toBe(false)
     })
 
-    it('markMigrated writes config_version = 2 exactly (decoupled from any future CONFIG_VERSION bump)', async () => {
+    it('markMigrated writes config_version = 2 (decoupled from the exported CONFIG_VERSION)', async () => {
         await runMigrateLegacyAuth({ silent: true })
         const options = mocks.migrateLegacyAuth.mock.calls[0][0] as Opts
 
@@ -97,7 +95,7 @@ describe('runMigrateLegacyAuth', () => {
         expect(await options.loadLegacyPlaintextToken()).toBeNull()
     })
 
-    it('identifyAccount resolves a TwistAccount from a raw TwistApi + v1 auth metadata on disk (no spinner-wrapped client — keeps migration outside the runtime auth graph)', async () => {
+    it('identifyAccount resolves a TwistAccount from a raw TwistApi + v1 auth metadata on disk', async () => {
         mocks.getSessionUserMock.mockResolvedValue({ id: 42, name: 'Ada' })
         mocks.getConfig.mockResolvedValue({ authMode: 'read-write', authScope: 'user:read' })
 
@@ -114,9 +112,6 @@ describe('runMigrateLegacyAuth', () => {
     })
 
     it('identifyAccount runs the API call and the local getConfig() concurrently', async () => {
-        // The two reads are independent; firing them sequentially adds an
-        // avoidable round-trip on every postinstall migration. Resolve the
-        // API call first and assert getConfig was already in flight by then.
         let resolveApi: (value: { id: number; name: string }) => void = () => {}
         const apiPromise = new Promise<{ id: number; name: string }>((res) => {
             resolveApi = res
@@ -128,8 +123,7 @@ describe('runMigrateLegacyAuth', () => {
         const options = mocks.migrateLegacyAuth.mock.calls[0][0] as Opts
 
         const identifyPromise = options.identifyAccount('tk_legacy')
-        // getConfig should have been kicked off before we resolved the API.
-        expect(mocks.getConfig).toHaveBeenCalledTimes(1)
+        expect(mocks.getConfig).toHaveBeenCalledTimes(1) // already in flight
         resolveApi({ id: 42, name: 'Ada' })
 
         await expect(identifyPromise).resolves.toEqual({

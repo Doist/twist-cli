@@ -10,9 +10,8 @@ import { CliError } from './errors.js'
 const APP_NAME = 'twist-cli'
 
 /**
- * On-disk schema version. Bumped when the persisted layout changes in a way
- * that needs a one-time migration. `migrateLegacyAuth` writes this to disk
- * once the v1→v2 move has completed; it is a one-way gate (no rollback).
+ * Current on-disk schema version. Bumped when the persisted layout requires
+ * a one-time migration. One-way gate — no rollback.
  */
 export const CONFIG_VERSION = 2 as const
 
@@ -38,12 +37,10 @@ const KNOWN_CONFIG_KEYS: ReadonlySet<string> = new Set([
     'authUserId',
     'authUserName',
     'updateChannel',
-    // Snake_case alias persisted on disk so cli-core's update command can read
-    // it directly. The in-memory `Config` type only exposes `updateChannel` —
-    // see `fromDiskShape` / `toDiskShape` for the persistence-seam translation.
+    // Snake_case alias on disk for cli-core's update command; the in-memory
+    // `Config` exposes only `updateChannel` (see `fromDiskShape`/`toDiskShape`).
     'update_channel',
     'userSettings',
-    // v2 schema (multi-account auth)
     'config_version',
     'users',
     'defaultUserId',
@@ -67,10 +64,9 @@ export interface UserSettings {
 }
 
 /**
- * One row of the v2 `users[]` array. `id` is the stringified numeric Twist
- * user id (same value `TwistAccount.id` carries in memory), `name` is the
- * display name. `token` is the plaintext fallback only — populated when the
- * OS keyring was unavailable at write time; absent in the happy path.
+ * One row of the `users[]` array. `id` is the stringified numeric Twist user
+ * id. `token` is a plaintext fallback persisted only when the keyring is
+ * unavailable at write time.
  */
 export interface StoredUser {
     id: string
@@ -81,27 +77,18 @@ export interface StoredUser {
 }
 
 export interface Config {
-    // v2 (multi-account)
-    // One-way version gate. `=== CONFIG_VERSION` after `migrateLegacyAuth` runs.
     config_version?: number
     users?: StoredUser[]
     defaultUserId?: string
 
-    // v1 — read-only after migration; `migrateLegacyAuth` cleans these up.
-    // Legacy plaintext token storage retained for migration and secure-store fallback only.
+    // Legacy single-user fields. Cleaned up by `migrateLegacyAuth`.
     token?: string
-    // Non-secret state used to finish logout after transient secure-store failures.
     pendingSecureStoreClear?: boolean
-    // Auth metadata persisted alongside the token to track OAuth scope.
     authMode?: AuthMode
     authScope?: string
-    // Identity of the authenticated user — captured after a successful OAuth
-    // login so the cli-core `TokenStore.active()` adapter can round-trip a
-    // real `TwistAccount` without re-fetching the session user.
     authUserId?: number
     authUserName?: string
 
-    // Unrelated (unchanged across schema versions)
     currentWorkspace?: number
     updateChannel?: UpdateChannel
     userSettings?: UserSettings

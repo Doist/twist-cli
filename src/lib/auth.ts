@@ -51,11 +51,7 @@ export class NoTokenError extends CliError {
     }
 }
 
-/**
- * Read the token used for live API calls. The store wraps `active()` with
- * env-var precedence (see `createTwistTokenStore`), so a single delegated
- * read covers both `TWIST_API_TOKEN=… tw …` and stored-credential cases.
- */
+/** Read the active token. The store wraps env-var precedence internally. */
 export async function getApiToken(): Promise<string> {
     const snapshot = await createTwistTokenStore().active()
     if (!snapshot) throw new NoTokenError()
@@ -77,11 +73,9 @@ export async function probeApiToken(): Promise<AuthProbeResult> {
 }
 
 /**
- * Lightweight metadata read used by `tw auth status` and `ensureWriteAllowed`.
- * Falls back to the v1 flat fields when no v2 record exists yet so a legacy
- * `read-only` token isn't reported as `'unknown'` during the post-upgrade
- * offline window — that would let mutating commands slip past the local
- * READ_ONLY guard until migration completes.
+ * Auth metadata for `tw auth status` and `ensureWriteAllowed`. Falls back
+ * to v1 flat fields when no v2 record exists so a legacy `read-only` token
+ * isn't reported as `'unknown'` — that would skip the local READ_ONLY guard.
  */
 export async function getAuthMetadata(): Promise<AuthMetadata> {
     if (process.env[TOKEN_ENV_VAR]) return { authMode: 'unknown', source: 'env' }

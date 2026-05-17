@@ -78,13 +78,7 @@ const STORED_ACCOUNT = {
 
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status })
 
-/**
- * `createTwistTokenStore` memoises a module-level migration promise. To
- * exercise the cold-cache path in each test (and avoid shipping a
- * test-only reset export from the production module) we reset the
- * module registry and re-import. Mocks declared above re-apply on
- * re-import.
- */
+/** Reset the module-level migration memo for each test by re-importing. */
 async function loadCreateTwistTokenStore(): Promise<
     typeof import('./auth-provider.js').createTwistTokenStore
 > {
@@ -251,7 +245,7 @@ describe('createTwistTokenStore', () => {
         vi.unstubAllEnvs()
     })
 
-    it('passes twist-cli wiring to cli-core: serviceName, no accountForUser override (cli-core default user-${id} is used after γ1), the user-records adapter, the records location, and the parseRef-aware matcher', async () => {
+    it('passes twist-cli wiring to cli-core: serviceName, no accountForUser override (uses cli-core default `user-${id}`), records location, and the parseRef-aware matcher', async () => {
         const createTwistTokenStore = await loadCreateTwistTokenStore()
         createTwistTokenStore()
 
@@ -302,9 +296,7 @@ describe('createTwistTokenStore', () => {
         await store.set(STORED_ACCOUNT, 'tk')
         await store.setDefault('42')
 
-        // Migration runs exactly once even across mixed reads + writes — that's
-        // the "memoised" half of the contract. If it re-ran per call we'd
-        // double-charge the cold-cache penalty on every CLI invocation.
+        // Memoised: migration must run exactly once across mixed reads + writes.
         expect(migrateMocks.runMigrateLegacyAuth).toHaveBeenCalledTimes(1)
         expect(migrateMocks.runMigrateLegacyAuth).toHaveBeenCalledWith({ silent: true })
     })
@@ -376,11 +368,7 @@ describe('createTwistTokenStore', () => {
         expect(keyringMocks.createSecureStore).not.toHaveBeenCalled()
     })
 
-    it('falls back to legacy when runMigrateLegacyAuth itself rejects (the catch branch of ensureMigrated)', async () => {
-        // Exercises the `catch(() => null)` swallow inside `ensureMigrated`.
-        // Without this branch a thrown migration would propagate and the CLI
-        // would crash on first invocation post-upgrade for users with a
-        // half-broken keyring / disk.
+    it('falls back to legacy when runMigrateLegacyAuth rejects (catch branch of ensureMigrated)', async () => {
         migrateMocks.runMigrateLegacyAuth.mockRejectedValue(new Error('boom'))
         keyringMocks.secureStoreGetSecret.mockResolvedValue('tk_legacy_keyring')
         configMocks.getConfig.mockResolvedValue({
@@ -398,7 +386,7 @@ describe('createTwistTokenStore', () => {
         expect(keyringMocks.inner.active).not.toHaveBeenCalled()
     })
 
-    it('legacy snapshot synthesises account.id = "" for `tw auth token <token>` users with no authUserId (preserves the pre-γ1 single-user adapter behaviour)', async () => {
+    it('legacy snapshot synthesises account.id = "" for `tw auth token <token>` users with no authUserId on disk', async () => {
         migrateMocks.runMigrateLegacyAuth.mockResolvedValue({
             status: 'skipped',
             reason: 'identify-failed',
@@ -417,9 +405,6 @@ describe('createTwistTokenStore', () => {
     })
 
     it('active(ref) ignores the legacy snapshot when an explicit --user targets a different account', async () => {
-        // Without this guard `tw <cmd> --user 999` while offline would silently
-        // authenticate as the default legacy user (id 42) instead of failing
-        // with the expected account-not-found outcome.
         migrateMocks.runMigrateLegacyAuth.mockResolvedValue({
             status: 'skipped',
             reason: 'identify-failed',
@@ -463,9 +448,6 @@ describe('createTwistTokenStore', () => {
     })
 
     it('set() discharges legacy state on disk before writing v2, when migration is inconclusive', async () => {
-        // Without this, a manual `tw auth token <new>` during the offline
-        // window would land in v2 but the next invocation would still read
-        // the unchanged legacy token via the active() fallback path.
         migrateMocks.runMigrateLegacyAuth.mockResolvedValue({
             status: 'skipped',
             reason: 'identify-failed',

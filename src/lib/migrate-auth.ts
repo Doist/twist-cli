@@ -7,22 +7,19 @@ import { toTwistAccount } from './twist-account.js'
 import { createTwistUserRecordStore } from './user-records.js'
 
 /**
- * Schema version this migration targets. Kept local (not the exported
- * `CONFIG_VERSION` from `config.ts`) so a future schema bump to v3 doesn't
- * cause this v1→v2 helper to spuriously re-run for already-migrated users:
- * `hasMigrated()` reads `>= 2`, `markMigrated()` writes exactly `2`.
+ * Pinned to this migration's target schema. Decoupled from the exported
+ * `CONFIG_VERSION` so a future bump doesn't make this helper re-run for
+ * users who are already on v2 or beyond.
  */
 const V2_SCHEMA_VERSION = 2
 
 /**
- * One-time v1 → v2 auth state migration. Both wakeup paths (postinstall + the
- * lazy hook inside `createTwistTokenStore`) call this with `silent: true` so a
- * regular `tw` invocation doesn't print a banner on the cold-cache run. The
- * underlying cli-core helper is idempotent — `hasMigrated()` short-circuits
- * once the durable marker is on disk.
+ * One-time migration of v1 auth state into the v2 `users[]` shape. Called
+ * by postinstall and by the lazy hook in `createTwistTokenStore`. Idempotent
+ * via the `config_version` marker.
  *
- * Talks to the Twist API via a raw `TwistApi` (not `createWrappedTwistClient`)
- * to keep migration outside the runtime auth / token-store module graph.
+ * Uses raw `TwistApi` rather than `createWrappedTwistClient` to keep this
+ * module out of the runtime auth/token-store import graph.
  */
 export async function runMigrateLegacyAuth(
     options: { silent: boolean } = { silent: true },
@@ -43,15 +40,10 @@ export async function runMigrateLegacyAuth(
             return config.token?.trim() || null
         },
         identifyAccount: async (token) => {
-            // Network call + config read are independent — fire them together
-            // to shave a round trip off the first-run / postinstall path.
             const [user, config] = await Promise.all([
                 new TwistApi(token).users.getSessionUser(),
                 getConfig(),
             ])
-            // Legacy `tw auth token` users have no `authMode` / `authScope` on
-            // disk; `toTwistAccount` falls through to the same defaults
-            // `validateToken` would have written.
             return toTwistAccount(user, {
                 authMode: config.authMode,
                 authScope: config.authScope,

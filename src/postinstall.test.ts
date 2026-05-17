@@ -31,7 +31,7 @@ describe('postinstall', () => {
         expect(runMigrateLegacyAuth).toHaveBeenCalledWith({ silent: true })
     })
 
-    it('swallows errors from runMigrateLegacyAuth so a broken migration never blocks npm install', async () => {
+    it('swallows errors from runMigrateLegacyAuth so it never blocks npm install', async () => {
         const { runMigrateLegacyAuth } = await import('./lib/migrate-auth.js')
         vi.mocked(runMigrateLegacyAuth).mockRejectedValueOnce(new Error('migration boom'))
         await expect(import('./postinstall.js')).resolves.not.toThrow()

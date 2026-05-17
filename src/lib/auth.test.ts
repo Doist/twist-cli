@@ -149,12 +149,7 @@ describe('auth shims over the cli-core keyring store', () => {
         await expect(getAuthMetadata()).resolves.toEqual({ authMode: 'unknown', source: 'config' })
     })
 
-    it('getAuthMetadata falls back to v1 flat fields when users[] is empty but legacy state is still on disk (post-upgrade offline window)', async () => {
-        // The skipped-migration path leaves config.token + the v1 metadata
-        // fields in place. Without this fallback `ensureWriteAllowed` would
-        // see `authMode: 'unknown'` and let mutating commands slip past the
-        // local READ_ONLY guard until the next CLI invocation completes the
-        // migration. Surfaces real `read-only` so the guard fires.
+    it('getAuthMetadata falls back to v1 flat fields when users[] is empty but legacy state is on disk (real authMode reaches ensureWriteAllowed)', async () => {
         mocks.getConfigMock.mockResolvedValue({
             token: 'tk_legacy',
             authMode: 'read-only',
