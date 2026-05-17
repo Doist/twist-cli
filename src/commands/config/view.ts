@@ -8,6 +8,7 @@ import {
     TOKEN_ENV_VAR,
 } from '../../lib/auth.js'
 import { type Config, getConfigPath, readConfigStrict } from '../../lib/config.js'
+import { getDefaultUserRecord } from '../../lib/user-records.js'
 
 export interface ViewConfigOptions {
     json?: boolean
@@ -83,10 +84,14 @@ function formatConfigView(
 
     const users = config.users ?? []
     if (users.length > 0) {
+        // Mirror runtime selection: `getDefaultUserRecord` falls back to
+        // the first user when `defaultUserId` is missing or stale, so the
+        // marker reflects the account the CLI would actually use.
+        const defaultRecord = getDefaultUserRecord(config)
+        const defaultId = defaultRecord?.account.id
         lines.push(chalk.bold(`Authenticated accounts (${users.length})`))
-        const defaultId = config.defaultUserId
         for (const user of users) {
-            const isDefault = defaultId ? user.id === defaultId : false
+            const isDefault = user.id === defaultId
             const marker = isDefault ? chalk.green('*') : ' '
             lines.push(`  ${marker} ${chalk.dim(`id:${user.id}`)}  ${user.name}`)
         }

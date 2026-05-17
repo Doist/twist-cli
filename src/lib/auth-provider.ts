@@ -352,6 +352,40 @@ function ensureMigrated(): Promise<MigrateAuthResult<TwistAccount> | null> {
 }
 
 /**
+ * True when the v2 store is empty but a legacy v1 token snapshot is still
+ * the only thing keeping the CLI authenticated — typically because
+ * `migrateLegacyAuth` couldn't reach the Twist API to identify the account
+ * (`MigrateSkipReason: 'identify-failed'`). Account-management commands
+ * use this to fail with a dedicated `AUTH_MIGRATION_PENDING` envelope
+ * instead of a misleading `ACCOUNT_NOT_FOUND`.
+ */
+export async function isLegacyAuthActive(): Promise<boolean> {
+    const result = await ensureMigrated()
+    if (result !== null && migrationIsConclusive(result)) return false
+    const legacy = await readLegacyTokenSnapshot()
+    return legacy !== null
+}
+
+/**
+ * Resolve a `ref` against the v2 store, returning the canonical account.
+ * Throws `ACCOUNT_NOT_FOUND` on a miss. Shared between the `tw account ...`
+ * commands and `withUserRefAware` so the same hint reaches every caller.
+ */
+export async function findAccountInStore(
+    store: TwistTokenStore,
+    ref: AccountRef,
+): Promise<TwistAccount> {
+    const records = await store.list()
+    const match = records.find(({ account }) => matchTwistAccount(account, ref))
+    if (!match) {
+        throw new CliError('ACCOUNT_NOT_FOUND', `No stored account matches "${ref}".`, [
+            'Run: tw account list',
+        ])
+    }
+    return match.account
+}
+
+/**
  * `TWIST_API_TOKEN` short-circuits `active()` only when no explicit ref is
  * supplied — cli-core's `KeyringTokenStore` doesn't know about the env var,
  * and an explicit ref means the caller targets a specific stored account.

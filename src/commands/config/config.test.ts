@@ -300,6 +300,30 @@ describe('config view', () => {
         consoleSpy.mockRestore()
     })
 
+    it('marks the first stored account as default when defaultUserId is missing', async () => {
+        // Mirrors `getDefaultUserRecord`'s first-user fallback: with no
+        // explicit default pinned, the CLI will use the first user, so
+        // the marker must reflect that — otherwise `tw config view`
+        // claims no account is active even though one will be used.
+        presentConfig({
+            users: [
+                { id: '1', name: 'Ada Lovelace' },
+                { id: '2', name: 'Bob Smith' },
+            ],
+        })
+        mockToken('secure-store')
+        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+        await createProgram().parseAsync(['node', 'tw', 'config', 'view'])
+
+        const output = consoleSpy.mock.calls.map((c) => c[0]).join('\n')
+        const adaLine = output.split('\n').find((l) => l.includes('Ada Lovelace')) ?? ''
+        const bobLine = output.split('\n').find((l) => l.includes('Bob Smith')) ?? ''
+        expect(adaLine).toContain('*')
+        expect(bobLine).not.toContain('*')
+        consoleSpy.mockRestore()
+    })
+
     it('omits the accounts block when config.users is empty or absent', async () => {
         presentConfig({ authMode: 'read-write' })
         mockToken('secure-store')
