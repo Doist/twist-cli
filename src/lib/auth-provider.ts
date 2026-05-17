@@ -1,4 +1,5 @@
 import {
+    type AccountRef,
     type AuthAccount,
     type AuthProvider,
     createKeyringTokenStore,
@@ -10,6 +11,7 @@ import { createWrappedTwistClient } from './api.js'
 import type { AuthMode } from './config.js'
 import { getConfigPath } from './config.js'
 import { CliError } from './errors.js'
+import { parseRef } from './refs.js'
 import { createTwistUserRecordStore } from './user-records.js'
 
 export const AUTHORIZATION_URL = 'https://twist.com/oauth/authorize'
@@ -270,11 +272,59 @@ export function createTwistAuthProvider(): AuthProvider<TwistAccount> {
     }
 }
 
+// Twist-flavoured ref matcher: `parseRef` normalises `id:<n>` and `<n>` to the
+// same numeric id, and labels match case-insensitively. cli-core's default is
+// strict equality on `account.id` / `account.label`, so passing this in keeps
+// the user-facing ref formats (`tw auth status --user 42`, `--user id:42`,
+// `--user Ada`) that the previous custom store supported.
+export function matchTwistAccount(account: TwistAccount, ref: AccountRef): boolean {
+    const parsed = parseRef(ref)
+    if (parsed.type === 'id') return Number(account.id) === parsed.id
+    if (parsed.type === 'name') return account.label.toLowerCase() === parsed.name.toLowerCase()
+    return false
+}
+
+const TOKEN_ENV_VAR = 'TWIST_API_TOKEN'
+
+/**
+ * `TWIST_API_TOKEN=… tw <subcommand>` must work even when nothing is in the
+ * keyring — cli-core's `KeyringTokenStore` only knows about its own backing
+ * store, so we wrap `active()` to short-circuit to the env value when no
+ * explicit `--user <ref>` is supplied. With an explicit ref the caller is
+ * targeting a specific stored account, so the env var is intentionally
+ * ignored.
+ */
 export function createTwistTokenStore(): TwistTokenStore {
-    return createKeyringTokenStore<TwistAccount>({
+    const inner = createKeyringTokenStore<TwistAccount>({
         serviceName: SECURE_STORE_SERVICE,
         accountForUser: () => SECURE_STORE_ACCOUNT_SLOT,
         userRecords: createTwistUserRecordStore(),
         recordsLocation: getConfigPath(),
+        matchAccount: matchTwistAccount,
     })
+    return Object.assign(Object.create(inner) as TwistTokenStore, {
+        async active(ref?: AccountRef) {
+            if (ref === undefined) {
+                const envToken = process.env[TOKEN_ENV_VAR]
+                if (envToken) {
+                    return {
+                        token: envToken,
+                        account: { id: '', label: '', authMode: 'unknown', authScope: '' },
+                    }
+                }
+            }
+            return inner.active(ref)
+        },
+    })
+}
+
+/**
+ * Derive the source of the currently-active token. Lives here (next to the
+ * store) so `lib/auth.ts` doesn't need to know about `UserRecordStore`'s
+ * `fallbackToken` field — keeps the storage abstraction clean.
+ */
+export async function getActiveTokenSource(): Promise<'env' | 'secure-store' | 'config-file'> {
+    if (process.env[TOKEN_ENV_VAR]) return 'env'
+    const [record] = await createTwistUserRecordStore().list()
+    return record?.fallbackToken ? 'config-file' : 'secure-store'
 }

@@ -44,29 +44,17 @@ describe('auth shims over the cli-core keyring store', () => {
         vi.unstubAllEnvs()
     })
 
-    it('getApiToken / probeApiToken / getAuthMetadata all prefer TWIST_API_TOKEN over stored credentials', async () => {
-        vi.stubEnv(TOKEN_ENV_VAR, 'env_token_value')
+    // `TWIST_API_TOKEN` precedence for `getApiToken` / `probeApiToken` lives
+    // inside the wrapped store (`createTwistTokenStore` in `auth-provider.ts`);
+    // it's exercised end-to-end there. The shims here just delegate.
 
-        await expect(getApiToken()).resolves.toBe('env_token_value')
-        await expect(probeApiToken()).resolves.toEqual({
-            token: 'env_token_value',
-            metadata: { authMode: 'unknown', source: 'env' },
-        })
-        await expect(getAuthMetadata()).resolves.toEqual({ authMode: 'unknown', source: 'env' })
-
-        expect(mocks.activeMock).not.toHaveBeenCalled()
-        expect(mocks.listMock).not.toHaveBeenCalled()
-    })
-
-    it('getApiToken throws NoTokenError when no env var and no stored snapshot', async () => {
-        vi.stubEnv(TOKEN_ENV_VAR, '')
+    it('getApiToken throws NoTokenError when no stored snapshot is returned', async () => {
         mocks.activeMock.mockResolvedValue(null)
 
         await expect(getApiToken()).rejects.toBeInstanceOf(NoTokenError)
     })
 
     it('probeApiToken reports source=secure-store when the record has no fallbackToken', async () => {
-        vi.stubEnv(TOKEN_ENV_VAR, '')
         mocks.activeMock.mockResolvedValue({ token: 'tk_keyring', account: STORED_ACCOUNT })
         mocks.listMock.mockResolvedValue([STORED_RECORD])
 
@@ -82,7 +70,6 @@ describe('auth shims over the cli-core keyring store', () => {
     })
 
     it('probeApiToken reports source=config-file when the record carries a fallbackToken', async () => {
-        vi.stubEnv(TOKEN_ENV_VAR, '')
         mocks.activeMock.mockResolvedValue({ token: 'tk_fallback', account: STORED_ACCOUNT })
         mocks.listMock.mockResolvedValue([{ ...STORED_RECORD, fallbackToken: 'tk_fallback' }])
 
@@ -91,8 +78,15 @@ describe('auth shims over the cli-core keyring store', () => {
         expect(metadata.source).toBe('config-file')
     })
 
+    it('getAuthMetadata short-circuits to source=env when TWIST_API_TOKEN is set', async () => {
+        vi.stubEnv(TOKEN_ENV_VAR, 'env_token_value')
+
+        await expect(getAuthMetadata()).resolves.toEqual({ authMode: 'unknown', source: 'env' })
+
+        expect(mocks.listMock).not.toHaveBeenCalled()
+    })
+
     it('getAuthMetadata returns config-sourced identity when no env var is set', async () => {
-        vi.stubEnv(TOKEN_ENV_VAR, '')
         mocks.listMock.mockResolvedValue([STORED_RECORD])
 
         await expect(getAuthMetadata()).resolves.toEqual({

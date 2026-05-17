@@ -2,10 +2,42 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('./api.js', () => ({ createWrappedTwistClient: vi.fn() }))
 
+const keyringMocks = vi.hoisted(() => ({
+    createKeyringTokenStore: vi.fn(),
+    inner: {
+        active: vi.fn(),
+        set: vi.fn(),
+        clear: vi.fn(),
+        list: vi.fn(),
+        setDefault: vi.fn(),
+        getLastStorageResult: vi.fn(),
+        getLastClearResult: vi.fn(),
+    },
+}))
+
+vi.mock('@doist/cli-core/auth', async (importOriginal) => {
+    const actual = await importOriginal<typeof import('@doist/cli-core/auth')>()
+    keyringMocks.createKeyringTokenStore.mockImplementation(() => keyringMocks.inner)
+    return {
+        ...actual,
+        createKeyringTokenStore: keyringMocks.createKeyringTokenStore,
+    }
+})
+
+vi.mock('./config.js', async (importOriginal) => {
+    const actual = await importOriginal<typeof import('./config.js')>()
+    return {
+        ...actual,
+        getConfigPath: () => '/home/user/.config/twist-cli/config.json',
+    }
+})
+
 import { createWrappedTwistClient } from './api.js'
 import {
     AUTHORIZATION_URL,
     createTwistAuthProvider,
+    createTwistTokenStore,
+    matchTwistAccount,
     READ_ONLY_SCOPES,
     READ_WRITE_SCOPES,
     REGISTRATION_URL,
@@ -14,6 +46,14 @@ import {
 
 const REDIRECT_URI = 'http://127.0.0.1:8766/callback'
 const mockCreateClient = vi.mocked(createWrappedTwistClient)
+const TOKEN_ENV_VAR = 'TWIST_API_TOKEN'
+
+const STORED_ACCOUNT = {
+    id: '42',
+    label: 'Ada',
+    authMode: 'read-write' as const,
+    authScope: 'user:read',
+}
 
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status })
 
@@ -150,5 +190,57 @@ describe('createTwistAuthProvider', () => {
             authMode: 'read-write',
             authScope: 'user:read',
         })
+    })
+})
+
+describe('createTwistTokenStore', () => {
+    beforeEach(() => {
+        keyringMocks.createKeyringTokenStore.mockClear()
+        keyringMocks.inner.active.mockReset()
+    })
+
+    afterEach(() => {
+        vi.unstubAllEnvs()
+    })
+
+    it('passes twist-cli wiring to cli-core: serviceName, the api-token slot, the user-records adapter, the records location, and the parseRef-aware matcher', () => {
+        createTwistTokenStore()
+
+        const options = keyringMocks.createKeyringTokenStore.mock.calls[0][0]
+        expect(options.serviceName).toBe('twist-cli')
+        expect(options.accountForUser('any-id')).toBe('api-token')
+        expect(options.recordsLocation).toBe('/home/user/.config/twist-cli/config.json')
+        expect(options.matchAccount).toBe(matchTwistAccount)
+    })
+
+    it('active() short-circuits to TWIST_API_TOKEN when no explicit ref is supplied', async () => {
+        vi.stubEnv(TOKEN_ENV_VAR, 'env_token_value')
+
+        const snapshot = await createTwistTokenStore().active()
+
+        expect(snapshot).toEqual({
+            token: 'env_token_value',
+            account: { id: '', label: '', authMode: 'unknown', authScope: '' },
+        })
+        expect(keyringMocks.inner.active).not.toHaveBeenCalled()
+    })
+
+    it('active() ignores TWIST_API_TOKEN when an explicit --user ref targets a stored account', async () => {
+        vi.stubEnv(TOKEN_ENV_VAR, 'env_token_value')
+        keyringMocks.inner.active.mockResolvedValue({ token: 'tk_stored', account: STORED_ACCOUNT })
+
+        await createTwistTokenStore().active('42')
+
+        expect(keyringMocks.inner.active).toHaveBeenCalledWith('42')
+    })
+})
+
+describe('matchTwistAccount', () => {
+    it('matches numeric ids, `id:<n>` prefix form, and case-insensitive labels', () => {
+        expect(matchTwistAccount(STORED_ACCOUNT, '42')).toBe(true)
+        expect(matchTwistAccount(STORED_ACCOUNT, 'id:42')).toBe(true)
+        expect(matchTwistAccount(STORED_ACCOUNT, 'ADA')).toBe(true)
+        expect(matchTwistAccount(STORED_ACCOUNT, '999')).toBe(false)
+        expect(matchTwistAccount(STORED_ACCOUNT, 'someone-else')).toBe(false)
     })
 })
