@@ -378,7 +378,7 @@ export function createTwistTokenStore(): TwistTokenStore {
         recordsLocation: getConfigPath(),
         matchAccount: matchTwistAccount,
     })
-    const maybeDischargeLegacy = async (): Promise<void> => {
+    async function maybeDischargeLegacy(): Promise<void> {
         const result = await ensureMigrated()
         if (result === null || !migrationIsConclusive(result)) {
             await dischargeLegacyState()

@@ -68,7 +68,7 @@ export interface UserSettings {
  * id. `token` is a plaintext fallback persisted only when the keyring is
  * unavailable at write time.
  */
-export interface StoredUser {
+export type StoredUser = {
     id: string
     name: string
     authMode?: AuthMode
