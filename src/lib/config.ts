@@ -10,6 +10,13 @@ import { CliError } from './errors.js'
 const APP_NAME = 'twist-cli'
 
 /**
+ * On-disk schema version. Bumped when the persisted layout changes in a way
+ * that needs a one-time migration. `migrateLegacyAuth` writes this to disk
+ * once the v1→v2 move has completed; it is a one-way gate (no rollback).
+ */
+export const CONFIG_VERSION = 2 as const
+
+/**
  * Resolve the canonical config path lazily. Computing on each call (instead of
  * caching at module load) keeps the path responsive to vitest's `vi.doMock`
  * for `node:os` — which only reliably reaches cli-core's compiled `homedir()`
@@ -36,6 +43,18 @@ const KNOWN_CONFIG_KEYS: ReadonlySet<string> = new Set([
     // see `fromDiskShape` / `toDiskShape` for the persistence-seam translation.
     'update_channel',
     'userSettings',
+    // v2 schema (multi-account auth)
+    'config_version',
+    'users',
+    'defaultUserId',
+])
+
+const KNOWN_STORED_USER_KEYS: ReadonlySet<string> = new Set([
+    'id',
+    'name',
+    'authMode',
+    'authScope',
+    'token',
 ])
 
 const KNOWN_USER_SETTINGS_KEYS: ReadonlySet<string> = new Set(['unarchiveNewThreads'])
@@ -47,12 +66,32 @@ export interface UserSettings {
     unarchiveNewThreads?: boolean
 }
 
+/**
+ * One row of the v2 `users[]` array. `id` is the stringified numeric Twist
+ * user id (same value `TwistAccount.id` carries in memory), `name` is the
+ * display name. `token` is the plaintext fallback only — populated when the
+ * OS keyring was unavailable at write time; absent in the happy path.
+ */
+export interface StoredUser {
+    id: string
+    name: string
+    authMode?: AuthMode
+    authScope?: string
+    token?: string
+}
+
 export interface Config {
+    // v2 (multi-account)
+    // One-way version gate. `=== CONFIG_VERSION` after `migrateLegacyAuth` runs.
+    config_version?: number
+    users?: StoredUser[]
+    defaultUserId?: string
+
+    // v1 — read-only after migration; `migrateLegacyAuth` cleans these up.
     // Legacy plaintext token storage retained for migration and secure-store fallback only.
     token?: string
     // Non-secret state used to finish logout after transient secure-store failures.
     pendingSecureStoreClear?: boolean
-    currentWorkspace?: number
     // Auth metadata persisted alongside the token to track OAuth scope.
     authMode?: AuthMode
     authScope?: string
@@ -61,6 +100,9 @@ export interface Config {
     // real `TwistAccount` without re-fetching the session user.
     authUserId?: number
     authUserName?: string
+
+    // Unrelated (unchanged across schema versions)
+    currentWorkspace?: number
     updateChannel?: UpdateChannel
     userSettings?: UserSettings
 }
@@ -223,6 +265,61 @@ export function validateConfigForDoctor(config: Record<string, unknown>): string
             !UPDATE_CHANNELS.has(config.update_channel as UpdateChannel))
     ) {
         issues.push('update_channel must be one of: stable, pre-release')
+    }
+
+    if (
+        config.config_version !== undefined &&
+        (typeof config.config_version !== 'number' || !Number.isInteger(config.config_version))
+    ) {
+        issues.push('config_version must be an integer')
+    }
+
+    if (config.defaultUserId !== undefined && typeof config.defaultUserId !== 'string') {
+        issues.push('defaultUserId must be a string')
+    }
+
+    if (config.users !== undefined) {
+        if (!Array.isArray(config.users)) {
+            issues.push('users must be an array')
+        } else {
+            for (let i = 0; i < config.users.length; i++) {
+                const user = config.users[i]
+                if (user === null || typeof user !== 'object' || Array.isArray(user)) {
+                    issues.push(`users[${i}] must be an object`)
+                    continue
+                }
+                const userRecord = user as Record<string, unknown>
+                for (const key of Object.keys(userRecord)) {
+                    if (!KNOWN_STORED_USER_KEYS.has(key)) {
+                        issues.push(`users[${i}] contains unrecognized key "${key}"`)
+                    }
+                }
+                if (typeof userRecord.id !== 'string') {
+                    issues.push(`users[${i}].id must be a string`)
+                }
+                if (typeof userRecord.name !== 'string') {
+                    issues.push(`users[${i}].name must be a string`)
+                }
+                if (
+                    userRecord.authMode !== undefined &&
+                    (typeof userRecord.authMode !== 'string' ||
+                        !AUTH_MODES.has(userRecord.authMode as AuthMode))
+                ) {
+                    issues.push(
+                        `users[${i}].authMode must be one of: read-only, read-write, unknown`,
+                    )
+                }
+                if (
+                    userRecord.authScope !== undefined &&
+                    typeof userRecord.authScope !== 'string'
+                ) {
+                    issues.push(`users[${i}].authScope must be a string`)
+                }
+                if (userRecord.token !== undefined && typeof userRecord.token !== 'string') {
+                    issues.push(`users[${i}].token must be a string`)
+                }
+            }
+        }
     }
 
     if (config.userSettings !== undefined) {

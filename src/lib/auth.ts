@@ -79,7 +79,10 @@ export async function probeApiToken(): Promise<AuthProbeResult> {
 /** Lightweight metadata read used by `tw auth status` once a token is confirmed. */
 export async function getAuthMetadata(): Promise<AuthMetadata> {
     if (process.env[TOKEN_ENV_VAR]) return { authMode: 'unknown', source: 'env' }
-    const [record] = await createTwistUserRecordStore().list()
+    const store = createTwistUserRecordStore()
+    const [records, defaultId] = await Promise.all([store.list(), store.getDefaultId()])
+    const record =
+        (defaultId !== null && records.find((r) => r.account.id === defaultId)) || records[0]
     if (!record) return { authMode: 'unknown', source: 'config' }
     return { ...toAccountFields(record.account), source: 'config' }
 }

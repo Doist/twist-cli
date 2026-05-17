@@ -2,6 +2,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('./api.js', () => ({ createWrappedTwistClient: vi.fn() }))
 
+vi.mock('./migrate-auth.js', () => ({
+    runMigrateLegacyAuth: vi.fn().mockResolvedValue({ status: 'no-legacy-state' }),
+}))
+
 const keyringMocks = vi.hoisted(() => ({
     createKeyringTokenStore: vi.fn(),
     inner: {
@@ -35,6 +39,7 @@ vi.mock('./config.js', async (importOriginal) => {
 import { createWrappedTwistClient } from './api.js'
 import {
     AUTHORIZATION_URL,
+    __resetMigrationPromiseForTests,
     createTwistAuthProvider,
     createTwistTokenStore,
     matchTwistAccount,
@@ -197,18 +202,19 @@ describe('createTwistTokenStore', () => {
     beforeEach(() => {
         keyringMocks.createKeyringTokenStore.mockClear()
         keyringMocks.inner.active.mockReset()
+        __resetMigrationPromiseForTests()
     })
 
     afterEach(() => {
         vi.unstubAllEnvs()
     })
 
-    it('passes twist-cli wiring to cli-core: serviceName, the api-token slot, the user-records adapter, the records location, and the parseRef-aware matcher', () => {
+    it('passes twist-cli wiring to cli-core: serviceName, no accountForUser override (cli-core default user-${id} is used after γ1), the user-records adapter, the records location, and the parseRef-aware matcher', () => {
         createTwistTokenStore()
 
         const options = keyringMocks.createKeyringTokenStore.mock.calls[0][0]
         expect(options.serviceName).toBe('twist-cli')
-        expect(options.accountForUser('any-id')).toBe('api-token')
+        expect(options.accountForUser).toBeUndefined()
         expect(options.recordsLocation).toBe('/home/user/.config/twist-cli/config.json')
         expect(options.matchAccount).toBe(matchTwistAccount)
     })

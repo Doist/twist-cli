@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 const mocks = vi.hoisted(() => ({
     activeMock: vi.fn(),
     listMock: vi.fn(),
+    getDefaultIdMock: vi.fn(),
 }))
 
 vi.mock('./auth-provider.js', async (importOriginal) => {
@@ -19,7 +20,10 @@ vi.mock('./user-records.js', async (importOriginal) => {
     return {
         ...actual,
         createTwistUserRecordStore: () =>
-            ({ list: mocks.listMock }) as unknown as UserRecordStore<never>,
+            ({
+                list: mocks.listMock,
+                getDefaultId: mocks.getDefaultIdMock,
+            }) as unknown as UserRecordStore<never>,
     }
 })
 
@@ -38,6 +42,7 @@ describe('auth shims over the cli-core keyring store', () => {
     beforeEach(() => {
         mocks.activeMock.mockReset()
         mocks.listMock.mockReset()
+        mocks.getDefaultIdMock.mockReset().mockResolvedValue(null)
     })
 
     afterEach(() => {

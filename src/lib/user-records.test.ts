@@ -14,16 +14,29 @@ vi.mock('./config.js', async (importOriginal) => {
     }
 })
 
-import type { Config } from './config.js'
+import type { Config, StoredUser } from './config.js'
 import { createTwistUserRecordStore } from './user-records.js'
 
-const STORED_CONFIG: Config = {
-    token: 'tk_stored_1234567890',
+const ADA: StoredUser = {
+    id: '42',
+    name: 'Ada',
     authMode: 'read-write',
     authScope: 'user:read',
-    authUserId: 42,
-    authUserName: 'Ada',
-    currentWorkspace: 7,
+}
+
+const BOB: StoredUser = {
+    id: '99',
+    name: 'Bob',
+    authMode: 'read-only',
+    authScope: 'user:read',
+}
+
+const ADA_RECORD = {
+    account: { id: '42', label: 'Ada', authMode: 'read-write' as const, authScope: 'user:read' },
+}
+
+const BOB_RECORD = {
+    account: { id: '99', label: 'Bob', authMode: 'read-only' as const, authScope: 'user:read' },
 }
 
 describe('createTwistUserRecordStore', () => {
@@ -32,94 +45,126 @@ describe('createTwistUserRecordStore', () => {
         mocks.updateConfig.mockReset().mockResolvedValue(undefined)
     })
 
-    it('round-trips a record through upsert + list', async () => {
-        mocks.getConfig.mockResolvedValue({ currentWorkspace: 7 })
-        const store = createTwistUserRecordStore()
-        const record = {
-            account: {
-                id: '42',
-                label: 'Ada',
-                authMode: 'read-write' as const,
-                authScope: 'user:read',
-            },
-            fallbackToken: 'tk_stored_1234567890',
-        }
+    it('list returns empty when no users[] is persisted', async () => {
+        mocks.getConfig.mockResolvedValue({ currentWorkspace: 7 } satisfies Config)
 
-        await store.upsert(record)
-        // Simulate the just-written state so the subsequent list reads it back.
-        mocks.getConfig.mockResolvedValue({
-            currentWorkspace: 7,
-            ...mocks.updateConfig.mock.calls[0][0],
-        })
-
-        expect(await store.list()).toEqual([record])
+        expect(await createTwistUserRecordStore().list()).toEqual([])
     })
 
-    it('strips the token on upsert when fallbackToken is absent (cli-core replace-not-merge)', async () => {
-        // Without this, a stale plaintext token would survive a successful
-        // keyring-backed write and the runtime would prefer it over the
-        // fresh keyring value.
-        mocks.getConfig.mockResolvedValue(STORED_CONFIG)
+    it('list returns one record per StoredUser, surfacing token as fallbackToken', async () => {
+        mocks.getConfig.mockResolvedValue({
+            users: [{ ...ADA, token: 'tk_ada' }, BOB],
+        } satisfies Config)
+
+        expect(await createTwistUserRecordStore().list()).toEqual([
+            { ...ADA_RECORD, fallbackToken: 'tk_ada' },
+            BOB_RECORD,
+        ])
+    })
+
+    it('upsert appends a new record when the id is not yet stored', async () => {
+        mocks.getConfig.mockResolvedValue({ users: [ADA] } satisfies Config)
+
+        await createTwistUserRecordStore().upsert(BOB_RECORD)
+
+        expect(mocks.updateConfig).toHaveBeenCalledWith({ users: [ADA, BOB] })
+    })
+
+    it('upsert replaces (not merges) when the id matches: stale token cleared when fallbackToken absent', async () => {
+        mocks.getConfig.mockResolvedValue({
+            users: [{ ...ADA, token: 'tk_stale' }],
+        } satisfies Config)
+
+        await createTwistUserRecordStore().upsert(ADA_RECORD)
+
+        expect(mocks.updateConfig).toHaveBeenCalledWith({ users: [ADA] })
+    })
+
+    it('upsert preserves order of other users when replacing in the middle', async () => {
+        const carl: StoredUser = { id: '7', name: 'Carl', authMode: 'unknown', authScope: '' }
+        mocks.getConfig.mockResolvedValue({ users: [ADA, carl, BOB] } satisfies Config)
 
         await createTwistUserRecordStore().upsert({
-            account: {
-                id: '42',
-                label: 'Ada',
-                authMode: 'read-write',
-                authScope: 'user:read',
-            },
+            account: { id: '7', label: 'Carl', authMode: 'unknown', authScope: '' },
+            fallbackToken: 'tk_carl_new',
         })
 
-        expect(mocks.updateConfig.mock.calls[0][0].token).toBeUndefined()
+        expect(mocks.updateConfig).toHaveBeenCalledWith({
+            users: [ADA, { ...carl, token: 'tk_carl_new' }, BOB],
+        })
     })
 
-    it('synthesises a record with empty id for legacy token-only users (no authUserId)', async () => {
-        // `tw auth token <token>` users have `authMode` but no `authUserId`.
-        // Returning `[]` here would leave their keyring entry orphaned once
-        // PR β wires the adapter into `KeyringTokenStore`.
+    it('remove drops the matching entry and leaves others in place', async () => {
+        mocks.getConfig.mockResolvedValue({ users: [ADA, BOB] } satisfies Config)
+
+        await createTwistUserRecordStore().remove('42')
+
+        expect(mocks.updateConfig).toHaveBeenCalledWith({ users: [BOB] })
+    })
+
+    it('remove clears defaultUserId when the removed record was the default', async () => {
         mocks.getConfig.mockResolvedValue({
-            token: 'tk_legacy_token_value',
-            authMode: 'unknown',
-            currentWorkspace: 7,
-        })
-
-        const [record] = await createTwistUserRecordStore().list()
-
-        expect(record.account.id).toBe('')
-        expect(record.account.authMode).toBe('unknown')
-        expect(record.fallbackToken).toBe('tk_legacy_token_value')
-    })
-
-    it('remove clears all auth fields when the id matches', async () => {
-        mocks.getConfig.mockResolvedValue(STORED_CONFIG)
+            users: [ADA, BOB],
+            defaultUserId: '42',
+        } satisfies Config)
 
         await createTwistUserRecordStore().remove('42')
 
         expect(mocks.updateConfig).toHaveBeenCalledWith({
-            authUserId: undefined,
-            authUserName: undefined,
-            authMode: undefined,
-            authScope: undefined,
-            token: undefined,
+            users: [BOB],
+            defaultUserId: undefined,
         })
     })
 
-    it('remove is a no-op when the id does not match (skips disk write entirely)', async () => {
-        mocks.getConfig.mockResolvedValue(STORED_CONFIG)
+    it('remove leaves defaultUserId untouched when the removed record was not the default', async () => {
+        mocks.getConfig.mockResolvedValue({
+            users: [ADA, BOB],
+            defaultUserId: '99',
+        } satisfies Config)
+
+        await createTwistUserRecordStore().remove('42')
+
+        expect(mocks.updateConfig).toHaveBeenCalledWith({ users: [BOB] })
+    })
+
+    it('remove is a no-op when the id does not match any stored user', async () => {
+        mocks.getConfig.mockResolvedValue({ users: [ADA] } satisfies Config)
 
         await createTwistUserRecordStore().remove('999')
 
         expect(mocks.updateConfig).not.toHaveBeenCalled()
     })
 
-    it('setDefaultId is a no-op for the single-user adapter (no stale orphans, no phantom writes)', async () => {
-        mocks.getConfig.mockResolvedValue(STORED_CONFIG)
+    it('getDefaultId reads config.defaultUserId, returning null when absent', async () => {
+        mocks.getConfig.mockResolvedValueOnce({ users: [ADA] } satisfies Config)
+        expect(await createTwistUserRecordStore().getDefaultId()).toBeNull()
+
+        mocks.getConfig.mockResolvedValueOnce({
+            users: [ADA],
+            defaultUserId: '42',
+        } satisfies Config)
+        expect(await createTwistUserRecordStore().getDefaultId()).toBe('42')
+    })
+
+    it('setDefaultId writes defaultUserId (and clears it when passed null)', async () => {
         const store = createTwistUserRecordStore()
 
-        await store.setDefaultId(null) // would orphan token + name
-        await store.setDefaultId('999') // empty/mismatched ref would synthesise a phantom record
-        await store.setDefaultId('42') // matching ref is already the only record
+        await store.setDefaultId('42')
+        expect(mocks.updateConfig).toHaveBeenCalledWith({ defaultUserId: '42' })
 
-        expect(mocks.updateConfig).not.toHaveBeenCalled()
+        await store.setDefaultId(null)
+        expect(mocks.updateConfig).toHaveBeenCalledWith({ defaultUserId: undefined })
+    })
+
+    it('round-trips a record through upsert + list (single-user case)', async () => {
+        mocks.getConfig.mockResolvedValueOnce({ currentWorkspace: 7 } satisfies Config)
+        const store = createTwistUserRecordStore()
+        const record = { ...ADA_RECORD, fallbackToken: 'tk_stored_1234567890' }
+
+        await store.upsert(record)
+        const writtenUsers = mocks.updateConfig.mock.calls[0][0].users as StoredUser[]
+        mocks.getConfig.mockResolvedValueOnce({ currentWorkspace: 7, users: writtenUsers })
+
+        expect(await store.list()).toEqual([record])
     })
 })

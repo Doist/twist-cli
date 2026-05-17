@@ -11,6 +11,7 @@ import { createWrappedTwistClient } from './api.js'
 import type { AuthMode } from './config.js'
 import { getConfigPath } from './config.js'
 import { CliError } from './errors.js'
+import { runMigrateLegacyAuth } from './migrate-auth.js'
 import { parseRef } from './refs.js'
 import { createTwistUserRecordStore } from './user-records.js'
 
@@ -22,11 +23,6 @@ const LOGO_URI =
     'https://raw.githubusercontent.com/Doist/twist-cli/d65c447ff453eb36af585044c2f5f2f602bcdb34/icons/twist-cli.png'
 
 const SECURE_STORE_SERVICE = 'twist-cli'
-// Preserve the keyring slot the previous custom `TwistTokenStore` wrote to,
-// so tokens already in users' keychains stay readable after the swap. cli-core
-// defaults to `user-${id}`; overriding keeps single-user installs uninterrupted
-// and is safe to drop if/when we adopt multi-user storage.
-const SECURE_STORE_ACCOUNT_SLOT = 'api-token'
 
 export const READ_WRITE_SCOPES = [
     'user:read',
@@ -287,17 +283,42 @@ export function matchTwistAccount(account: TwistAccount, ref: AccountRef): boole
 const TOKEN_ENV_VAR = 'TWIST_API_TOKEN'
 
 /**
+ * Memoised one-shot v1 → v2 migration trigger. The first read/write to the
+ * store on a cold process awaits it; later operations short-circuit on the
+ * resolved promise. Errors are swallowed (the cli-core helper itself runs in
+ * silent mode and leaves v1 state untouched on failure) so the CLI never
+ * fails to start because a migration attempt blew up.
+ */
+let migrationPromise: Promise<void> | undefined
+function ensureMigrated(): Promise<void> {
+    if (!migrationPromise) {
+        migrationPromise = runMigrateLegacyAuth({ silent: true })
+            .then(() => undefined)
+            .catch(() => undefined)
+    }
+    return migrationPromise
+}
+
+/** Test-only — reset the memoised migration promise so subsequent reads re-run it. */
+export function __resetMigrationPromiseForTests(): void {
+    migrationPromise = undefined
+}
+
+/**
  * `TWIST_API_TOKEN=… tw <subcommand>` must work even when nothing is in the
  * keyring — cli-core's `KeyringTokenStore` only knows about its own backing
  * store, so we wrap `active()` to short-circuit to the env value when no
  * explicit `--user <ref>` is supplied. With an explicit ref the caller is
  * targeting a specific stored account, so the env var is intentionally
  * ignored.
+ *
+ * Every method that touches stored state also awaits `ensureMigrated()` so a
+ * user who installed with `--ignore-scripts` (skipping the postinstall hook)
+ * still gets their v1 token promoted to v2 transparently on first command.
  */
 export function createTwistTokenStore(): TwistTokenStore {
     const inner = createKeyringTokenStore<TwistAccount>({
         serviceName: SECURE_STORE_SERVICE,
-        accountForUser: () => SECURE_STORE_ACCOUNT_SLOT,
         userRecords: createTwistUserRecordStore(),
         recordsLocation: getConfigPath(),
         matchAccount: matchTwistAccount,
@@ -313,7 +334,24 @@ export function createTwistTokenStore(): TwistTokenStore {
                     }
                 }
             }
+            await ensureMigrated()
             return inner.active(ref)
+        },
+        async set(account: TwistAccount, token: string) {
+            await ensureMigrated()
+            return inner.set(account, token)
+        },
+        async clear(ref?: AccountRef) {
+            await ensureMigrated()
+            return inner.clear(ref)
+        },
+        async list() {
+            await ensureMigrated()
+            return inner.list()
+        },
+        async setDefault(ref: AccountRef) {
+            await ensureMigrated()
+            return inner.setDefault(ref)
         },
     })
 }
@@ -325,6 +363,9 @@ export function createTwistTokenStore(): TwistTokenStore {
  */
 export async function getActiveTokenSource(): Promise<'env' | 'secure-store' | 'config-file'> {
     if (process.env[TOKEN_ENV_VAR]) return 'env'
-    const [record] = await createTwistUserRecordStore().list()
+    const store = createTwistUserRecordStore()
+    const [records, defaultId] = await Promise.all([store.list(), store.getDefaultId()])
+    const record =
+        (defaultId !== null && records.find((r) => r.account.id === defaultId)) || records[0]
     return record?.fallbackToken ? 'config-file' : 'secure-store'
 }
