@@ -1,5 +1,5 @@
+import type { TokenStorageResult } from '@doist/cli-core/auth'
 import chalk from 'chalk'
-import type { TokenStorageResult } from '../../lib/auth.js'
 
 /**
  * Surface a `TokenStorageResult` from a save/clear operation: the

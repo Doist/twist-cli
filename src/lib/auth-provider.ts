@@ -2,22 +2,17 @@ import {
     type AccountRef,
     type AuthAccount,
     type AuthProvider,
+    createKeyringTokenStore,
     deriveChallenge,
     generateVerifier,
-    SecureStoreUnavailableError,
-    type TokenStore,
+    type KeyringTokenStore,
 } from '@doist/cli-core/auth'
 import { createWrappedTwistClient } from './api.js'
-import {
-    clearApiToken,
-    NoTokenError,
-    probeApiToken,
-    saveApiToken,
-    type TokenStorageResult,
-} from './auth.js'
 import type { AuthMode } from './config.js'
+import { getConfigPath } from './config.js'
 import { CliError } from './errors.js'
 import { parseRef } from './refs.js'
+import { createTwistUserRecordStore } from './user-records.js'
 
 export const AUTHORIZATION_URL = 'https://twist.com/oauth/authorize'
 export const TOKEN_URL = 'https://twist.com/oauth/access_token'
@@ -25,6 +20,13 @@ export const REGISTRATION_URL = 'https://twist.com/oauth/register'
 
 const LOGO_URI =
     'https://raw.githubusercontent.com/Doist/twist-cli/d65c447ff453eb36af585044c2f5f2f602bcdb34/icons/twist-cli.png'
+
+const SECURE_STORE_SERVICE = 'twist-cli'
+// Preserve the keyring slot the previous custom `TwistTokenStore` wrote to,
+// so tokens already in users' keychains stay readable after the swap. cli-core
+// defaults to `user-${id}`; overriding keeps single-user installs uninterrupted
+// and is safe to drop if/when we adopt multi-user storage.
+const SECURE_STORE_ACCOUNT_SLOT = 'api-token'
 
 export const READ_WRITE_SCOPES = [
     'user:read',
@@ -74,6 +76,8 @@ export type TwistAccount = AuthAccount & {
     authMode: AuthMode
     authScope: string
 }
+
+export type TwistTokenStore = KeyringTokenStore<TwistAccount>
 
 type TwistHandshake = Record<string, unknown> & {
     clientId: string
@@ -268,128 +272,59 @@ export function createTwistAuthProvider(): AuthProvider<TwistAccount> {
     }
 }
 
-export type TwistTokenStore = TokenStore<TwistAccount> & {
-    getLastStorageResult(): TokenStorageResult | undefined
-    getLastClearResult(): TokenStorageResult | undefined
+// Twist-flavoured ref matcher: `parseRef` normalises `id:<n>` and `<n>` to the
+// same numeric id, and labels match case-insensitively. cli-core's default is
+// strict equality on `account.id` / `account.label`, so passing this in keeps
+// the user-facing ref formats (`tw auth status --user 42`, `--user id:42`,
+// `--user Ada`) that the previous custom store supported.
+export function matchTwistAccount(account: TwistAccount, ref: AccountRef): boolean {
+    const parsed = parseRef(ref)
+    if (parsed.type === 'id') return Number(account.id) === parsed.id
+    if (parsed.type === 'name') return account.label.toLowerCase() === parsed.name.toLowerCase()
+    return false
 }
 
+const TOKEN_ENV_VAR = 'TWIST_API_TOKEN'
+
+/**
+ * `TWIST_API_TOKEN=… tw <subcommand>` must work even when nothing is in the
+ * keyring — cli-core's `KeyringTokenStore` only knows about its own backing
+ * store, so we wrap `active()` to short-circuit to the env value when no
+ * explicit `--user <ref>` is supplied. With an explicit ref the caller is
+ * targeting a specific stored account, so the env var is intentionally
+ * ignored.
+ */
 export function createTwistTokenStore(): TwistTokenStore {
-    let lastStorageResult: TokenStorageResult | undefined
-    let lastClearResult: TokenStorageResult | undefined
-
-    /**
-     * Read the stored credential. By default `NoTokenError` collapses to
-     * `null` (i.e. "nothing stored" is not an exception), while
-     * `SecureStoreUnavailableError` propagates so callers see a keyring
-     * outage as distinct from "no account". The legacy `active()` no-ref
-     * path opts in to also tolerate the outage so headless / keyring-less
-     * hosts keep falling through to the standard `NoTokenError` envelope
-     * (matching the historical `getApiToken` → `showStatus()` behaviour).
-     */
-    async function loadStoredSnapshot(
-        options: { tolerateOutage?: boolean } = {},
-    ): Promise<{ token: string; account: TwistAccount } | null> {
-        try {
-            const { token, metadata } = await probeApiToken()
-            return {
-                token,
-                account: {
-                    id: metadata.authUserId !== undefined ? String(metadata.authUserId) : '',
-                    label: metadata.authUserName ?? '',
-                    authMode: metadata.authMode,
-                    authScope: metadata.authScope ?? '',
-                },
-            }
-        } catch (error) {
-            if (error instanceof NoTokenError) return null
-            if (error instanceof SecureStoreUnavailableError) {
-                if (options.tolerateOutage) return null
-                throw error
-            }
-            throw error
-        }
-    }
-
-    /**
-     * Match the stored account against the user-supplied `--user <ref>`,
-     * normalising through `parseRef` so `id:42`, `42`, and a case-insensitive
-     * label all resolve consistently with the rest of the CLI. URL refs
-     * never apply to accounts — fall through to "no match" instead of
-     * silently accepting one.
-     */
-    function matchesRef(account: TwistAccount, ref: AccountRef): boolean {
-        const parsed = parseRef(ref)
-        if (parsed.type === 'id') return Number(account.id) === parsed.id
-        if (parsed.type === 'name') {
-            return account.label.toLowerCase() === parsed.name.toLowerCase()
-        }
-        return false
-    }
-
-    /**
-     * Single source of truth for ref-aware lookups. Returns the snapshot
-     * when `ref` matches the stored account, throws `ACCOUNT_NOT_FOUND`
-     * otherwise (including when nothing is stored). Storage outages
-     * propagate so the caller sees the underlying failure rather than
-     * a misleading "account not found".
-     */
-    async function resolveByRef(
-        ref: AccountRef,
-    ): Promise<{ token: string; account: TwistAccount }> {
-        const snapshot = await loadStoredSnapshot()
-        if (!snapshot || !matchesRef(snapshot.account, ref)) {
-            throw new CliError('ACCOUNT_NOT_FOUND', `No stored account matches "${ref}".`)
-        }
-        return snapshot
-    }
-
-    return {
+    const inner = createKeyringTokenStore<TwistAccount>({
+        serviceName: SECURE_STORE_SERVICE,
+        accountForUser: () => SECURE_STORE_ACCOUNT_SLOT,
+        userRecords: createTwistUserRecordStore(),
+        recordsLocation: getConfigPath(),
+        matchAccount: matchTwistAccount,
+    })
+    return Object.assign(Object.create(inner) as TwistTokenStore, {
         async active(ref?: AccountRef) {
-            // No-ref legacy path — tolerate missing keyring / no token and
-            // return null so downstream callers (status's `fetchLive`,
-            // login's pre-flight, etc.) keep falling through to their own
-            // `NoTokenError` envelope rather than seeing a raw keyring
-            // error. Returning a snapshot whenever a token resolves — even
-            // when the persisted identity is empty (env var, manual
-            // `tw auth token`, pre-upgrade config) — also avoids a second
-            // credential read downstream.
             if (ref === undefined) {
-                return loadStoredSnapshot({ tolerateOutage: true })
+                const envToken = process.env[TOKEN_ENV_VAR]
+                if (envToken) {
+                    return {
+                        token: envToken,
+                        account: { id: '', label: '', authMode: 'unknown', authScope: '' },
+                    }
+                }
             }
-            return resolveByRef(ref)
+            return inner.active(ref)
         },
-        async set(account, token) {
-            const userId = Number(account.id)
-            lastStorageResult = await saveApiToken(token, {
-                authMode: account.authMode,
-                authScope: account.authScope,
-                authUserId: Number.isFinite(userId) ? userId : undefined,
-                authUserName: account.label,
-            })
-        },
-        async clear(ref?: AccountRef) {
-            // With `ref`, validate before touching storage so a mismatch is
-            // an `ACCOUNT_NOT_FOUND` error rather than a silent
-            // ✓ Logged out — the upstream `attachLogoutCommand` treats any
-            // non-throwing `clear()` as success.
-            if (ref !== undefined) {
-                await resolveByRef(ref)
-            }
-            lastClearResult = await clearApiToken()
-        },
-        async list() {
-            const snapshot = await loadStoredSnapshot()
-            return snapshot ? [{ account: snapshot.account, isDefault: true }] : []
-        },
-        async setDefault(ref: AccountRef) {
-            await resolveByRef(ref)
-            // Single-user store — already the default once `ref` matches.
-        },
-        getLastStorageResult() {
-            return lastStorageResult
-        },
-        getLastClearResult() {
-            return lastClearResult
-        },
-    }
+    })
+}
+
+/**
+ * Derive the source of the currently-active token. Lives here (next to the
+ * store) so `lib/auth.ts` doesn't need to know about `UserRecordStore`'s
+ * `fallbackToken` field — keeps the storage abstraction clean.
+ */
+export async function getActiveTokenSource(): Promise<'env' | 'secure-store' | 'config-file'> {
+    if (process.env[TOKEN_ENV_VAR]) return 'env'
+    const [record] = await createTwistUserRecordStore().list()
+    return record?.fallbackToken ? 'config-file' : 'secure-store'
 }
