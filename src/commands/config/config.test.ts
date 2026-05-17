@@ -292,7 +292,6 @@ describe('config view', () => {
         expect(output).toContain('Ada Lovelace')
         expect(output).toContain('id:2')
         expect(output).toContain('Bob Smith')
-        // Default marker on the right row.
         const bobLine = output.split('\n').find((l) => l.includes('Bob Smith')) ?? ''
         const adaLine = output.split('\n').find((l) => l.includes('Ada Lovelace')) ?? ''
         expect(bobLine).toContain('*')
@@ -301,10 +300,8 @@ describe('config view', () => {
     })
 
     it('marks the first stored account as default when defaultUserId is missing', async () => {
-        // Mirrors `getDefaultUserRecord`'s first-user fallback: with no
-        // explicit default pinned, the CLI will use the first user, so
-        // the marker must reflect that — otherwise `tw config view`
-        // claims no account is active even though one will be used.
+        // Mirrors getDefaultUserRecord's first-user fallback — otherwise
+        // the view would claim no account is active when one will be used.
         presentConfig({
             users: [
                 { id: '1', name: 'Ada Lovelace' },

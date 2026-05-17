@@ -29,19 +29,8 @@ tw auth logout --json            # Emits `{"ok": true}` (--ndjson is silent)
 tw auth logout --user <ref>      # Target a specific stored account; mismatched ref errors with ACCOUNT_NOT_FOUND
 tw auth token view               # Print the saved token to stdout (pipe-safe; refuses if TWIST_API_TOKEN is set)
 tw auth token view --user <ref>  # Print the saved token for a specific stored account
-tw account                       # Default: list (see below)
-tw account list                  # List stored CLI accounts (default marked)
-tw account list --json           # JSON: [{id, label, isDefault}, ...]
-tw account list --ndjson         # Newline-delimited JSON
-tw account current               # Show the currently active account (honours TWIST_API_TOKEN)
-tw account current --json        # JSON: {id, label, authMode, authScope, source} | {source:"env"} | {source:"legacy"}
-tw account current --ndjson      # Same payload as --json, newline-delimited
-tw account use <ref>             # Set the default account (id, id:<n>, or display name)
-tw account use <ref> --json      # JSON: {id, label, isDefault:true}
-tw account use <ref> --ndjson    # Newline-delimited JSON
-tw account remove <ref>          # Remove a stored account (clears keyring + config entry)
-tw account remove <ref> --json   # JSON: {id, label, removed:true}; warnings still go to stderr
-tw account remove <ref> --ndjson # Newline-delimited JSON
+tw account [list|current|use <ref>|remove <ref>]  # Manage stored accounts; all support --json/--ndjson
+                                 # current's payload is {id, label, authMode, authScope, source:"config"} | {source:"env"} | {source:"legacy"}
 tw auth login                    # Re-running auth login with a different OAuth grant adds a NEW account; default stays pinned unless none was set
 tw workspaces                    # List available workspaces
 tw workspace use <ref>           # Set current workspace

@@ -84,15 +84,12 @@ function formatConfigView(
 
     const users = config.users ?? []
     if (users.length > 0) {
-        // Mirror runtime selection: `getDefaultUserRecord` falls back to
-        // the first user when `defaultUserId` is missing or stale, so the
-        // marker reflects the account the CLI would actually use.
-        const defaultRecord = getDefaultUserRecord(config)
-        const defaultId = defaultRecord?.account.id
+        // Mirror runtime first-user fallback so the marker reflects the
+        // account the CLI would actually use.
+        const defaultId = getDefaultUserRecord(config)?.account.id
         lines.push(chalk.bold(`Authenticated accounts (${users.length})`))
         for (const user of users) {
-            const isDefault = user.id === defaultId
-            const marker = isDefault ? chalk.green('*') : ' '
+            const marker = user.id === defaultId ? chalk.green('*') : ' '
             lines.push(`  ${marker} ${chalk.dim(`id:${user.id}`)}  ${user.name}`)
         }
         lines.push('')

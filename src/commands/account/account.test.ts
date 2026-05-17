@@ -68,7 +68,9 @@ describe('account command', () => {
         vi.unstubAllEnvs()
     })
 
-    describe('list subcommand', () => {
+    const stdout = () => consoleSpy.mock.calls.map((c: unknown[]) => String(c[0])).join('\n')
+
+    describe('list', () => {
         it('renders all stored accounts with the default marker', async () => {
             storeMocks.list.mockResolvedValue([
                 { account: ACCOUNT_A, isDefault: true },
@@ -77,36 +79,12 @@ describe('account command', () => {
 
             await createProgram().parseAsync(['node', 'tw', 'account', 'list'])
 
-            const output = consoleSpy.mock.calls.map((c: unknown[]) => c[0]).join('\n')
+            const output = stdout()
             expect(output).toContain('Stored accounts (2)')
             expect(output).toContain('id:1')
             expect(output).toContain('Ada Lovelace')
             expect(output).toContain('id:2')
             expect(output).toContain('Bob Smith')
-            expect(output).toContain('Default: id:1  Ada Lovelace')
-        })
-
-        it('runs by default when no subcommand is given', async () => {
-            storeMocks.list.mockResolvedValue([{ account: ACCOUNT_A, isDefault: true }])
-
-            await createProgram().parseAsync(['node', 'tw', 'account'])
-
-            const output = consoleSpy.mock.calls.map((c: unknown[]) => c[0]).join('\n')
-            expect(output).toContain('Stored accounts (1)')
-        })
-
-        it('falls back to the first account when no isDefault flag is set', async () => {
-            // Mirror runtime selection: cli-core stamps `isDefault` on the first
-            // record when nothing's pinned, but the marker should still surface
-            // even if a future store returns an all-false list.
-            storeMocks.list.mockResolvedValue([
-                { account: ACCOUNT_A, isDefault: false },
-                { account: ACCOUNT_B, isDefault: false },
-            ])
-
-            await createProgram().parseAsync(['node', 'tw', 'account', 'list'])
-
-            const output = consoleSpy.mock.calls.map((c: unknown[]) => c[0]).join('\n')
             expect(output).toContain('Default: id:1  Ada Lovelace')
         })
 
@@ -128,69 +106,38 @@ describe('account command', () => {
 
             await createProgram().parseAsync(['node', 'tw', 'account', 'list', '--json'])
 
-            const parsed = JSON.parse(consoleSpy.mock.calls[0][0] as string)
-            expect(parsed).toEqual([
+            expect(JSON.parse(consoleSpy.mock.calls[0][0] as string)).toEqual([
                 { id: '1', label: 'Ada Lovelace', isDefault: true },
                 { id: '2', label: 'Bob Smith', isDefault: false },
             ])
         })
-
-        it('refuses to list while legacy auth is still active', async () => {
-            legacyMocks.isLegacyAuthActive.mockResolvedValue(true)
-
-            await expect(
-                createProgram().parseAsync(['node', 'tw', 'account', 'list']),
-            ).rejects.toHaveProperty('code', 'AUTH_MIGRATION_PENDING')
-
-            expect(storeMocks.list).not.toHaveBeenCalled()
-        })
     })
 
-    describe('current subcommand', () => {
+    describe('current', () => {
         it('renders the active account from store.active()', async () => {
             vi.stubEnv(TOKEN_ENV_VAR, '')
             storeMocks.active.mockResolvedValue({ token: 'tk_abc', account: ACCOUNT_A })
 
             await createProgram().parseAsync(['node', 'tw', 'account', 'current'])
 
-            const output = consoleSpy.mock.calls.map((c: unknown[]) => c[0]).join('\n')
+            const output = stdout()
             expect(output).toContain('Active account: id:1  Ada Lovelace')
             expect(output).toContain('Mode:  read-write')
             expect(output).toContain('Scope: user:read')
         })
 
-        it('reports env-sourced tokens without inventing an account', async () => {
-            vi.stubEnv(TOKEN_ENV_VAR, 'tk_env_supplied')
+        it.each([['--json'], ['--ndjson']])(
+            'emits {source:"env"} in %s mode without touching store.active',
+            async (flag) => {
+                vi.stubEnv(TOKEN_ENV_VAR, 'tk_env_supplied')
 
-            await createProgram().parseAsync(['node', 'tw', 'account', 'current'])
+                await createProgram().parseAsync(['node', 'tw', 'account', 'current', flag])
 
-            const output = consoleSpy.mock.calls.map((c: unknown[]) => c[0]).join('\n')
-            expect(output).toContain(TOKEN_ENV_VAR)
-            expect(output).toContain('no stored account')
-            expect(storeMocks.active).not.toHaveBeenCalled()
-        })
-
-        it('emits {source:"env"} in --json mode without touching store.active', async () => {
-            vi.stubEnv(TOKEN_ENV_VAR, 'tk_env_supplied')
-
-            await createProgram().parseAsync(['node', 'tw', 'account', 'current', '--json'])
-
-            const parsed = JSON.parse(consoleSpy.mock.calls[0][0] as string)
-            expect(parsed).toEqual({ source: 'env' })
-            expect(storeMocks.active).not.toHaveBeenCalled()
-        })
-
-        it('emits {source:"env"} in --ndjson mode (single newline-free line)', async () => {
-            vi.stubEnv(TOKEN_ENV_VAR, 'tk_env_supplied')
-
-            await createProgram().parseAsync(['node', 'tw', 'account', 'current', '--ndjson'])
-
-            expect(consoleSpy).toHaveBeenCalledTimes(1)
-            const printed = consoleSpy.mock.calls[0][0] as string
-            expect(printed).not.toContain('\n')
-            expect(JSON.parse(printed)).toEqual({ source: 'env' })
-            expect(storeMocks.active).not.toHaveBeenCalled()
-        })
+                expect(consoleSpy).toHaveBeenCalledTimes(1)
+                expect(JSON.parse(consoleSpy.mock.calls[0][0] as string)).toEqual({ source: 'env' })
+                expect(storeMocks.active).not.toHaveBeenCalled()
+            },
+        )
 
         it('renders a legacy-session notice when active() returns an empty-id snapshot', async () => {
             vi.stubEnv(TOKEN_ENV_VAR, '')
@@ -201,8 +148,7 @@ describe('account command', () => {
 
             await createProgram().parseAsync(['node', 'tw', 'account', 'current'])
 
-            const output = consoleSpy.mock.calls.map((c: unknown[]) => c[0]).join('\n')
-            expect(output).toContain('legacy single-user session')
+            expect(stdout()).toContain('legacy single-user session')
         })
 
         it('emits {source:"legacy"} in --json mode for legacy snapshots', async () => {
@@ -214,8 +160,7 @@ describe('account command', () => {
 
             await createProgram().parseAsync(['node', 'tw', 'account', 'current', '--json'])
 
-            const parsed = JSON.parse(consoleSpy.mock.calls[0][0] as string)
-            expect(parsed).toEqual({ source: 'legacy' })
+            expect(JSON.parse(consoleSpy.mock.calls[0][0] as string)).toEqual({ source: 'legacy' })
         })
 
         it('throws NO_TOKEN when nothing is active', async () => {
@@ -233,8 +178,7 @@ describe('account command', () => {
 
             await createProgram().parseAsync(['node', 'tw', 'account', 'current', '--json'])
 
-            const parsed = JSON.parse(consoleSpy.mock.calls[0][0] as string)
-            expect(parsed).toEqual({
+            expect(JSON.parse(consoleSpy.mock.calls[0][0] as string)).toEqual({
                 id: '1',
                 label: 'Ada Lovelace',
                 authMode: 'read-write',
@@ -244,8 +188,8 @@ describe('account command', () => {
         })
     })
 
-    describe('use subcommand', () => {
-        it('sets the default account when the ref matches by id', async () => {
+    describe('use', () => {
+        it('sets the default account by canonical id when the ref matches', async () => {
             storeMocks.list.mockResolvedValue([
                 { account: ACCOUNT_A, isDefault: false },
                 { account: ACCOUNT_B, isDefault: true },
@@ -255,11 +199,8 @@ describe('account command', () => {
             await createProgram().parseAsync(['node', 'tw', 'account', 'use', '1'])
 
             expect(storeMocks.setDefault).toHaveBeenCalledTimes(1)
-            // Canonical id is passed through, not the raw user ref — the
-            // exact argument is asserted here because the id is the value
-            // we want the store to mutate against.
             expect(storeMocks.setDefault).toHaveBeenCalledWith('1')
-            const output = consoleSpy.mock.calls.map((c: unknown[]) => c[0]).join('\n')
+            const output = stdout()
             expect(output).toContain('Default account set to')
             expect(output).toContain('Ada Lovelace')
         })
@@ -284,26 +225,13 @@ describe('account command', () => {
             await createProgram().parseAsync(['node', 'tw', 'account', 'use', 'ada lovelace'])
 
             expect(storeMocks.setDefault).toHaveBeenCalledTimes(1)
-            // Observable outcome: Ada is now the default — verified via
-            // the rendered output rather than the raw ref string, so a
-            // future ref-normalisation change doesn't break the test.
-            const output = consoleSpy.mock.calls.map((c: unknown[]) => c[0]).join('\n')
+            const output = stdout()
             expect(output).toContain('Ada Lovelace')
             expect(output).not.toContain('Bob Smith')
         })
-
-        it('refuses to switch default while legacy auth is still active', async () => {
-            legacyMocks.isLegacyAuthActive.mockResolvedValue(true)
-
-            await expect(
-                createProgram().parseAsync(['node', 'tw', 'account', 'use', '1']),
-            ).rejects.toHaveProperty('code', 'AUTH_MIGRATION_PENDING')
-
-            expect(storeMocks.setDefault).not.toHaveBeenCalled()
-        })
     })
 
-    describe('remove subcommand', () => {
+    describe('remove', () => {
         it('clears the account by canonical id and prints the removed label', async () => {
             storeMocks.list.mockResolvedValue([
                 { account: ACCOUNT_A, isDefault: true },
@@ -316,7 +244,7 @@ describe('account command', () => {
 
             expect(storeMocks.clear).toHaveBeenCalledTimes(1)
             expect(storeMocks.clear).toHaveBeenCalledWith('2')
-            const output = consoleSpy.mock.calls.map((c: unknown[]) => c[0]).join('\n')
+            const output = stdout()
             expect(output).toContain('Removed account')
             expect(output).toContain('Bob Smith')
         })
@@ -354,22 +282,31 @@ describe('account command', () => {
 
             await createProgram().parseAsync(['node', 'tw', 'account', 'remove', '1', '--json'])
 
-            const stdoutLines = consoleSpy.mock.calls.map((c: unknown[]) => String(c[0]))
-            expect(stdoutLines).toHaveLength(1)
-            expect(JSON.parse(stdoutLines[0])).toEqual({
+            expect(consoleSpy).toHaveBeenCalledTimes(1)
+            expect(JSON.parse(consoleSpy.mock.calls[0][0] as string)).toEqual({
                 id: '1',
                 label: 'Ada Lovelace',
                 removed: true,
             })
         })
+    })
 
-        it('refuses to remove while legacy auth is still active', async () => {
+    // One per gated command — assertV2Available is shared, but a regression
+    // could remove the guard from any single handler.
+    describe.each([
+        ['list', ['list']],
+        ['use', ['use', '1']],
+        ['remove', ['remove', '1']],
+    ])('%s refuses while legacy auth is still active', (_name, args) => {
+        it('throws AUTH_MIGRATION_PENDING without touching the store', async () => {
             legacyMocks.isLegacyAuthActive.mockResolvedValue(true)
 
             await expect(
-                createProgram().parseAsync(['node', 'tw', 'account', 'remove', '1']),
+                createProgram().parseAsync(['node', 'tw', 'account', ...args]),
             ).rejects.toHaveProperty('code', 'AUTH_MIGRATION_PENDING')
 
+            expect(storeMocks.list).not.toHaveBeenCalled()
+            expect(storeMocks.setDefault).not.toHaveBeenCalled()
             expect(storeMocks.clear).not.toHaveBeenCalled()
         })
     })

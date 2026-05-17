@@ -13,26 +13,21 @@ export async function listAccounts(options: ViewOptions, store: TwistTokenStore)
         isDefault,
     }))
 
-    if (options.json) {
-        console.log(formatJson(rows))
-        return
-    }
-    if (options.ndjson) {
-        console.log(formatNdjson(rows))
-        return
-    }
+    if (options.json) return console.log(formatJson(rows))
+    if (options.ndjson) return console.log(formatNdjson(rows))
 
     if (rows.length === 0) {
         console.log('No stored accounts. Run `tw auth login` to add one.')
         return
     }
 
-    const defaultRow = rows.find((r) => r.isDefault) ?? rows[0]
     console.log(`Stored accounts (${rows.length}):`)
     for (const row of rows) {
-        const marker = row === defaultRow ? chalk.green('*') : ' '
-        const id = chalk.dim(`id:${row.id}`)
-        console.log(`  ${marker} ${id}  ${row.label}`)
+        const marker = row.isDefault ? chalk.green('*') : ' '
+        console.log(`  ${marker} ${chalk.dim(`id:${row.id}`)}  ${row.label}`)
     }
-    console.log(`Default: ${chalk.dim(`id:${defaultRow.id}`)}  ${defaultRow.label}`)
+    const defaultRow = rows.find((r) => r.isDefault)
+    if (defaultRow) {
+        console.log(`Default: ${chalk.dim(`id:${defaultRow.id}`)}  ${defaultRow.label}`)
+    }
 }
