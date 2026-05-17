@@ -1,7 +1,8 @@
 import { type MigrateAuthResult, migrateLegacyAuth } from '@doist/cli-core/auth'
-import { createWrappedTwistClient } from './api.js'
+import { TwistApi } from '@doist/twist-sdk'
 import type { TwistAccount } from './auth-provider.js'
 import { CONFIG_VERSION, getConfig, updateConfig } from './config.js'
+import { toTwistAccount } from './twist-account.js'
 import { createTwistUserRecordStore } from './user-records.js'
 
 const SERVICE_NAME = 'twist-cli'
@@ -16,6 +17,9 @@ const LEGACY_KEYRING_ACCOUNT = 'api-token'
  * regular `tw` invocation doesn't print a banner on the cold-cache run. The
  * underlying cli-core helper is idempotent — `hasMigrated()` short-circuits
  * once the durable marker is on disk.
+ *
+ * Talks to the Twist API via a raw `TwistApi` (not `createWrappedTwistClient`)
+ * to keep migration outside the runtime auth / token-store module graph.
  */
 export async function runMigrateLegacyAuth(
     options: { silent: boolean } = { silent: true },
@@ -36,19 +40,15 @@ export async function runMigrateLegacyAuth(
             return config.token?.trim() || null
         },
         identifyAccount: async (token) => {
-            const client = createWrappedTwistClient(token)
-            const user = await client.users.getSessionUser()
+            const user = await new TwistApi(token).users.getSessionUser()
             const config = await getConfig()
-            // Promote the v1 auth metadata onto the v2 account if it's there;
-            // legacy `tw auth token` users have no `authMode` / `authScope`,
-            // so we fall through to `'unknown'` / `''`, the same defaults
+            // Legacy `tw auth token` users have no `authMode` / `authScope` on
+            // disk; `toTwistAccount` falls through to the same defaults
             // `validateToken` would have written.
-            return {
-                id: String(user.id),
-                label: user.name,
-                authMode: config.authMode ?? 'unknown',
-                authScope: config.authScope ?? '',
-            }
+            return toTwistAccount(user, {
+                authMode: config.authMode,
+                authScope: config.authScope,
+            })
         },
         cleanupLegacyConfig: async () => {
             await updateConfig({

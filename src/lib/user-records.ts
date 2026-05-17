@@ -1,6 +1,6 @@
 import type { UserRecord, UserRecordStore } from '@doist/cli-core/auth'
 import type { TwistAccount } from './auth-provider.js'
-import { type StoredUser, getConfig, updateConfig } from './config.js'
+import { type Config, type StoredUser, getConfig, updateConfig } from './config.js'
 
 /**
  * v2 adapter — reads/writes the `users[]` array in `config.json`. Multi-account
@@ -48,6 +48,21 @@ export function createTwistUserRecordStore(): UserRecordStore<TwistAccount> {
             await updateConfig({ defaultUserId: id ?? undefined })
         },
     }
+}
+
+/**
+ * Resolve the active (default-or-first) `UserRecord` directly from an
+ * already-loaded `Config` — avoids the double `getConfig()` that
+ * `store.list()` + `store.getDefaultId()` would otherwise incur, and gives
+ * callers one canonical place to derive the default. Returns `null` when no
+ * users are stored.
+ */
+export function getDefaultUserRecord(config: Config): UserRecord<TwistAccount> | null {
+    const users = config.users ?? []
+    if (users.length === 0) return null
+    const defaultId = config.defaultUserId
+    const user = (defaultId && users.find((u) => u.id === defaultId)) || users[0]
+    return toRecord(user)
 }
 
 function toRecord(user: StoredUser): UserRecord<TwistAccount> {

@@ -2,7 +2,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({
     migrateLegacyAuth: vi.fn(),
-    createWrappedTwistClient: vi.fn(),
+    twistApiCtor: vi.fn(),
+    getSessionUserMock: vi.fn(),
     getConfig: vi.fn(),
     updateConfig: vi.fn(),
 }))
@@ -12,7 +13,11 @@ vi.mock('@doist/cli-core/auth', async (importOriginal) => {
     return { ...actual, migrateLegacyAuth: mocks.migrateLegacyAuth }
 })
 
-vi.mock('./api.js', () => ({ createWrappedTwistClient: mocks.createWrappedTwistClient }))
+vi.mock('@doist/twist-sdk', () => ({
+    TwistApi: mocks.twistApiCtor.mockImplementation(function (this: object, _token: string) {
+        Object.assign(this, { users: { getSessionUser: mocks.getSessionUserMock } })
+    }),
+}))
 
 vi.mock('./config.js', async (importOriginal) => {
     const actual = await importOriginal<typeof import('./config.js')>()
@@ -37,7 +42,8 @@ type Opts = MigrateLegacyAuthOptions<{
 describe('runMigrateLegacyAuth', () => {
     beforeEach(() => {
         mocks.migrateLegacyAuth.mockReset().mockResolvedValue({ status: 'no-legacy-state' })
-        mocks.createWrappedTwistClient.mockReset()
+        mocks.twistApiCtor.mockClear()
+        mocks.getSessionUserMock.mockReset()
         mocks.getConfig.mockReset()
         mocks.updateConfig.mockReset().mockResolvedValue(undefined)
     })
@@ -88,11 +94,8 @@ describe('runMigrateLegacyAuth', () => {
         expect(await options.loadLegacyPlaintextToken()).toBeNull()
     })
 
-    it('identifyAccount resolves a TwistAccount from the API + v1 auth metadata on disk', async () => {
-        const getSessionUser = vi.fn().mockResolvedValue({ id: 42, name: 'Ada' })
-        mocks.createWrappedTwistClient.mockReturnValue({
-            users: { getSessionUser },
-        } as unknown as ReturnType<typeof mocks.createWrappedTwistClient>)
+    it('identifyAccount resolves a TwistAccount from a raw TwistApi + v1 auth metadata on disk (no spinner-wrapped client — keeps migration outside the runtime auth graph)', async () => {
+        mocks.getSessionUserMock.mockResolvedValue({ id: 42, name: 'Ada' })
         mocks.getConfig.mockResolvedValue({ authMode: 'read-write', authScope: 'user:read' })
 
         await runMigrateLegacyAuth({ silent: true })
@@ -104,13 +107,11 @@ describe('runMigrateLegacyAuth', () => {
             authMode: 'read-write',
             authScope: 'user:read',
         })
-        expect(mocks.createWrappedTwistClient).toHaveBeenCalledWith('tk_legacy')
+        expect(mocks.twistApiCtor).toHaveBeenCalledWith('tk_legacy')
     })
 
     it('identifyAccount falls back to unknown/empty metadata for `tw auth token` users with no authMode on disk', async () => {
-        mocks.createWrappedTwistClient.mockReturnValue({
-            users: { getSessionUser: vi.fn().mockResolvedValue({ id: 7, name: 'Carl' }) },
-        } as unknown as ReturnType<typeof mocks.createWrappedTwistClient>)
+        mocks.getSessionUserMock.mockResolvedValue({ id: 7, name: 'Carl' })
         mocks.getConfig.mockResolvedValue({})
 
         await runMigrateLegacyAuth({ silent: true })

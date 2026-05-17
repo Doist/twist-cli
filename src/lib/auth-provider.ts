@@ -3,17 +3,19 @@ import {
     type AuthAccount,
     type AuthProvider,
     createKeyringTokenStore,
+    createSecureStore,
     deriveChallenge,
     generateVerifier,
     type KeyringTokenStore,
+    type MigrateAuthResult,
 } from '@doist/cli-core/auth'
 import { createWrappedTwistClient } from './api.js'
-import type { AuthMode } from './config.js'
-import { getConfigPath } from './config.js'
+import { type AuthMode, getConfig, getConfigPath } from './config.js'
 import { CliError } from './errors.js'
 import { runMigrateLegacyAuth } from './migrate-auth.js'
 import { parseRef } from './refs.js'
-import { createTwistUserRecordStore } from './user-records.js'
+import { toTwistAccount } from './twist-account.js'
+import { createTwistUserRecordStore, getDefaultUserRecord } from './user-records.js'
 
 export const AUTHORIZATION_URL = 'https://twist.com/oauth/authorize'
 export const TOKEN_URL = 'https://twist.com/oauth/access_token'
@@ -258,12 +260,7 @@ export function createTwistAuthProvider(): AuthProvider<TwistAccount> {
             const hs = asHandshake(handshake)
             const client = createWrappedTwistClient(token)
             const user = await client.users.getSessionUser()
-            return {
-                id: String(user.id),
-                label: user.name,
-                authMode: hs.authMode ?? 'unknown',
-                authScope: hs.authScope ?? '',
-            }
+            return toTwistAccount(user, { authMode: hs.authMode, authScope: hs.authScope })
         },
     }
 }
@@ -282,26 +279,71 @@ export function matchTwistAccount(account: TwistAccount, ref: AccountRef): boole
 
 const TOKEN_ENV_VAR = 'TWIST_API_TOKEN'
 
+// Legacy pre-γ1 keyring slot. Read as a last resort in `active()` when
+// `migrateLegacyAuth` couldn't complete (e.g. the user is offline so
+// `identifyAccount` can't reach Twist) so the CLI stays usable instead of
+// silently treating the user as logged out.
+const LEGACY_KEYRING_ACCOUNT = 'api-token'
+
+/** A migration result that means the v2 store is the authoritative source. */
+function migrationIsConclusive(result: MigrateAuthResult<TwistAccount>): boolean {
+    return (
+        result.status === 'migrated' ||
+        result.status === 'already-migrated' ||
+        result.status === 'no-legacy-state'
+    )
+}
+
+/**
+ * Read v1 credentials still on disk (legacy keyring slot first, then the
+ * plaintext `config.token` slot). Used only when `migrateLegacyAuth` couldn't
+ * complete this run — never on the happy path. Returns a synthetic snapshot
+ * with whatever v1 auth metadata is in `config.json` so consumers like `tw
+ * auth status` keep working.
+ */
+async function readLegacyTokenSnapshot(): Promise<{
+    token: string
+    account: TwistAccount
+} | null> {
+    let token: string | null = null
+    try {
+        const secureStore = createSecureStore({
+            serviceName: SECURE_STORE_SERVICE,
+            account: LEGACY_KEYRING_ACCOUNT,
+        })
+        token = await secureStore.getSecret()
+    } catch {
+        // Keyring unreachable — fall through to plaintext.
+    }
+    const config = await getConfig()
+    if (!token) token = config.token?.trim() || null
+    if (!token) return null
+    return {
+        token,
+        account: toTwistAccount(
+            { id: config.authUserId ?? 0, name: config.authUserName ?? '' },
+            { authMode: config.authMode, authScope: config.authScope },
+        ),
+    }
+}
+
 /**
  * Memoised one-shot v1 → v2 migration trigger. The first read/write to the
  * store on a cold process awaits it; later operations short-circuit on the
  * resolved promise. Errors are swallowed (the cli-core helper itself runs in
  * silent mode and leaves v1 state untouched on failure) so the CLI never
- * fails to start because a migration attempt blew up.
+ * fails to start because a migration attempt blew up; the runtime falls back
+ * to the legacy snapshot below when the result isn't conclusive.
+ *
+ * Module-private; tests reset it with `vi.resetModules()` + dynamic
+ * `import('./auth-provider.js')` so no test-only seam ships in dist/.
  */
-let migrationPromise: Promise<void> | undefined
-function ensureMigrated(): Promise<void> {
+let migrationPromise: Promise<MigrateAuthResult<TwistAccount> | null> | undefined
+function ensureMigrated(): Promise<MigrateAuthResult<TwistAccount> | null> {
     if (!migrationPromise) {
-        migrationPromise = runMigrateLegacyAuth({ silent: true })
-            .then(() => undefined)
-            .catch(() => undefined)
+        migrationPromise = runMigrateLegacyAuth({ silent: true }).catch(() => null)
     }
     return migrationPromise
-}
-
-/** Test-only — reset the memoised migration promise so subsequent reads re-run it. */
-export function __resetMigrationPromiseForTests(): void {
-    migrationPromise = undefined
 }
 
 /**
@@ -315,6 +357,9 @@ export function __resetMigrationPromiseForTests(): void {
  * Every method that touches stored state also awaits `ensureMigrated()` so a
  * user who installed with `--ignore-scripts` (skipping the postinstall hook)
  * still gets their v1 token promoted to v2 transparently on first command.
+ * When migration couldn't complete (offline `identifyAccount`, keyring
+ * unreachable, …), `active()` falls back to the legacy snapshot so the user
+ * isn't treated as logged out.
  */
 export function createTwistTokenStore(): TwistTokenStore {
     const inner = createKeyringTokenStore<TwistAccount>({
@@ -334,7 +379,11 @@ export function createTwistTokenStore(): TwistTokenStore {
                     }
                 }
             }
-            await ensureMigrated()
+            const result = await ensureMigrated()
+            if (result === null || !migrationIsConclusive(result)) {
+                const legacy = await readLegacyTokenSnapshot()
+                if (legacy) return legacy
+            }
             return inner.active(ref)
         },
         async set(account: TwistAccount, token: string) {
@@ -363,9 +412,6 @@ export function createTwistTokenStore(): TwistTokenStore {
  */
 export async function getActiveTokenSource(): Promise<'env' | 'secure-store' | 'config-file'> {
     if (process.env[TOKEN_ENV_VAR]) return 'env'
-    const store = createTwistUserRecordStore()
-    const [records, defaultId] = await Promise.all([store.list(), store.getDefaultId()])
-    const record =
-        (defaultId !== null && records.find((r) => r.account.id === defaultId)) || records[0]
+    const record = getDefaultUserRecord(await getConfig())
     return record?.fallbackToken ? 'config-file' : 'secure-store'
 }

@@ -1,9 +1,9 @@
 import { SecureStoreUnavailableError } from '@doist/cli-core/auth'
 import type { TwistAccount } from './auth-provider.js'
 import { createTwistTokenStore, getActiveTokenSource } from './auth-provider.js'
-import type { AuthMode } from './config.js'
+import { type AuthMode, getConfig } from './config.js'
 import { CliError } from './errors.js'
-import { createTwistUserRecordStore } from './user-records.js'
+import { getDefaultUserRecord } from './user-records.js'
 
 export { SecureStoreUnavailableError }
 
@@ -79,10 +79,7 @@ export async function probeApiToken(): Promise<AuthProbeResult> {
 /** Lightweight metadata read used by `tw auth status` once a token is confirmed. */
 export async function getAuthMetadata(): Promise<AuthMetadata> {
     if (process.env[TOKEN_ENV_VAR]) return { authMode: 'unknown', source: 'env' }
-    const store = createTwistUserRecordStore()
-    const [records, defaultId] = await Promise.all([store.list(), store.getDefaultId()])
-    const record =
-        (defaultId !== null && records.find((r) => r.account.id === defaultId)) || records[0]
+    const record = getDefaultUserRecord(await getConfig())
     if (!record) return { authMode: 'unknown', source: 'config' }
     return { ...toAccountFields(record.account), source: 'config' }
 }
