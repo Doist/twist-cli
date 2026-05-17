@@ -1,3 +1,9 @@
+## [2.41.0](https://github.com/Doist/twist-cli/compare/v2.40.0...v2.41.0) (2026-05-17)
+
+### Features
+
+- **auth:** tw account commands + multi-account config view ([#233](https://github.com/Doist/twist-cli/issues/233)) ([5a3741f](https://github.com/Doist/twist-cli/commit/5a3741f63ae0c69a09e32727a162d4a24b710662))
+
 ## [2.40.0](https://github.com/Doist/twist-cli/compare/v2.39.0...v2.40.0) (2026-05-17)
 
 ### Features
