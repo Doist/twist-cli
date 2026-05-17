@@ -1,15 +1,4 @@
-import { SecureStoreUnavailableError } from '@doist/cli-core/auth'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-
-vi.mock('./auth.js', async (importOriginal) => {
-    const actual = await importOriginal<typeof import('./auth.js')>()
-    return {
-        ...actual,
-        probeApiToken: vi.fn(),
-        saveApiToken: vi.fn(),
-        clearApiToken: vi.fn(),
-    }
-})
 
 vi.mock('./api.js', () => ({ createWrappedTwistClient: vi.fn() }))
 
@@ -17,18 +6,13 @@ import { createWrappedTwistClient } from './api.js'
 import {
     AUTHORIZATION_URL,
     createTwistAuthProvider,
-    createTwistTokenStore,
     READ_ONLY_SCOPES,
     READ_WRITE_SCOPES,
     REGISTRATION_URL,
     TOKEN_URL,
 } from './auth-provider.js'
-import { clearApiToken, NoTokenError, probeApiToken, saveApiToken } from './auth.js'
 
 const REDIRECT_URI = 'http://127.0.0.1:8766/callback'
-const mockProbe = vi.mocked(probeApiToken)
-const mockSave = vi.mocked(saveApiToken)
-const mockClear = vi.mocked(clearApiToken)
 const mockCreateClient = vi.mocked(createWrappedTwistClient)
 
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status })
@@ -165,196 +149,6 @@ describe('createTwistAuthProvider', () => {
             label: 'Ada',
             authMode: 'read-write',
             authScope: 'user:read',
-        })
-    })
-})
-
-describe('createTwistTokenStore', () => {
-    afterEach(() => {
-        mockProbe.mockReset()
-        mockSave.mockReset()
-        mockClear.mockReset()
-    })
-
-    it('active() returns null when no token is stored', async () => {
-        mockProbe.mockRejectedValueOnce(new NoTokenError())
-        expect(await createTwistTokenStore().active()).toBeNull()
-    })
-
-    it('active() returns null when the system keyring is unavailable', async () => {
-        mockProbe.mockRejectedValueOnce(new SecureStoreUnavailableError('no keyring'))
-        expect(await createTwistTokenStore().active()).toBeNull()
-    })
-
-    it('active() returns a token-only snapshot with placeholder fields when no identity is persisted', async () => {
-        mockProbe.mockResolvedValueOnce({
-            token: 'tk_env',
-            metadata: { authMode: 'unknown', source: 'env' },
-        })
-        expect(await createTwistTokenStore().active()).toEqual({
-            token: 'tk_env',
-            account: {
-                id: '',
-                label: '',
-                authMode: 'unknown',
-                authScope: '',
-            },
-        })
-    })
-
-    it('active() rebuilds a real TwistAccount from persisted identity', async () => {
-        mockProbe.mockResolvedValue({
-            token: 'tk_xyz',
-            metadata: {
-                authMode: 'read-only',
-                authScope: 'user:read',
-                authUserId: 42,
-                authUserName: 'Ada',
-                source: 'secure-store',
-            },
-        })
-        expect(await createTwistTokenStore().active()).toEqual({
-            token: 'tk_xyz',
-            account: {
-                id: '42',
-                label: 'Ada',
-                authMode: 'read-only',
-                authScope: 'user:read',
-            },
-        })
-    })
-
-    it('set() persists token + authMode/scope/userId/userName and exposes the result', async () => {
-        mockSave.mockResolvedValue({ storage: 'secure-store' })
-        const store = createTwistTokenStore()
-        await store.set(
-            { id: '42', label: 'Ada', authMode: 'read-write', authScope: 'user:read' },
-            'tk_new',
-        )
-        expect(mockSave).toHaveBeenCalledWith('tk_new', {
-            authMode: 'read-write',
-            authScope: 'user:read',
-            authUserId: 42,
-            authUserName: 'Ada',
-        })
-        expect(store.getLastStorageResult()).toEqual({ storage: 'secure-store' })
-    })
-
-    it('clear() delegates to clearApiToken and exposes the result', async () => {
-        mockClear.mockResolvedValue({ storage: 'secure-store' })
-        const store = createTwistTokenStore()
-        await store.clear()
-        expect(mockClear).toHaveBeenCalledTimes(1)
-        expect(store.getLastClearResult()).toEqual({ storage: 'secure-store' })
-    })
-
-    describe('ref-aware lookups', () => {
-        const STORED_METADATA = {
-            authMode: 'read-write' as const,
-            authScope: 'user:read',
-            authUserId: 42,
-            authUserName: 'Ada',
-            source: 'config-file' as const,
-        }
-        const STORED_ACCOUNT = {
-            id: '42',
-            label: 'Ada',
-            authMode: 'read-write' as const,
-            authScope: 'user:read',
-        }
-
-        it('active(ref) returns the snapshot when the numeric id ref matches', async () => {
-            mockProbe.mockResolvedValueOnce({ token: 'tk', metadata: STORED_METADATA })
-            expect(await createTwistTokenStore().active('42')).toEqual({
-                token: 'tk',
-                account: STORED_ACCOUNT,
-            })
-        })
-
-        it('active(ref) accepts the id:<n> form normalised by parseRef', async () => {
-            mockProbe.mockResolvedValueOnce({ token: 'tk', metadata: STORED_METADATA })
-            expect(await createTwistTokenStore().active('id:42')).toEqual({
-                token: 'tk',
-                account: STORED_ACCOUNT,
-            })
-        })
-
-        it('active(ref) matches the stored label case-insensitively', async () => {
-            mockProbe.mockResolvedValueOnce({ token: 'tk', metadata: STORED_METADATA })
-            expect(await createTwistTokenStore().active('ADA')).toEqual({
-                token: 'tk',
-                account: STORED_ACCOUNT,
-            })
-        })
-
-        it('active(ref) throws ACCOUNT_NOT_FOUND on mismatch so status surfaces a distinct error', async () => {
-            mockProbe.mockResolvedValueOnce({ token: 'tk', metadata: STORED_METADATA })
-            await expect(createTwistTokenStore().active('other')).rejects.toMatchObject({
-                code: 'ACCOUNT_NOT_FOUND',
-            })
-        })
-
-        it('active(ref) throws ACCOUNT_NOT_FOUND when no token is stored at all', async () => {
-            mockProbe.mockRejectedValueOnce(new NoTokenError())
-            await expect(createTwistTokenStore().active('42')).rejects.toMatchObject({
-                code: 'ACCOUNT_NOT_FOUND',
-            })
-        })
-
-        it('active(ref) surfaces a secure-store outage instead of masking it as ACCOUNT_NOT_FOUND', async () => {
-            mockProbe.mockRejectedValueOnce(new SecureStoreUnavailableError('no keyring'))
-            await expect(createTwistTokenStore().active('42')).rejects.toBeInstanceOf(
-                SecureStoreUnavailableError,
-            )
-        })
-
-        it('clear(ref) clears storage when the ref matches', async () => {
-            mockProbe.mockResolvedValueOnce({ token: 'tk', metadata: STORED_METADATA })
-            mockClear.mockResolvedValueOnce({ storage: 'secure-store' })
-            const store = createTwistTokenStore()
-            await store.clear('42')
-            expect(mockClear).toHaveBeenCalledTimes(1)
-            expect(store.getLastClearResult()).toEqual({ storage: 'secure-store' })
-        })
-
-        it('clear(ref) throws ACCOUNT_NOT_FOUND on mismatch and does not touch storage', async () => {
-            mockProbe.mockResolvedValueOnce({ token: 'tk', metadata: STORED_METADATA })
-            const store = createTwistTokenStore()
-            await expect(store.clear('other')).rejects.toMatchObject({
-                code: 'ACCOUNT_NOT_FOUND',
-            })
-            expect(mockClear).not.toHaveBeenCalled()
-        })
-
-        it('list() returns the single stored account flagged as default', async () => {
-            mockProbe.mockResolvedValueOnce({ token: 'tk', metadata: STORED_METADATA })
-            expect(await createTwistTokenStore().list()).toEqual([
-                { account: STORED_ACCOUNT, isDefault: true },
-            ])
-        })
-
-        it('list() returns an empty array when no token is stored', async () => {
-            mockProbe.mockRejectedValueOnce(new NoTokenError())
-            expect(await createTwistTokenStore().list()).toEqual([])
-        })
-
-        it('list() propagates secure-store outage rather than collapsing to "no accounts"', async () => {
-            mockProbe.mockRejectedValueOnce(new SecureStoreUnavailableError('no keyring'))
-            await expect(createTwistTokenStore().list()).rejects.toBeInstanceOf(
-                SecureStoreUnavailableError,
-            )
-        })
-
-        it('setDefault(ref) resolves silently when the ref matches the one stored account', async () => {
-            mockProbe.mockResolvedValueOnce({ token: 'tk', metadata: STORED_METADATA })
-            await expect(createTwistTokenStore().setDefault('42')).resolves.toBeUndefined()
-        })
-
-        it('setDefault(ref) throws ACCOUNT_NOT_FOUND when the ref does not match', async () => {
-            mockProbe.mockResolvedValueOnce({ token: 'tk', metadata: STORED_METADATA })
-            await expect(createTwistTokenStore().setDefault('other')).rejects.toMatchObject({
-                code: 'ACCOUNT_NOT_FOUND',
-            })
         })
     })
 })
