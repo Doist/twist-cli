@@ -22,6 +22,7 @@ vi.mock('../../lib/auth.js', async (importOriginal) => {
 })
 
 import { SecureStoreUnavailableError } from '@doist/cli-core/auth'
+import { STORED_ALAN, STORED_ELLIE } from '../../lib/__fixtures__/accounts.js'
 import { NoTokenError, probeApiToken } from '../../lib/auth.js'
 import { type Config, readConfigStrict, setConfig } from '../../lib/config.js'
 import { CliError } from '../../lib/errors.js'
@@ -270,6 +271,100 @@ describe('config view', () => {
         expect(parsed.token).toBe('****')
         expect(parsed.token).not.toContain('abcd')
 
+        consoleSpy.mockRestore()
+    })
+
+    it('renders an "Authenticated accounts" block from config.users with default marker', async () => {
+        presentConfig({ users: [STORED_ALAN, STORED_ELLIE], defaultUserId: '2' })
+        mockToken('secure-store')
+        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+        await createProgram().parseAsync(['node', 'tw', 'config', 'view'])
+
+        const output = consoleSpy.mock.calls.map((c) => c[0]).join('\n')
+        expect(output).toContain('Authenticated accounts (2)')
+        expect(output).toContain('id:1')
+        expect(output).toContain('Alan Grant')
+        expect(output).toContain('id:2')
+        expect(output).toContain('Ellie Sattler')
+        const bobLine = output.split('\n').find((l) => l.includes('Ellie Sattler')) ?? ''
+        const adaLine = output.split('\n').find((l) => l.includes('Alan Grant')) ?? ''
+        expect(bobLine).toContain('*')
+        expect(adaLine).not.toContain('*')
+        consoleSpy.mockRestore()
+    })
+
+    it('marks the first stored account as default when defaultUserId is missing', async () => {
+        // Mirrors getDefaultUserRecord's first-user fallback — otherwise
+        // the view would claim no account is active when one will be used.
+        presentConfig({ users: [STORED_ALAN, STORED_ELLIE] })
+        mockToken('secure-store')
+        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+        await createProgram().parseAsync(['node', 'tw', 'config', 'view'])
+
+        const output = consoleSpy.mock.calls.map((c) => c[0]).join('\n')
+        const adaLine = output.split('\n').find((l) => l.includes('Alan Grant')) ?? ''
+        const bobLine = output.split('\n').find((l) => l.includes('Ellie Sattler')) ?? ''
+        expect(adaLine).toContain('*')
+        expect(bobLine).not.toContain('*')
+        consoleSpy.mockRestore()
+    })
+
+    it('falls back to the first stored account when defaultUserId is stale', async () => {
+        // defaultUserId points at an id that no longer exists in users[] —
+        // getDefaultUserRecord still returns the first user, so the marker
+        // must follow.
+        presentConfig({ users: [STORED_ALAN, STORED_ELLIE], defaultUserId: '999' })
+        mockToken('secure-store')
+        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+        await createProgram().parseAsync(['node', 'tw', 'config', 'view'])
+
+        const output = consoleSpy.mock.calls.map((c) => c[0]).join('\n')
+        const alanLine = output.split('\n').find((l) => l.includes('Alan Grant')) ?? ''
+        const ellieLine = output.split('\n').find((l) => l.includes('Ellie Sattler')) ?? ''
+        expect(alanLine).toContain('*')
+        expect(ellieLine).not.toContain('*')
+        consoleSpy.mockRestore()
+    })
+
+    it('omits the accounts block when config.users is empty or absent', async () => {
+        presentConfig({ authMode: 'read-write' })
+        mockToken('secure-store')
+        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+        await createProgram().parseAsync(['node', 'tw', 'config', 'view'])
+
+        const output = consoleSpy.mock.calls.map((c) => c[0]).join('\n')
+        expect(output).not.toContain('Authenticated accounts')
+        consoleSpy.mockRestore()
+    })
+
+    it('masks per-user fallback tokens in --json output', async () => {
+        presentConfig({
+            users: [{ ...STORED_ALAN, token: 'tw_userA_plaintext_fallback_123' }, STORED_ELLIE],
+            defaultUserId: '1',
+        })
+        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+        await createProgram().parseAsync(['node', 'tw', 'config', 'view', '--json'])
+
+        const parsed = JSON.parse(consoleSpy.mock.calls[0][0] as string)
+        expect(parsed.users[0].token).toBe('****…_123')
+        expect(parsed.users[0].token).not.toContain('plaintext')
+        expect(parsed.users[1]).not.toHaveProperty('token')
+        consoleSpy.mockRestore()
+    })
+
+    it('--show-token reveals per-user fallback tokens', async () => {
+        presentConfig({ users: [{ ...STORED_ALAN, token: 'tw_userA_plaintext_fallback_123' }] })
+        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+        await createProgram().parseAsync(['node', 'tw', 'config', 'view', '--json', '--show-token'])
+
+        const parsed = JSON.parse(consoleSpy.mock.calls[0][0] as string)
+        expect(parsed.users[0].token).toBe('tw_userA_plaintext_fallback_123')
         consoleSpy.mockRestore()
     })
 
