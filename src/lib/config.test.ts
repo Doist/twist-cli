@@ -91,6 +91,55 @@ describe('validateConfigForDoctor', () => {
         const issues = validateConfigForDoctor({ updateChannel: 'pre-release' })
         expect(issues.some((i) => i.includes('unrecognized'))).toBe(false)
     })
+
+    it('accepts a well-formed v2 schema (config_version, defaultUserId, users[])', () => {
+        const issues = validateConfigForDoctor({
+            config_version: 2,
+            defaultUserId: '42',
+            users: [
+                { id: '42', name: 'Ada', authMode: 'read-write', authScope: 'user:read' },
+                { id: '99', name: 'Bob' },
+            ],
+        })
+        expect(issues).toEqual([])
+    })
+
+    it('rejects malformed top-level v2 fields', () => {
+        expect(validateConfigForDoctor({ config_version: 'two' })).toContain(
+            'config_version must be an integer',
+        )
+        expect(validateConfigForDoctor({ config_version: 2.5 })).toContain(
+            'config_version must be an integer',
+        )
+        expect(validateConfigForDoctor({ defaultUserId: 42 })).toContain(
+            'defaultUserId must be a string',
+        )
+        expect(validateConfigForDoctor({ users: { id: '42' } })).toContain('users must be an array')
+    })
+
+    it('rejects malformed StoredUser entries (shape, types, unknown keys, invalid authMode)', () => {
+        const issues = validateConfigForDoctor({
+            users: [
+                { id: 42, name: 'Ada' },
+                { id: '99', name: 5 },
+                'not-an-object',
+                { id: '7', name: 'Carl', somethingElse: true },
+                { id: '8', name: 'Dora', authMode: 'bogus' },
+                { id: '9', name: 'Eve', authScope: 1, token: false },
+            ],
+        })
+        expect(issues).toEqual(
+            expect.arrayContaining([
+                'users[0].id must be a string',
+                'users[1].name must be a string',
+                'users[2] must be an object',
+                'users[3] contains unrecognized key "somethingElse"',
+                'users[4].authMode must be one of: read-only, read-write, unknown',
+                'users[5].authScope must be a string',
+                'users[5].token must be a string',
+            ]),
+        )
+    })
 })
 
 describe('persistence-seam translation', () => {

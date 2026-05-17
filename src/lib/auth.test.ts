@@ -1,9 +1,10 @@
-import type { TokenStore, UserRecord, UserRecordStore } from '@doist/cli-core/auth'
+import type { TokenStore } from '@doist/cli-core/auth'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import type { Config } from './config.js'
 
 const mocks = vi.hoisted(() => ({
     activeMock: vi.fn(),
-    listMock: vi.fn(),
+    getConfigMock: vi.fn(),
 }))
 
 vi.mock('./auth-provider.js', async (importOriginal) => {
@@ -14,12 +15,11 @@ vi.mock('./auth-provider.js', async (importOriginal) => {
     }
 })
 
-vi.mock('./user-records.js', async (importOriginal) => {
-    const actual = await importOriginal<typeof import('./user-records.js')>()
+vi.mock('./config.js', async (importOriginal) => {
+    const actual = await importOriginal<typeof import('./config.js')>()
     return {
         ...actual,
-        createTwistUserRecordStore: () =>
-            ({ list: mocks.listMock }) as unknown as UserRecordStore<never>,
+        getConfig: mocks.getConfigMock,
     }
 })
 
@@ -32,12 +32,24 @@ const STORED_ACCOUNT = {
     authScope: 'user:read',
 }
 
-const STORED_RECORD: UserRecord<typeof STORED_ACCOUNT> = { account: STORED_ACCOUNT }
+const ADA_USER = {
+    id: '42',
+    name: 'Ada',
+    authMode: 'read-write' as const,
+    authScope: 'user:read',
+}
+
+const BOB_USER = {
+    id: '99',
+    name: 'Bob',
+    authMode: 'read-only' as const,
+    authScope: 'user:read',
+}
 
 describe('auth shims over the cli-core keyring store', () => {
     beforeEach(() => {
         mocks.activeMock.mockReset()
-        mocks.listMock.mockReset()
+        mocks.getConfigMock.mockReset().mockResolvedValue({} satisfies Config)
     })
 
     afterEach(() => {
@@ -54,9 +66,9 @@ describe('auth shims over the cli-core keyring store', () => {
         await expect(getApiToken()).rejects.toBeInstanceOf(NoTokenError)
     })
 
-    it('probeApiToken reports source=secure-store when the record has no fallbackToken', async () => {
+    it('probeApiToken reports source=secure-store when the active record has no fallbackToken', async () => {
         mocks.activeMock.mockResolvedValue({ token: 'tk_keyring', account: STORED_ACCOUNT })
-        mocks.listMock.mockResolvedValue([STORED_RECORD])
+        mocks.getConfigMock.mockResolvedValue({ users: [ADA_USER] } satisfies Config)
 
         const { metadata } = await probeApiToken()
 
@@ -69,9 +81,11 @@ describe('auth shims over the cli-core keyring store', () => {
         })
     })
 
-    it('probeApiToken reports source=config-file when the record carries a fallbackToken', async () => {
+    it('probeApiToken reports source=config-file when the active record carries a plaintext token', async () => {
         mocks.activeMock.mockResolvedValue({ token: 'tk_fallback', account: STORED_ACCOUNT })
-        mocks.listMock.mockResolvedValue([{ ...STORED_RECORD, fallbackToken: 'tk_fallback' }])
+        mocks.getConfigMock.mockResolvedValue({
+            users: [{ ...ADA_USER, token: 'tk_fallback' }],
+        } satisfies Config)
 
         const { metadata } = await probeApiToken()
 
@@ -83,17 +97,68 @@ describe('auth shims over the cli-core keyring store', () => {
 
         await expect(getAuthMetadata()).resolves.toEqual({ authMode: 'unknown', source: 'env' })
 
-        expect(mocks.listMock).not.toHaveBeenCalled()
+        expect(mocks.getConfigMock).not.toHaveBeenCalled()
     })
 
-    it('getAuthMetadata returns config-sourced identity when no env var is set', async () => {
-        mocks.listMock.mockResolvedValue([STORED_RECORD])
+    it('getAuthMetadata returns config-sourced identity for the single-user case (no defaultUserId)', async () => {
+        mocks.getConfigMock.mockResolvedValue({ users: [ADA_USER] } satisfies Config)
 
         await expect(getAuthMetadata()).resolves.toEqual({
             authMode: 'read-write',
             authScope: 'user:read',
             authUserId: 42,
             authUserName: 'Ada',
+            source: 'config',
+        })
+    })
+
+    it('getAuthMetadata picks the record matching defaultUserId, falling back to the first when the pinned id is missing', async () => {
+        mocks.getConfigMock.mockResolvedValueOnce({
+            users: [ADA_USER, BOB_USER],
+            defaultUserId: '99',
+        } satisfies Config)
+        await expect(getAuthMetadata()).resolves.toMatchObject({
+            authUserId: 99,
+            authUserName: 'Bob',
+        })
+
+        mocks.getConfigMock.mockResolvedValueOnce({
+            users: [ADA_USER, BOB_USER],
+            defaultUserId: 'gone',
+        } satisfies Config)
+        await expect(getAuthMetadata()).resolves.toMatchObject({
+            authUserId: 42,
+            authUserName: 'Ada',
+        })
+    })
+
+    it('getAuthMetadata reports source=config with unknown mode when no users are stored', async () => {
+        mocks.getConfigMock.mockResolvedValue({} satisfies Config)
+
+        await expect(getAuthMetadata()).resolves.toEqual({ authMode: 'unknown', source: 'config' })
+    })
+
+    it('getAuthMetadata falls back to v1 flat fields when users[] is empty but legacy state is on disk', async () => {
+        // Preserves real authMode so ensureWriteAllowed's READ_ONLY guard fires.
+        mocks.getConfigMock.mockResolvedValueOnce({
+            token: 'tk_legacy',
+            authMode: 'read-only',
+            authScope: 'user:read',
+            authUserId: 42,
+            authUserName: 'Ada',
+        } satisfies Config)
+        await expect(getAuthMetadata()).resolves.toEqual({
+            authMode: 'read-only',
+            authScope: 'user:read',
+            authUserId: 42,
+            authUserName: 'Ada',
+            source: 'config',
+        })
+
+        // `tw auth token` users have no authMode → defaults to 'unknown'.
+        mocks.getConfigMock.mockResolvedValueOnce({ token: 'tk_token_only' } satisfies Config)
+        await expect(getAuthMetadata()).resolves.toEqual({
+            authMode: 'unknown',
             source: 'config',
         })
     })

@@ -1,0 +1,145 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+
+const mocks = vi.hoisted(() => ({
+    migrateLegacyAuth: vi.fn(),
+    twistApiCtor: vi.fn(),
+    getSessionUserMock: vi.fn(),
+    getConfig: vi.fn(),
+    updateConfig: vi.fn(),
+}))
+
+vi.mock('@doist/cli-core/auth', async (importOriginal) => {
+    const actual = await importOriginal<typeof import('@doist/cli-core/auth')>()
+    return { ...actual, migrateLegacyAuth: mocks.migrateLegacyAuth }
+})
+
+vi.mock('@doist/twist-sdk', () => ({
+    TwistApi: mocks.twistApiCtor.mockImplementation(function (this: object, _token: string) {
+        Object.assign(this, { users: { getSessionUser: mocks.getSessionUserMock } })
+    }),
+}))
+
+vi.mock('./config.js', async (importOriginal) => {
+    const actual = await importOriginal<typeof import('./config.js')>()
+    return {
+        ...actual,
+        getConfig: mocks.getConfig,
+        updateConfig: mocks.updateConfig,
+    }
+})
+
+import type { MigrateLegacyAuthOptions } from '@doist/cli-core/auth'
+import { runMigrateLegacyAuth } from './migrate-auth.js'
+
+type Opts = MigrateLegacyAuthOptions<{
+    id: string
+    label: string
+    authMode: 'read-only' | 'read-write' | 'unknown'
+    authScope: string
+}>
+
+/** Trigger the wrapper and hand back the options it passed to cli-core. */
+async function captureOptions(): Promise<Opts> {
+    await runMigrateLegacyAuth({ silent: true })
+    return mocks.migrateLegacyAuth.mock.calls.at(-1)![0] as Opts
+}
+
+describe('runMigrateLegacyAuth', () => {
+    beforeEach(() => {
+        mocks.migrateLegacyAuth.mockReset().mockResolvedValue({ status: 'no-legacy-state' })
+        mocks.twistApiCtor.mockClear()
+        mocks.getSessionUserMock.mockReset()
+        mocks.getConfig.mockReset()
+        mocks.updateConfig.mockReset().mockResolvedValue(undefined)
+    })
+
+    it('passes twist-cli wiring to cli-core: serviceName, legacy api-token slot, silent flag, no accountForUser override', async () => {
+        const options = await captureOptions()
+        expect(options.serviceName).toBe('twist-cli')
+        expect(options.legacyAccount).toBe('api-token')
+        expect(options.accountForUser).toBeUndefined()
+        expect(options.silent).toBe(true)
+    })
+
+    it('hasMigrated returns true once config_version reaches 2 (one-way gate; >= 2 so future bumps still count)', async () => {
+        mocks.getConfig.mockResolvedValueOnce({ config_version: 2 })
+        mocks.getConfig.mockResolvedValueOnce({ config_version: 3 })
+        mocks.getConfig.mockResolvedValueOnce({ config_version: 1 })
+        mocks.getConfig.mockResolvedValueOnce({})
+        const options = await captureOptions()
+
+        expect(await options.hasMigrated()).toBe(true)
+        expect(await options.hasMigrated()).toBe(true)
+        expect(await options.hasMigrated()).toBe(false)
+        expect(await options.hasMigrated()).toBe(false)
+    })
+
+    it('markMigrated writes config_version = 2 (decoupled from the exported CONFIG_VERSION)', async () => {
+        const options = await captureOptions()
+        await options.markMigrated()
+        expect(mocks.updateConfig).toHaveBeenCalledWith({ config_version: 2 })
+    })
+
+    it('loadLegacyPlaintextToken returns trimmed config.token, or null when blank/absent', async () => {
+        const options = await captureOptions()
+
+        mocks.getConfig.mockResolvedValueOnce({ token: '  tk_legacy  ' })
+        expect(await options.loadLegacyPlaintextToken()).toBe('tk_legacy')
+
+        mocks.getConfig.mockResolvedValueOnce({ token: '   ' })
+        expect(await options.loadLegacyPlaintextToken()).toBeNull()
+
+        mocks.getConfig.mockResolvedValueOnce({})
+        expect(await options.loadLegacyPlaintextToken()).toBeNull()
+    })
+
+    it('identifyAccount resolves a TwistAccount from a raw TwistApi + v1 auth metadata on disk', async () => {
+        mocks.getSessionUserMock.mockResolvedValue({ id: 42, name: 'Ada' })
+        mocks.getConfig.mockResolvedValue({ authMode: 'read-write', authScope: 'user:read' })
+        const options = await captureOptions()
+
+        expect(await options.identifyAccount('tk_legacy')).toEqual({
+            id: '42',
+            label: 'Ada',
+            authMode: 'read-write',
+            authScope: 'user:read',
+        })
+        expect(mocks.twistApiCtor).toHaveBeenCalledWith('tk_legacy')
+    })
+
+    it('identifyAccount runs the API call and the local getConfig() concurrently', async () => {
+        let resolveApi: (value: { id: number; name: string }) => void = () => {}
+        const apiPromise = new Promise<{ id: number; name: string }>((res) => {
+            resolveApi = res
+        })
+        mocks.getSessionUserMock.mockReturnValueOnce(apiPromise)
+        mocks.getConfig.mockResolvedValueOnce({})
+        const options = await captureOptions()
+
+        const identifyPromise = options.identifyAccount('tk_legacy')
+        expect(mocks.getConfig).toHaveBeenCalledTimes(1) // already in flight
+        resolveApi({ id: 7, name: 'Carl' })
+
+        // Empty config → authMode / authScope default to 'unknown' / ''.
+        await expect(identifyPromise).resolves.toEqual({
+            id: '7',
+            label: 'Carl',
+            authMode: 'unknown',
+            authScope: '',
+        })
+    })
+
+    it('cleanupLegacyConfig clears every v1 flat field in a single updateConfig call', async () => {
+        const options = await captureOptions()
+        await options.cleanupLegacyConfig!()
+
+        expect(mocks.updateConfig).toHaveBeenCalledWith({
+            token: undefined,
+            authMode: undefined,
+            authScope: undefined,
+            authUserId: undefined,
+            authUserName: undefined,
+            pendingSecureStoreClear: undefined,
+        })
+    })
+})

@@ -1,9 +1,9 @@
 import { SecureStoreUnavailableError } from '@doist/cli-core/auth'
 import type { TwistAccount } from './auth-provider.js'
 import { createTwistTokenStore, getActiveTokenSource } from './auth-provider.js'
-import type { AuthMode } from './config.js'
+import { type AuthMode, getConfig } from './config.js'
 import { CliError } from './errors.js'
-import { createTwistUserRecordStore } from './user-records.js'
+import { getDefaultUserRecord } from './user-records.js'
 
 export { SecureStoreUnavailableError }
 
@@ -51,11 +51,7 @@ export class NoTokenError extends CliError {
     }
 }
 
-/**
- * Read the token used for live API calls. The store wraps `active()` with
- * env-var precedence (see `createTwistTokenStore`), so a single delegated
- * read covers both `TWIST_API_TOKEN=… tw …` and stored-credential cases.
- */
+/** Read the active token. The store wraps env-var precedence internally. */
 export async function getApiToken(): Promise<string> {
     const snapshot = await createTwistTokenStore().active()
     if (!snapshot) throw new NoTokenError()
@@ -76,12 +72,26 @@ export async function probeApiToken(): Promise<AuthProbeResult> {
     }
 }
 
-/** Lightweight metadata read used by `tw auth status` once a token is confirmed. */
+/**
+ * Auth metadata for `tw auth status` and `ensureWriteAllowed`. Falls back
+ * to v1 flat fields when no v2 record exists so a legacy `read-only` token
+ * isn't reported as `'unknown'` — that would skip the local READ_ONLY guard.
+ */
 export async function getAuthMetadata(): Promise<AuthMetadata> {
     if (process.env[TOKEN_ENV_VAR]) return { authMode: 'unknown', source: 'env' }
-    const [record] = await createTwistUserRecordStore().list()
-    if (!record) return { authMode: 'unknown', source: 'config' }
-    return { ...toAccountFields(record.account), source: 'config' }
+    const config = await getConfig()
+    const record = getDefaultUserRecord(config)
+    if (record) return { ...toAccountFields(record.account), source: 'config' }
+    if (config.token?.trim() || config.authUserId !== undefined || config.authMode) {
+        return {
+            authMode: config.authMode ?? 'unknown',
+            authScope: config.authScope,
+            authUserId: config.authUserId,
+            authUserName: config.authUserName,
+            source: 'config',
+        }
+    }
+    return { authMode: 'unknown', source: 'config' }
 }
 
 function toAccountFields(account: TwistAccount): {
