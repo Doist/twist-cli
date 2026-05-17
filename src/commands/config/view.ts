@@ -81,6 +81,18 @@ function formatConfigView(
     lines.push(`${chalk.dim('Config file:')} ${getConfigPath()}${headerSuffix}`)
     lines.push('')
 
+    const users = config.users ?? []
+    if (users.length > 0) {
+        lines.push(chalk.bold(`Authenticated accounts (${users.length})`))
+        const defaultId = config.defaultUserId
+        for (const user of users) {
+            const isDefault = defaultId ? user.id === defaultId : false
+            const marker = isDefault ? chalk.green('*') : ' '
+            lines.push(`  ${marker} ${chalk.dim(`id:${user.id}`)}  ${user.name}`)
+        }
+        lines.push('')
+    }
+
     // When a token is present, its metadata is the ground truth for the active
     // mode/scope — this matters most for env-sourced tokens, whose scope the CLI
     // does not know and where config.auth* may be stale from an unrelated
@@ -98,7 +110,7 @@ function formatConfigView(
             ? 'unknown'
             : formatValue(effectiveScope)
 
-    lines.push(chalk.bold('Authentication'))
+    lines.push(chalk.bold('Authentication (active)'))
     lines.push(`  Token:         ${renderTokenLine(token, showToken)}`)
     lines.push(`  Mode:          ${formatValue(effectiveMode)}`)
     lines.push(`  Scope:         ${scopeDisplay}`)
@@ -126,6 +138,11 @@ export async function viewConfig(options: ViewConfigOptions): Promise<void> {
         const output: Config = { ...config }
         if (output.token && !options.showToken) {
             output.token = maskToken(output.token)
+        }
+        if (output.users && !options.showToken) {
+            output.users = output.users.map((user) =>
+                user.token ? { ...user, token: maskToken(user.token) } : user,
+            )
         }
         console.log(JSON.stringify(output, null, 2))
         return

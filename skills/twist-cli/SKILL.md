@@ -29,6 +29,12 @@ tw auth logout --json            # Emits `{"ok": true}` (--ndjson is silent)
 tw auth logout --user <ref>      # Target a specific stored account; mismatched ref errors with ACCOUNT_NOT_FOUND
 tw auth token view               # Print the saved token to stdout (pipe-safe; refuses if TWIST_API_TOKEN is set)
 tw auth token view --user <ref>  # Print the saved token for a specific stored account
+tw account list                  # List stored CLI accounts (default marked)
+tw account list --json           # JSON: [{id, label, isDefault}, ...]
+tw account current               # Show the currently active account (reports TWIST_API_TOKEN source)
+tw account use <ref>             # Set the default account (id, id:<n>, or display name)
+tw account remove <ref>          # Remove a stored account (clears keyring + config entry)
+tw auth login                    # Re-running auth login with a different OAuth grant adds a NEW account; default stays pinned unless none was set
 tw workspaces                    # List available workspaces
 tw workspace use <ref>           # Set current workspace
 tw completion install            # Install shell completions

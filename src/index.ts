@@ -42,6 +42,8 @@ const loadGroupsCommand = async () =>
 const loadDoctorCommand = async () => (await import('./commands/doctor.js')).registerDoctorCommand
 const loadConfigCommand = async () =>
     (await import('./commands/config/index.js')).registerConfigCommand
+const loadAccountCommand = async () =>
+    (await import('./commands/account/index.js')).registerAccountCommand
 
 const commands: Record<string, [string, () => Promise<(p: Command) => void>]> = {
     workspaces: ['List all workspaces', loadWorkspaceCommand],
@@ -60,6 +62,7 @@ const commands: Record<string, [string, () => Promise<(p: Command) => void>]> = 
     react: ['Add an emoji reaction (target-type: thread, comment, message)', loadReactCommand],
     unreact: ['Remove an emoji reaction (target-type: thread, comment, message)', loadReactCommand],
     auth: ['Manage authentication', loadAuthCommand],
+    account: ['Manage stored CLI accounts (list, current, use, remove)', loadAccountCommand],
     skill: ['Manage agent skill integrations', loadSkillCommand],
     view: ['View a Twist entity by URL', loadViewCommand],
     completion: ['Manage shell completions', loadCompletionCommand],
@@ -181,6 +184,7 @@ if (process.argv[2] === 'completion-server') {
             'completion',
             'doctor',
             'auth',
+            'account',
             'config',
             'skill',
         ])

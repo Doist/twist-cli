@@ -273,6 +273,77 @@ describe('config view', () => {
         consoleSpy.mockRestore()
     })
 
+    it('renders an "Authenticated accounts" block from config.users with default marker', async () => {
+        presentConfig({
+            users: [
+                { id: '1', name: 'Ada Lovelace', authMode: 'read-write' },
+                { id: '2', name: 'Bob Smith', authMode: 'read-only' },
+            ],
+            defaultUserId: '2',
+        })
+        mockToken('secure-store')
+        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+        await createProgram().parseAsync(['node', 'tw', 'config', 'view'])
+
+        const output = consoleSpy.mock.calls.map((c) => c[0]).join('\n')
+        expect(output).toContain('Authenticated accounts (2)')
+        expect(output).toContain('id:1')
+        expect(output).toContain('Ada Lovelace')
+        expect(output).toContain('id:2')
+        expect(output).toContain('Bob Smith')
+        // Default marker on the right row.
+        const bobLine = output.split('\n').find((l) => l.includes('Bob Smith')) ?? ''
+        const adaLine = output.split('\n').find((l) => l.includes('Ada Lovelace')) ?? ''
+        expect(bobLine).toContain('*')
+        expect(adaLine).not.toContain('*')
+        consoleSpy.mockRestore()
+    })
+
+    it('omits the accounts block when config.users is empty or absent', async () => {
+        presentConfig({ authMode: 'read-write' })
+        mockToken('secure-store')
+        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+        await createProgram().parseAsync(['node', 'tw', 'config', 'view'])
+
+        const output = consoleSpy.mock.calls.map((c) => c[0]).join('\n')
+        expect(output).not.toContain('Authenticated accounts')
+        consoleSpy.mockRestore()
+    })
+
+    it('masks per-user fallback tokens in --json output', async () => {
+        presentConfig({
+            users: [
+                { id: '1', name: 'Ada Lovelace', token: 'tw_userA_plaintext_fallback_123' },
+                { id: '2', name: 'Bob Smith' },
+            ],
+            defaultUserId: '1',
+        })
+        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+        await createProgram().parseAsync(['node', 'tw', 'config', 'view', '--json'])
+
+        const parsed = JSON.parse(consoleSpy.mock.calls[0][0] as string)
+        expect(parsed.users[0].token).toBe('****…_123')
+        expect(parsed.users[0].token).not.toContain('plaintext')
+        expect(parsed.users[1]).not.toHaveProperty('token')
+        consoleSpy.mockRestore()
+    })
+
+    it('--show-token reveals per-user fallback tokens', async () => {
+        presentConfig({
+            users: [{ id: '1', name: 'Ada Lovelace', token: 'tw_userA_plaintext_fallback_123' }],
+        })
+        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+        await createProgram().parseAsync(['node', 'tw', 'config', 'view', '--json', '--show-token'])
+
+        const parsed = JSON.parse(consoleSpy.mock.calls[0][0] as string)
+        expect(parsed.users[0].token).toBe('tw_userA_plaintext_fallback_123')
+        consoleSpy.mockRestore()
+    })
+
     it('shows the user settings section', async () => {
         presentConfig({ userSettings: { unarchiveNewThreads: true } })
         mockProbeApiToken.mockRejectedValue(new NoTokenError())
