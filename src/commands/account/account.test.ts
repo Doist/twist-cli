@@ -90,6 +90,14 @@ describe('account command', () => {
             expect(output).toContain('Default: id:1  Alan Grant')
         })
 
+        it('runs by default when no subcommand is given (tw account)', async () => {
+            seedStore([ACCOUNT_ALAN, 'default'])
+
+            await createProgram().parseAsync(['node', 'tw', 'account'])
+
+            expect(stdout()).toContain('Stored accounts (1)')
+        })
+
         it('reports the empty state when no accounts are stored', async () => {
             seedStore()
 
@@ -150,6 +158,19 @@ describe('account command', () => {
         it('emits {source:"legacy"} in --json mode for legacy snapshots', async () => {
             vi.stubEnv(TOKEN_ENV_VAR, '')
             storeMocks.active.mockResolvedValue(LEGACY_SNAPSHOT)
+
+            await createProgram().parseAsync(['node', 'tw', 'account', 'current', '--json'])
+
+            expect(JSON.parse(consoleSpy.mock.calls[0][0] as string)).toEqual({ source: 'legacy' })
+        })
+
+        it('reports a populated legacy snapshot (authUserId set) as legacy, not config', async () => {
+            // `readLegacyTokenSnapshot` populates id/label from v1 flat
+            // fields when present, so the empty-id check alone misses this
+            // case — `isLegacyAuthActive()` is the authoritative signal.
+            vi.stubEnv(TOKEN_ENV_VAR, '')
+            legacyMocks.isLegacyAuthActive.mockResolvedValue(true)
+            storeMocks.active.mockResolvedValue({ token: 'tk_legacy', account: ACCOUNT_ALAN })
 
             await createProgram().parseAsync(['node', 'tw', 'account', 'current', '--json'])
 

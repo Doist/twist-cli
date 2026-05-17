@@ -311,6 +311,24 @@ describe('config view', () => {
         consoleSpy.mockRestore()
     })
 
+    it('falls back to the first stored account when defaultUserId is stale', async () => {
+        // defaultUserId points at an id that no longer exists in users[] —
+        // getDefaultUserRecord still returns the first user, so the marker
+        // must follow.
+        presentConfig({ users: [STORED_ALAN, STORED_ELLIE], defaultUserId: '999' })
+        mockToken('secure-store')
+        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+        await createProgram().parseAsync(['node', 'tw', 'config', 'view'])
+
+        const output = consoleSpy.mock.calls.map((c) => c[0]).join('\n')
+        const alanLine = output.split('\n').find((l) => l.includes('Alan Grant')) ?? ''
+        const ellieLine = output.split('\n').find((l) => l.includes('Ellie Sattler')) ?? ''
+        expect(alanLine).toContain('*')
+        expect(ellieLine).not.toContain('*')
+        consoleSpy.mockRestore()
+    })
+
     it('omits the accounts block when config.users is empty or absent', async () => {
         presentConfig({ authMode: 'read-write' })
         mockToken('secure-store')
