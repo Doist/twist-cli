@@ -1,6 +1,6 @@
 import type { UserRecord, UserRecordStore } from '@doist/cli-core/auth'
 import type { TwistAccount } from './auth-provider.js'
-import { type Config, getConfig, setConfig } from './config.js'
+import { type Config, getConfig, updateConfig } from './config.js'
 
 /**
  * Adapt twist's current flat config fields (`authUserId` / `authUserName` /
@@ -11,6 +11,11 @@ import { type Config, getConfig, setConfig } from './config.js'
  *
  * `token` is surfaced as `fallbackToken` (cli-core's name for the plaintext
  * copy persisted when the OS keyring is unreachable at write time).
+ *
+ * Legacy `tw auth token` users have no `authUserId` but do have `authMode`
+ * (and usually a `token`); `buildRecords` synthesises a record with
+ * `account.id = ''` for them so PR β's `KeyringTokenStore` can still find
+ * and read their keyring entry instead of treating them as logged-out.
  */
 export function createTwistUserRecordStore(): UserRecordStore<TwistAccount> {
     return {
@@ -18,27 +23,38 @@ export function createTwistUserRecordStore(): UserRecordStore<TwistAccount> {
             return buildRecords(await getConfig())
         },
         async upsert(record) {
-            await setConfig(applyUpsert(await getConfig(), record))
+            await updateConfig(applyUpsert(record))
         },
         async remove(id) {
-            await setConfig(applyRemove(await getConfig(), id))
+            const config = await getConfig()
+            const next = applyRemove(config, id)
+            if (next === config) return
+            await updateConfig(next)
         },
         async getDefaultId() {
-            const config = await getConfig()
-            return buildRecords(config).length > 0 && config.authUserId !== undefined
-                ? String(config.authUserId)
-                : null
+            const [record] = buildRecords(await getConfig())
+            return record ? record.account.id : null
         },
         async setDefaultId(id) {
-            await setConfig(applySetDefault(await getConfig(), id))
+            const config = await getConfig()
+            const next = applySetDefault(config, id)
+            if (next === config) return
+            await updateConfig(next)
         },
     }
 }
 
 function buildRecords(config: Config): UserRecord<TwistAccount>[] {
-    if (config.authUserId === undefined) return []
+    // Truly empty: no identity AND no auth metadata AND no plaintext token.
+    if (
+        config.authUserId === undefined &&
+        config.authMode === undefined &&
+        config.token === undefined
+    ) {
+        return []
+    }
     const account: TwistAccount = {
-        id: String(config.authUserId),
+        id: config.authUserId !== undefined ? String(config.authUserId) : '',
         label: config.authUserName ?? '',
         authMode: config.authMode ?? 'unknown',
         authScope: config.authScope ?? '',
@@ -49,53 +65,43 @@ function buildRecords(config: Config): UserRecord<TwistAccount>[] {
     return [record]
 }
 
-function applyUpsert(config: Config, record: UserRecord<TwistAccount>): Config {
+function applyUpsert(record: UserRecord<TwistAccount>): Partial<Config> {
     const userId = Number(record.account.id)
-    const next: Config = {
-        ...config,
-        authUserId: Number.isFinite(userId) ? userId : config.authUserId,
+    const trimmed = record.fallbackToken?.trim()
+    return {
+        // Empty / non-numeric account.id (the legacy token-only case) writes
+        // `undefined` so the key drops from disk on serialisation; numeric
+        // ids round-trip as `number`.
+        authUserId: Number.isFinite(userId) && userId > 0 ? userId : undefined,
         authUserName: record.account.label,
         authMode: record.account.authMode,
         authScope: record.account.authScope,
+        // REPLACE semantics: absent / blank `fallbackToken` clears the slot.
+        token: trimmed && trimmed.length > 0 ? trimmed : undefined,
     }
-    // REPLACE semantics (per cli-core's contract): an absent `fallbackToken`
-    // means "no plaintext token", so the stored value must be cleared.
-    if (record.fallbackToken !== undefined) {
-        next.token = record.fallbackToken
-    } else {
-        delete next.token
-    }
-    return next
 }
 
-function applyRemove(config: Config, id: string): Config {
-    if (config.authUserId === undefined || String(config.authUserId) !== id) {
-        return config
+function applyRemove(config: Config, id: string): Config | Partial<Config> {
+    const records = buildRecords(config)
+    if (records.length === 0 || records[0].account.id !== id) return config
+    return {
+        authUserId: undefined,
+        authUserName: undefined,
+        authMode: undefined,
+        authScope: undefined,
+        token: undefined,
     }
-    const {
-        token: _t,
-        authMode: _m,
-        authScope: _s,
-        authUserId: _id,
-        authUserName: _n,
-        ...rest
-    } = config
-    return rest
 }
 
-function applySetDefault(config: Config, id: string | null): Config {
-    if (id === null) {
-        const { authUserId: _id, ...rest } = config
-        return rest
-    }
-    const numeric = Number(id)
-    if (!Number.isFinite(numeric)) return config
-    // Single-user adapter: cli-core's `KeyringTokenStore.setDefault` validates
-    // the id against `list()` first, so a non-matching ref reaches us only
-    // through programmer error — no-op rather than overwrite the stored
-    // identity.
-    if (config.authUserId !== undefined && config.authUserId !== numeric) {
-        return config
-    }
-    return { ...config, authUserId: numeric }
+function applySetDefault(config: Config, id: string | null): Config | Partial<Config> {
+    // Single-user adapter can't represent "stored but not default"; the only
+    // meaningful default is the one identity already on disk, so both
+    // `setDefaultId(null)` and `setDefaultId(<x>)` on an empty config are
+    // no-ops (the matching-id path is also a no-op because the record is
+    // already the default by virtue of being the only one).
+    if (id === null) return config
+    const records = buildRecords(config)
+    if (records.length === 0) return config
+    if (records[0].account.id !== id) return config
+    return config
 }
