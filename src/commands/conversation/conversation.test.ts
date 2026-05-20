@@ -748,7 +748,23 @@ describe('conversation done', () => {
         vi.clearAllMocks()
     })
 
-    it('archives a conversation', async () => {
+    it('archives a conversation with --yes', async () => {
+        const conversation = createConversation(42, [1, 2], '2026-03-08T10:00:00.000Z')
+        const client = createClient({ activeConversations: [conversation] })
+        apiMocks.getTwistClient.mockResolvedValue(client)
+
+        const program = createProgram()
+        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+        await program.parseAsync(['node', 'tw', 'conversation', 'done', '42', '--yes'])
+
+        expect(client.conversations.archiveConversation).toHaveBeenCalledWith(42)
+        expect(consoleSpy).toHaveBeenCalledWith('Conversation 42 archived.')
+
+        consoleSpy.mockRestore()
+    })
+
+    it('prompts for confirmation without --yes', async () => {
         const conversation = createConversation(42, [1, 2], '2026-03-08T10:00:00.000Z')
         const client = createClient({ activeConversations: [conversation] })
         apiMocks.getTwistClient.mockResolvedValue(client)
@@ -758,10 +774,40 @@ describe('conversation done', () => {
 
         await program.parseAsync(['node', 'tw', 'conversation', 'done', '42'])
 
-        expect(client.conversations.archiveConversation).toHaveBeenCalledWith(42)
-        expect(consoleSpy).toHaveBeenCalledWith('Conversation 42 archived.')
+        expect(consoleSpy).toHaveBeenCalledWith('Would archive: conversation 42')
+        expect(consoleSpy).toHaveBeenCalledWith('Use --yes to confirm.')
+        expect(client.conversations.archiveConversation).not.toHaveBeenCalled()
 
         consoleSpy.mockRestore()
+    })
+
+    it('outputs JSON with --json --yes', async () => {
+        const conversation = createConversation(42, [1, 2], '2026-03-08T10:00:00.000Z')
+        const client = createClient({ activeConversations: [conversation] })
+        apiMocks.getTwistClient.mockResolvedValue(client)
+
+        const program = createProgram()
+        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+        await program.parseAsync(['node', 'tw', 'conversation', 'done', '42', '--json', '--yes'])
+
+        const jsonOutput = JSON.parse(consoleSpy.mock.calls[0][0])
+        expect(jsonOutput).toEqual({ id: 42, archived: true })
+
+        consoleSpy.mockRestore()
+    })
+
+    it('errors when --json is used without --yes', async () => {
+        const conversation = createConversation(42, [1, 2], '2026-03-08T10:00:00.000Z')
+        const client = createClient({ activeConversations: [conversation] })
+        apiMocks.getTwistClient.mockResolvedValue(client)
+        const program = createProgram()
+
+        await expect(
+            program.parseAsync(['node', 'tw', 'conversation', 'done', '42', '--json']),
+        ).rejects.toHaveProperty('code', 'MISSING_YES_FLAG')
+
+        expect(client.conversations.archiveConversation).not.toHaveBeenCalled()
     })
 
     it('shows dry run output', async () => {

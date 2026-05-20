@@ -98,8 +98,9 @@ tw thread reply <ref> "content" --json  # Post and return comment as JSON
 tw thread reply <ref> "content" --json --full  # Include all comment fields
 tw thread reply <ref> "content" --close       # Reply and close the thread
 tw thread reply <ref> "content" --reopen      # Reply and reopen a closed thread
-tw thread done <ref>             # Archive thread (mark done)
-tw thread done <ref> --json      # Archive and return status as JSON
+tw thread done <ref>                 # Preview thread archive (requires --yes to execute)
+tw thread done <ref> --yes           # Archive thread (mark done)
+tw thread done <ref> --yes --json    # Archive and return status as JSON
 tw thread mute <ref>             # Mute thread for 60 minutes (default)
 tw thread mute <ref> --minutes 480  # Mute for custom duration
 tw thread mute <ref> --json      # Mute and return { id, mutedUntil } as JSON
@@ -135,8 +136,9 @@ tw comment view <comment-ref> --json --full    # Include all fields in JSON outp
 tw comment update <comment-ref> "new content"  # Update a thread comment
 tw comment update <comment-ref> "content" --json  # Update and return updated comment as JSON
 tw comment update <comment-ref> "content" --json --full  # Include all comment fields
-tw comment delete <comment-ref>                # Delete a thread comment
-tw comment delete <comment-ref> --json         # Delete and return status as JSON
+tw comment delete <comment-ref>                     # Preview comment deletion (requires --yes to execute)
+tw comment delete <comment-ref> --yes               # Delete a thread comment
+tw comment delete <comment-ref> --yes --json        # Delete and return status as JSON
 ```
 
 ## Conversations (DMs/Groups)
@@ -151,8 +153,9 @@ tw conversation with <user-ref> --include-groups # List any conversations with t
 tw conversation reply <ref> "content"     # Send a message
 tw conversation reply <ref> "content" --json  # Send and return message as JSON
 tw conversation reply <ref> "content" --json --full  # Include all message fields
-tw conversation done <ref>                # Archive conversation
-tw conversation done <ref> --json         # Archive and return status as JSON
+tw conversation done <ref>                    # Preview conversation archive (requires --yes to execute)
+tw conversation done <ref> --yes              # Archive conversation
+tw conversation done <ref> --yes --json       # Archive and return status as JSON
 tw conversation mute <ref>               # Mute conversation for 60 minutes (default)
 tw conversation mute <ref> --minutes 480 # Mute for custom duration
 tw conversation mute <ref> --json        # Mute and return { id, mutedUntil } as JSON
@@ -171,8 +174,9 @@ tw msg view <message-ref>        # View a single conversation message
 tw msg update <ref> "content"    # Edit a conversation message
 tw msg update <ref> "content" --json  # Edit and return updated message as JSON
 tw msg update <ref> "content" --json --full  # Include all message fields
-tw msg delete <ref>              # Delete a conversation message
-tw msg delete <ref> --json       # Delete and return status as JSON
+tw msg delete <ref>                  # Preview message deletion (requires --yes to execute)
+tw msg delete <ref> --yes            # Delete a conversation message
+tw msg delete <ref> --yes --json     # Delete and return status as JSON
 ```
 
 Alias: `tw message` works the same as `tw msg`.
@@ -383,7 +387,7 @@ tw view https://twist.com/a/1585/msg/400/m/500 --json    # View message as JSON
 tw inbox --unread --json
 tw thread view <id> --unread
 tw thread reply <id> "Thanks, I'll look into this."
-tw thread done <id>
+tw thread done <id> --yes
 ```
 
 **Search and review:**

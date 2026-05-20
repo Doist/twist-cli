@@ -47,13 +47,14 @@ Examples:
 
     msg.command('delete <message-ref>')
         .description('Delete a conversation message')
+        .option('--yes', 'Confirm deletion')
         .option('--dry-run', 'Show what would happen without executing')
         .option('--json', 'Output result as JSON')
         .addHelpText(
             'after',
             `
 Examples:
-  tw msg delete 12345
+  tw msg delete 12345 --yes
   tw msg delete 12345 --dry-run`,
         )
         .action(deleteMessage)

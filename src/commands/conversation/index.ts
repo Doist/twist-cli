@@ -93,13 +93,14 @@ Examples:
     conversation
         .command('done <conversation-ref>')
         .description('Archive a conversation')
+        .option('--yes', 'Confirm archive')
         .option('--dry-run', 'Show what would happen without executing')
         .option('--json', 'Output result as JSON')
         .addHelpText(
             'after',
             `
 Examples:
-  tw conversation done 12345
+  tw conversation done 12345 --yes
   tw conversation done 12345 --dry-run`,
         )
         .action(markConversationDone)
