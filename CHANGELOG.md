@@ -1,3 +1,9 @@
+## [2.42.0](https://github.com/Doist/twist-cli/compare/v2.41.2...v2.42.0) (2026-05-21)
+
+### Features
+
+- **auth:** adopt cli-core createDcrProvider for OAuth ([#243](https://github.com/Doist/twist-cli/issues/243)) ([670d6df](https://github.com/Doist/twist-cli/commit/670d6dfac79c0e9059ff62a5a8defb4a7a2c00c7))
+
 ## [2.41.2](https://github.com/Doist/twist-cli/compare/v2.41.1...v2.41.2) (2026-05-20)
 
 ### Bug Fixes
