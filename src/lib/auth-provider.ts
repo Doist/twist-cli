@@ -60,6 +60,16 @@ export const READ_ONLY_SCOPES = [
 const AUTH_HINTS = ['Try again: tw auth login', 'Or set TWIST_API_TOKEN environment variable']
 
 /**
+ * The scope set a login is granted, as a pure function of `--read-only`. Single
+ * source of truth shared by `attachTwistLoginCommand`'s `resolveScopes` (what we
+ * request at authorize) and the provider's `validate` (what we record on the
+ * account), so the two can't drift.
+ */
+export function scopesForReadOnly(readOnly: boolean): string[] {
+    return readOnly ? READ_ONLY_SCOPES : READ_WRITE_SCOPES
+}
+
+/**
  * Narrow account shape: only fields that round-trip through the local token
  * store. `id` is the stringified numeric Twist user id (so cli-core's
  * `AuthAccount.id` string contract holds), `label` is the user's display
@@ -107,12 +117,23 @@ export function createTwistAuthProvider(): AuthProvider<TwistAccount> {
         },
         errorHints: AUTH_HINTS,
         async validate({ token, handshake }) {
-            const readOnly = Boolean(handshake.readOnly)
+            // `runOAuthFlow` folds a boolean `readOnly` into the handshake.
+            // Fail closed on a missing/malformed value rather than letting
+            // `Boolean(undefined)` silently grant read-write (which would relax
+            // the local `ensureWriteAllowed` guard).
+            const readOnly = handshake.readOnly
+            if (typeof readOnly !== 'boolean') {
+                throw new CliError(
+                    'AUTH_FAILED',
+                    'Internal: auth handshake missing the readOnly flag.',
+                    AUTH_HINTS,
+                )
+            }
             const client = createWrappedTwistClient(token)
             const user = await client.users.getSessionUser()
             return toTwistAccount(user, {
                 authMode: readOnly ? 'read-only' : 'read-write',
-                authScope: (readOnly ? READ_ONLY_SCOPES : READ_WRITE_SCOPES).join(' '),
+                authScope: scopesForReadOnly(readOnly).join(' '),
             })
         },
     })
@@ -239,6 +260,31 @@ export async function findAccountInStore(
     return match.account
 }
 
+/** Synthetic account for an env-token session (no stored identity). */
+const ENV_TOKEN_ACCOUNT: TwistAccount = { id: '', label: '', authMode: 'unknown', authScope: '' }
+
+/**
+ * Resolve the env-token / legacy-snapshot override that takes precedence over
+ * the v2 keyring store, or `null` to defer to it. Shared by the store's
+ * `active()` and `activeBundle()` so the two reads can't diverge.
+ */
+async function resolveOverrideSnapshot(
+    ref?: AccountRef,
+): Promise<{ token: string; account: TwistAccount } | null> {
+    if (ref === undefined) {
+        const envToken = process.env[TOKEN_ENV_VAR]
+        if (envToken) return { token: envToken, account: ENV_TOKEN_ACCOUNT }
+    }
+    const result = await ensureMigrated()
+    if (result === null || !migrationIsConclusive(result)) {
+        const legacy = await readLegacyTokenSnapshot()
+        if (legacy && (ref === undefined || matchTwistAccount(legacy.account, ref))) {
+            return legacy
+        }
+    }
+    return null
+}
+
 /**
  * `TWIST_API_TOKEN` short-circuits `active()` only when no explicit ref is
  * supplied — cli-core's `KeyringTokenStore` doesn't know about the env var,
@@ -266,23 +312,18 @@ export function createTwistTokenStore(): TwistTokenStore {
     }
     return Object.assign(Object.create(inner) as TwistTokenStore, {
         async active(ref?: AccountRef) {
-            if (ref === undefined) {
-                const envToken = process.env[TOKEN_ENV_VAR]
-                if (envToken) {
-                    return {
-                        token: envToken,
-                        account: { id: '', label: '', authMode: 'unknown', authScope: '' },
-                    }
-                }
+            return (await resolveOverrideSnapshot(ref)) ?? inner.active(ref)
+        },
+        // Mirror `active()`: cli-core's auth commands read the live credential
+        // through `activeBundle()` (it carries the refresh slot too), so the
+        // env-token + legacy fallbacks must apply here as well or `tw auth
+        // status` would report no token for those users.
+        async activeBundle(ref?: AccountRef) {
+            const override = await resolveOverrideSnapshot(ref)
+            if (override) {
+                return { account: override.account, bundle: { accessToken: override.token } }
             }
-            const result = await ensureMigrated()
-            if (result === null || !migrationIsConclusive(result)) {
-                const legacy = await readLegacyTokenSnapshot()
-                if (legacy && (ref === undefined || matchTwistAccount(legacy.account, ref))) {
-                    return legacy
-                }
-            }
-            return inner.active(ref)
+            return inner.activeBundle(ref)
         },
         async set(account: TwistAccount, token: string) {
             await maybeDischargeLegacy()

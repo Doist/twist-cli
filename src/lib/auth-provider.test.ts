@@ -11,10 +11,12 @@ vi.mock('./migrate-auth.js', () => migrateMocks)
 const keyringMocks = vi.hoisted(() => ({
     createKeyringTokenStore: vi.fn(),
     createSecureStore: vi.fn(),
+    createDcrProvider: vi.fn(),
     secureStoreGetSecret: vi.fn(),
     secureStoreDeleteSecret: vi.fn(),
     inner: {
         active: vi.fn(),
+        activeBundle: vi.fn(),
         set: vi.fn(),
         clear: vi.fn(),
         list: vi.fn(),
@@ -32,10 +34,16 @@ vi.mock('@doist/cli-core/auth', async (importOriginal) => {
         setSecret: vi.fn(),
         deleteSecret: keyringMocks.secureStoreDeleteSecret,
     }))
+    // Delegate to the real factory so the returned provider works, while
+    // capturing the options createTwistAuthProvider passes (asserted below).
+    keyringMocks.createDcrProvider.mockImplementation((options) =>
+        actual.createDcrProvider(options),
+    )
     return {
         ...actual,
         createKeyringTokenStore: keyringMocks.createKeyringTokenStore,
         createSecureStore: keyringMocks.createSecureStore,
+        createDcrProvider: keyringMocks.createDcrProvider,
     }
 })
 
@@ -95,8 +103,16 @@ async function loadCreateTwistTokenStore(): Promise<
 }
 
 describe('createTwistAuthProvider', () => {
+    // clearAllMocks (not restoreAllMocks) so the createDcrProvider delegating
+    // implementation set in the module mock survives between tests.
     afterEach(() => {
-        vi.restoreAllMocks()
+        vi.clearAllMocks()
+    })
+
+    it('registers with client_secret_post so underscore client_ids survive token-endpoint auth', () => {
+        createTwistAuthProvider()
+        const options = keyringMocks.createDcrProvider.mock.calls.at(-1)?.[0]
+        expect(options.clientMetadata.tokenEndpointAuthMethod).toBe('client_secret_post')
     })
 
     // Registration / authorize / token-exchange mechanics now live in cli-core's
@@ -136,6 +152,13 @@ describe('createTwistAuthProvider', () => {
         expect(account.authMode).toBe('read-only')
         expect(account.authScope).toBe(READ_ONLY_SCOPES.join(' '))
     })
+
+    it('validate fails closed (AUTH_FAILED) when the handshake has no boolean readOnly flag', async () => {
+        // Guards ensureWriteAllowed: a missing flag must not silently become read-write.
+        await expect(
+            createTwistAuthProvider().validateToken!({ token: 'tk', handshake: {} }),
+        ).rejects.toMatchObject({ code: 'AUTH_FAILED' })
+    })
 })
 
 describe('createTwistTokenStore', () => {
@@ -145,6 +168,7 @@ describe('createTwistTokenStore', () => {
         keyringMocks.secureStoreGetSecret.mockReset().mockResolvedValue(null)
         keyringMocks.secureStoreDeleteSecret.mockReset().mockResolvedValue(true)
         keyringMocks.inner.active.mockReset()
+        keyringMocks.inner.activeBundle.mockReset().mockResolvedValue(null)
         keyringMocks.inner.set.mockReset().mockResolvedValue(undefined)
         keyringMocks.inner.clear.mockReset().mockResolvedValue(undefined)
         keyringMocks.inner.list.mockReset().mockResolvedValue([])
@@ -184,6 +208,36 @@ describe('createTwistTokenStore', () => {
         })
         expect(keyringMocks.inner.active).not.toHaveBeenCalled()
         expect(migrateMocks.runMigrateLegacyAuth).not.toHaveBeenCalled()
+    })
+
+    // cli-core's auth commands read the live credential via activeBundle(), so it
+    // must apply the same env-token + legacy overrides as active() — otherwise
+    // `tw auth status` mis-reports env-token / migration-pending users.
+    it('activeBundle() short-circuits to TWIST_API_TOKEN, wrapped as a bundle', async () => {
+        vi.stubEnv(TOKEN_ENV_VAR, 'env_token_value')
+        const createTwistTokenStore = await loadCreateTwistTokenStore()
+
+        const snapshot = await createTwistTokenStore().activeBundle()
+
+        expect(snapshot).toEqual({
+            account: { id: '', label: '', authMode: 'unknown', authScope: '' },
+            bundle: { accessToken: 'env_token_value' },
+        })
+        expect(keyringMocks.inner.activeBundle).not.toHaveBeenCalled()
+    })
+
+    it('activeBundle() delegates to the v2 store when migration is conclusive', async () => {
+        migrateMocks.runMigrateLegacyAuth.mockResolvedValue({ status: 'no-legacy-state' })
+        keyringMocks.inner.activeBundle.mockResolvedValue({
+            account: STORED_ACCOUNT,
+            bundle: { accessToken: 'tk_v2' },
+        })
+        const createTwistTokenStore = await loadCreateTwistTokenStore()
+
+        const snapshot = await createTwistTokenStore().activeBundle('42')
+
+        expect(snapshot).toEqual({ account: STORED_ACCOUNT, bundle: { accessToken: 'tk_v2' } })
+        expect(keyringMocks.inner.activeBundle).toHaveBeenCalledWith('42')
     })
 
     it('active() ignores TWIST_API_TOKEN when an explicit --user ref targets a stored account', async () => {
