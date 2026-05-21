@@ -65,7 +65,7 @@ const AUTH_HINTS = ['Try again: tw auth login', 'Or set TWIST_API_TOKEN environm
  * request at authorize) and the provider's `validate` (what we record on the
  * account), so the two can't drift.
  */
-export function scopesForReadOnly(readOnly: boolean): string[] {
+export function getScopes(readOnly: boolean): string[] {
     return readOnly ? READ_ONLY_SCOPES : READ_WRITE_SCOPES
 }
 
@@ -133,7 +133,7 @@ export function createTwistAuthProvider(): AuthProvider<TwistAccount> {
             const user = await client.users.getSessionUser()
             return toTwistAccount(user, {
                 authMode: readOnly ? 'read-only' : 'read-write',
-                authScope: scopesForReadOnly(readOnly).join(' '),
+                authScope: getScopes(readOnly).join(' '),
             })
         },
     })
