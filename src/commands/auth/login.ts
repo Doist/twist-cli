@@ -4,8 +4,7 @@ import type { Command } from 'commander'
 import { renderError, renderSuccess } from '../../lib/auth-pages.js'
 import {
     createTwistAuthProvider,
-    READ_ONLY_SCOPES,
-    READ_WRITE_SCOPES,
+    getScopes,
     type TwistTokenStore,
 } from '../../lib/auth-provider.js'
 import { logTokenStorageResult } from './helpers.js'
@@ -19,7 +18,7 @@ export function attachTwistLoginCommand(parent: Command, store: TwistTokenStore)
         provider,
         store,
         preferredPort: PREFERRED_CALLBACK_PORT,
-        resolveScopes: ({ readOnly }) => (readOnly ? READ_ONLY_SCOPES : READ_WRITE_SCOPES),
+        resolveScopes: ({ readOnly }) => getScopes(readOnly),
         renderSuccess,
         renderError,
         onSuccess({ view, account }) {

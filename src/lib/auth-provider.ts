@@ -2,10 +2,9 @@ import {
     type AccountRef,
     type AuthAccount,
     type AuthProvider,
+    createDcrProvider,
     createKeyringTokenStore,
     createSecureStore,
-    deriveChallenge,
-    generateVerifier,
     type KeyringTokenStore,
     type MigrateAuthResult,
 } from '@doist/cli-core/auth'
@@ -61,6 +60,16 @@ export const READ_ONLY_SCOPES = [
 const AUTH_HINTS = ['Try again: tw auth login', 'Or set TWIST_API_TOKEN environment variable']
 
 /**
+ * The scope set a login is granted, as a pure function of `--read-only`. Single
+ * source of truth shared by `attachTwistLoginCommand`'s `resolveScopes` (what we
+ * request at authorize) and the provider's `validate` (what we record on the
+ * account), so the two can't drift.
+ */
+export function getScopes(readOnly: boolean): string[] {
+    return readOnly ? READ_ONLY_SCOPES : READ_WRITE_SCOPES
+}
+
+/**
  * Narrow account shape: only fields that round-trip through the local token
  * store. `id` is the stringified numeric Twist user id (so cli-core's
  * `AuthAccount.id` string contract holds), `label` is the user's display
@@ -76,192 +85,58 @@ export type TwistAccount = AuthAccount & {
 
 export type TwistTokenStore = KeyringTokenStore<TwistAccount>
 
-type TwistHandshake = Record<string, unknown> & {
-    clientId: string
-    clientSecret: string
-    codeVerifier?: string
-    authMode?: AuthMode
-    authScope?: string
-}
-
-function asHandshake(value: Record<string, unknown>): TwistHandshake {
-    return value as TwistHandshake
-}
-
-function authFailed(message: string, cause?: unknown): CliError {
-    const detail = cause instanceof Error && cause.message ? `: ${cause.message}` : ''
-    return new CliError('AUTH_FAILED', `${message}${detail}`, AUTH_HINTS)
-}
-
-async function registerDynamicClient(
-    redirectUri: string,
-): Promise<{ clientId: string; clientSecret: string }> {
-    let response: Response
-    try {
-        response = await fetch(REGISTRATION_URL, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-            body: JSON.stringify({
-                client_name: 'Twist CLI',
-                client_uri: 'https://github.com/doist/twist-cli',
-                redirect_uris: [redirectUri],
-                grant_types: ['authorization_code'],
-                response_types: ['code'],
-                token_endpoint_auth_method: 'client_secret_basic',
-                application_type: 'native',
-                logo_uri: LOGO_URI,
-            }),
-        })
-    } catch (error) {
-        if (error instanceof CliError) throw error
-        throw authFailed('Failed to register OAuth client', error)
-    }
-
-    if (!response.ok) {
-        const errorText = await response.text().catch(() => '')
-        throw new CliError(
-            'AUTH_FAILED',
-            `Client registration failed: ${response.status} ${response.statusText} - ${errorText}`,
-            AUTH_HINTS,
-        )
-    }
-
-    let result: { client_id?: string; client_secret?: string }
-    try {
-        result = (await response.json()) as { client_id?: string; client_secret?: string }
-    } catch (error) {
-        throw authFailed('Invalid client registration response', error)
-    }
-
-    if (!result.client_id || !result.client_secret) {
-        throw new CliError(
-            'AUTH_FAILED',
-            'Invalid client registration response: missing client_id or client_secret',
-            AUTH_HINTS,
-        )
-    }
-
-    return { clientId: result.client_id, clientSecret: result.client_secret }
-}
-
+/**
+ * Twist's OAuth flow uses RFC 7591 Dynamic Client Registration: each login
+ * mints a fresh `client_id` / `client_secret`, then runs the standard PKCE
+ * authorize + token exchange (HTTP Basic auth on the token endpoint). cli-core's
+ * `createDcrProvider` drives all of that via `oauth4webapi`; the only
+ * twist-specific piece is `validate`, which probes `getSessionUser` and records
+ * the auth mode/scope the login was granted.
+ *
+ * `authMode` / `authScope` are derived from `handshake.readOnly` (folded in by
+ * `runOAuthFlow`) rather than threaded through `authorize`, because the scope
+ * set is itself a pure function of `readOnly` (see `resolveScopes` in login.ts).
+ */
 export function createTwistAuthProvider(): AuthProvider<TwistAccount> {
-    return {
-        async prepare({ redirectUri }) {
-            const { clientId, clientSecret } = await registerDynamicClient(redirectUri)
-            const handshake: TwistHandshake = { clientId, clientSecret }
-            return { handshake }
+    return createDcrProvider<TwistAccount>({
+        registrationUrl: REGISTRATION_URL,
+        authorizeUrl: AUTHORIZATION_URL,
+        tokenUrl: TOKEN_URL,
+        clientMetadata: {
+            clientName: 'Twist CLI',
+            clientUri: 'https://github.com/doist/twist-cli',
+            logoUri: LOGO_URI,
+            applicationType: 'native',
+            // Twist client_ids contain `_` (e.g. `twd_…`). oauth4webapi's
+            // `client_secret_basic` form-url-encodes the Basic credential per
+            // RFC 6749 §2.3.1 (`_` → `%5F`), and Twist's token endpoint doesn't
+            // url-decode it, so the lookup fails with "client_id not found".
+            // `client_secret_post` sends the credential in the body via
+            // URLSearchParams, which preserves `_`, sidestepping the mismatch.
+            tokenEndpointAuthMethod: 'client_secret_post',
         },
-
-        async authorize({ redirectUri, state, scopes, readOnly, handshake }) {
-            const hs = asHandshake(handshake)
-            const codeVerifier = generateVerifier()
-            const codeChallenge = deriveChallenge(codeVerifier)
-            const authMode: AuthMode = readOnly ? 'read-only' : 'read-write'
-            const authScope = scopes.join(' ')
-
-            const params = new URLSearchParams({
-                client_id: hs.clientId,
-                response_type: 'code',
-                redirect_uri: redirectUri,
-                scope: authScope,
-                state,
-                code_challenge: codeChallenge,
-                code_challenge_method: 'S256',
-            })
-
-            const nextHandshake: TwistHandshake = {
-                ...hs,
-                codeVerifier,
-                authMode,
-                authScope,
-            }
-            return {
-                authorizeUrl: `${AUTHORIZATION_URL}?${params.toString()}`,
-                handshake: nextHandshake,
-            }
-        },
-
-        async exchangeCode({ code, redirectUri, handshake }) {
-            const hs = asHandshake(handshake)
-            if (!hs.codeVerifier) {
+        errorHints: AUTH_HINTS,
+        async validate({ token, handshake }) {
+            // `runOAuthFlow` folds a boolean `readOnly` into the handshake.
+            // Fail closed on a missing/malformed value rather than letting
+            // `Boolean(undefined)` silently grant read-write (which would relax
+            // the local `ensureWriteAllowed` guard).
+            const readOnly = handshake.readOnly
+            if (typeof readOnly !== 'boolean') {
                 throw new CliError(
                     'AUTH_FAILED',
-                    'Missing PKCE code verifier from authorize step',
+                    'Internal: auth handshake missing the readOnly flag.',
                     AUTH_HINTS,
                 )
             }
-
-            const body = new URLSearchParams({
-                grant_type: 'authorization_code',
-                code,
-                redirect_uri: redirectUri,
-                code_verifier: hs.codeVerifier,
-            })
-
-            const credentials = btoa(`${hs.clientId}:${hs.clientSecret}`)
-
-            let response: Response
-            try {
-                response = await fetch(TOKEN_URL, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/x-www-form-urlencoded',
-                        Accept: 'application/json',
-                        Authorization: `Basic ${credentials}`,
-                    },
-                    body: body.toString(),
-                })
-            } catch (error) {
-                if (error instanceof CliError) throw error
-                throw authFailed('Failed to exchange code for token', error)
-            }
-
-            if (!response.ok) {
-                const errorText = await response.text().catch(() => '')
-                throw new CliError(
-                    'AUTH_FAILED',
-                    `Token exchange failed: ${response.status} ${response.statusText} - ${errorText}`,
-                    AUTH_HINTS,
-                )
-            }
-
-            let data: {
-                access_token?: string
-                error?: string
-                error_description?: string
-            }
-            try {
-                data = (await response.json()) as typeof data
-            } catch (error) {
-                throw authFailed('Invalid token exchange response', error)
-            }
-
-            if (data.error) {
-                throw new CliError(
-                    'AUTH_FAILED',
-                    `OAuth error: ${data.error} - ${data.error_description ?? 'Unknown error'}`,
-                    AUTH_HINTS,
-                )
-            }
-
-            if (!data.access_token) {
-                throw new CliError(
-                    'AUTH_FAILED',
-                    'No access token received from OAuth server',
-                    AUTH_HINTS,
-                )
-            }
-
-            return { accessToken: data.access_token }
-        },
-
-        async validateToken({ token, handshake }) {
-            const hs = asHandshake(handshake)
             const client = createWrappedTwistClient(token)
             const user = await client.users.getSessionUser()
-            return toTwistAccount(user, { authMode: hs.authMode, authScope: hs.authScope })
+            return toTwistAccount(user, {
+                authMode: readOnly ? 'read-only' : 'read-write',
+                authScope: getScopes(readOnly).join(' '),
+            })
         },
-    }
+    })
 }
 
 /**
@@ -385,6 +260,31 @@ export async function findAccountInStore(
     return match.account
 }
 
+/** Synthetic account for an env-token session (no stored identity). */
+const ENV_TOKEN_ACCOUNT: TwistAccount = { id: '', label: '', authMode: 'unknown', authScope: '' }
+
+/**
+ * Resolve the env-token / legacy-snapshot override that takes precedence over
+ * the v2 keyring store, or `null` to defer to it. Shared by the store's
+ * `active()` and `activeBundle()` so the two reads can't diverge.
+ */
+async function resolveOverrideSnapshot(
+    ref?: AccountRef,
+): Promise<{ token: string; account: TwistAccount } | null> {
+    if (ref === undefined) {
+        const envToken = process.env[TOKEN_ENV_VAR]
+        if (envToken) return { token: envToken, account: ENV_TOKEN_ACCOUNT }
+    }
+    const result = await ensureMigrated()
+    if (result === null || !migrationIsConclusive(result)) {
+        const legacy = await readLegacyTokenSnapshot()
+        if (legacy && (ref === undefined || matchTwistAccount(legacy.account, ref))) {
+            return legacy
+        }
+    }
+    return null
+}
+
 /**
  * `TWIST_API_TOKEN` short-circuits `active()` only when no explicit ref is
  * supplied — cli-core's `KeyringTokenStore` doesn't know about the env var,
@@ -412,23 +312,18 @@ export function createTwistTokenStore(): TwistTokenStore {
     }
     return Object.assign(Object.create(inner) as TwistTokenStore, {
         async active(ref?: AccountRef) {
-            if (ref === undefined) {
-                const envToken = process.env[TOKEN_ENV_VAR]
-                if (envToken) {
-                    return {
-                        token: envToken,
-                        account: { id: '', label: '', authMode: 'unknown', authScope: '' },
-                    }
-                }
+            return (await resolveOverrideSnapshot(ref)) ?? inner.active(ref)
+        },
+        // Mirror `active()`: cli-core's auth commands read the live credential
+        // through `activeBundle()` (it carries the refresh slot too), so the
+        // env-token + legacy fallbacks must apply here as well or `tw auth
+        // status` would report no token for those users.
+        async activeBundle(ref?: AccountRef) {
+            const override = await resolveOverrideSnapshot(ref)
+            if (override) {
+                return { account: override.account, bundle: { accessToken: override.token } }
             }
-            const result = await ensureMigrated()
-            if (result === null || !migrationIsConclusive(result)) {
-                const legacy = await readLegacyTokenSnapshot()
-                if (legacy && (ref === undefined || matchTwistAccount(legacy.account, ref))) {
-                    return legacy
-                }
-            }
-            return inner.active(ref)
+            return inner.activeBundle(ref)
         },
         async set(account: TwistAccount, token: string) {
             await maybeDischargeLegacy()
