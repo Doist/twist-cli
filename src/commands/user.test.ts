@@ -88,6 +88,50 @@ describe('user --json', () => {
         expect(jsonOutput).not.toHaveProperty('shortName')
     })
 
+    it('omits removed users by default and passes includeRemoved: undefined', async () => {
+        apiMocks.getWorkspaceUsers.mockResolvedValueOnce([
+            {
+                id: 1,
+                name: 'Active',
+                email: 'a@x',
+                userType: 'USER',
+                bot: false,
+                removed: false,
+            },
+        ])
+        const program = createProgram()
+        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+        await program.parseAsync(['node', 'tw', 'users'])
+
+        expect(apiMocks.getWorkspaceUsers).toHaveBeenCalledWith(1, { includeRemoved: undefined })
+        expect(consoleSpy.mock.calls.flat().join('\n')).not.toMatch(/\[removed\]/)
+
+        consoleSpy.mockRestore()
+    })
+
+    it('passes includeRemoved: true and annotates removed users in text output', async () => {
+        apiMocks.getWorkspaceUsers.mockResolvedValueOnce([
+            {
+                id: 2,
+                name: 'Ghost',
+                email: 'ghost@x',
+                userType: 'GUEST',
+                bot: false,
+                removed: true,
+            },
+        ])
+        const program = createProgram()
+        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+        await program.parseAsync(['node', 'tw', 'users', '--include-removed'])
+
+        expect(apiMocks.getWorkspaceUsers).toHaveBeenCalledWith(1, { includeRemoved: true })
+        expect(consoleSpy.mock.calls.flat().join('\n')).toMatch(/\[removed\]/)
+
+        consoleSpy.mockRestore()
+    })
+
     it('outputs full user fields with --full', async () => {
         const program = createProgram()
         const consoleSpy = captureConsole()

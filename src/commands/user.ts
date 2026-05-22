@@ -6,7 +6,7 @@ import type { ViewOptions } from '../lib/options.js'
 import { colors, formatJson, formatNdjson, printEmpty } from '../lib/output.js'
 import { resolveWorkspaceRef } from '../lib/refs.js'
 
-type UsersOptions = ViewOptions & { workspace?: string; search?: string }
+type UsersOptions = ViewOptions & { workspace?: string; search?: string; includeRemoved?: boolean }
 
 async function showCurrentUser(options: ViewOptions): Promise<void> {
     const user = await getSessionUser()
@@ -44,7 +44,7 @@ async function listUsers(workspaceRef: string | undefined, options: UsersOptions
         workspaceId = await getCurrentWorkspaceId()
     }
 
-    let users = await getWorkspaceUsers(workspaceId)
+    let users = await getWorkspaceUsers(workspaceId, { includeRemoved: options.includeRemoved })
 
     if (options.search) {
         const search = options.search.toLowerCase()
@@ -74,7 +74,8 @@ async function listUsers(workspaceRef: string | undefined, options: UsersOptions
         const email = u.email ? colors.timestamp(`<${u.email}>`) : ''
         const type = colors.channel(`[${u.userType}]`)
         const bot = u.bot ? chalk.yellow(' [bot]') : ''
-        console.log(`${id}  ${name} ${email} ${type}${bot}`)
+        const removed = u.removed ? chalk.red(' [removed]') : ''
+        console.log(`${id}  ${name} ${email} ${type}${bot}${removed}`)
     }
 }
 
@@ -98,6 +99,7 @@ Examples:
         .description('List users in a workspace')
         .option('--workspace <ref>', 'Workspace ID or name')
         .option('--search <text>', 'Filter by name/email')
+        .option('--include-removed', 'Include users who have been removed from the workspace')
         .option('--json', 'Output as JSON')
         .option('--ndjson', 'Output as newline-delimited JSON')
         .option('--full', 'Include all fields in JSON output')
@@ -106,7 +108,8 @@ Examples:
             `
 Examples:
   tw users
-  tw users --search "Jane" --json`,
+  tw users --search "Jane" --json
+  tw users --include-removed`,
         )
         .action(listUsers)
 }
