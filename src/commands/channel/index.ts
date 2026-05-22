@@ -1,12 +1,10 @@
 import { Command, Option } from 'commander'
 import { withCaseInsensitiveChoices } from '../../lib/completion.js'
+import { addChannelMembers } from './add.js'
 import { listChannels } from './list.js'
-import {
-    addChannelMembers,
-    listChannelMembers,
-    removeChannelMembers,
-    syncChannelMembers,
-} from './members.js'
+import { listChannelMembers } from './members.js'
+import { removeChannelMembers } from './remove.js'
+import { syncChannelMembers } from './sync.js'
 import { showChannelThreads } from './threads.js'
 
 export function registerChannelCommand(program: Command): void {
