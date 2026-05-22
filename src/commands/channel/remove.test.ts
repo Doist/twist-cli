@@ -56,7 +56,7 @@ beforeEach(() => {
     refsMocks.resolveChannelRef.mockResolvedValue(sampleChannel)
 })
 
-describe('tw channel remove', () => {
+describe('tw channel members remove', () => {
     it('only removes users that are members', async () => {
         refsMocks.resolveChannelMemberRefs.mockResolvedValue({
             userIds: [2, 3, 99],
@@ -69,6 +69,7 @@ describe('tw channel remove', () => {
             'node',
             'tw',
             'channel',
+            'members',
             'remove',
             'general',
             'id:2',
@@ -87,7 +88,16 @@ describe('tw channel remove', () => {
         const program = createProgram()
         vi.spyOn(console, 'log').mockImplementation(() => {})
 
-        await program.parseAsync(['node', 'tw', 'channel', 'remove', 'general', 'id:99', 'id:100'])
+        await program.parseAsync([
+            'node',
+            'tw',
+            'channel',
+            'members',
+            'remove',
+            'general',
+            'id:99',
+            'id:100',
+        ])
 
         expect(apiMocks.removeUsersFromChannel).not.toHaveBeenCalled()
     })
@@ -104,6 +114,7 @@ describe('tw channel remove', () => {
             'node',
             'tw',
             'channel',
+            'members',
             'remove',
             'general',
             'id:2',
@@ -127,6 +138,7 @@ describe('tw channel remove', () => {
             'node',
             'tw',
             'channel',
+            'members',
             'remove',
             'general',
             'id:2',
@@ -151,6 +163,7 @@ describe('tw channel remove', () => {
             'node',
             'tw',
             'channel',
+            'members',
             'remove',
             'general',
             'id:2',

@@ -56,7 +56,7 @@ beforeEach(() => {
     refsMocks.resolveChannelRef.mockResolvedValue(sampleChannel)
 })
 
-describe('tw channel add', () => {
+describe('tw channel members add', () => {
     it('adds users (no group expansion)', async () => {
         refsMocks.resolveChannelMemberRefs.mockResolvedValue({
             userIds: [4, 5],
@@ -69,6 +69,7 @@ describe('tw channel add', () => {
             'node',
             'tw',
             'channel',
+            'members',
             'add',
             'general',
             'dave@d.com',
@@ -94,6 +95,7 @@ describe('tw channel add', () => {
             'node',
             'tw',
             'channel',
+            'members',
             'add',
             'general',
             'group:Backend',
@@ -114,7 +116,16 @@ describe('tw channel add', () => {
         const program = createProgram()
         vi.spyOn(console, 'log').mockImplementation(() => {})
 
-        await program.parseAsync(['node', 'tw', 'channel', 'add', 'general', 'id:2', 'id:4'])
+        await program.parseAsync([
+            'node',
+            'tw',
+            'channel',
+            'members',
+            'add',
+            'general',
+            'id:2',
+            'id:4',
+        ])
 
         expect(apiMocks.addUsersToChannel).toHaveBeenCalledWith(500, [4])
     })
@@ -127,7 +138,16 @@ describe('tw channel add', () => {
         const program = createProgram()
         vi.spyOn(console, 'log').mockImplementation(() => {})
 
-        await program.parseAsync(['node', 'tw', 'channel', 'add', 'general', 'id:1', 'id:2'])
+        await program.parseAsync([
+            'node',
+            'tw',
+            'channel',
+            'members',
+            'add',
+            'general',
+            'id:1',
+            'id:2',
+        ])
 
         expect(apiMocks.addUsersToChannel).not.toHaveBeenCalled()
     })
@@ -144,6 +164,7 @@ describe('tw channel add', () => {
             'node',
             'tw',
             'channel',
+            'members',
             'add',
             'general',
             'id:4',
@@ -167,6 +188,7 @@ describe('tw channel add', () => {
             'node',
             'tw',
             'channel',
+            'members',
             'add',
             'general',
             'id:2',

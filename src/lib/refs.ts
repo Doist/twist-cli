@@ -398,7 +398,7 @@ export async function resolveGroupRef(ref: string, workspaceId: number): Promise
     ])
 }
 
-export interface ChannelMemberRefs {
+export type ChannelMemberRefs = {
     userIds: number[]
     expandedFrom: { groupId: number; groupName: string; userIds: number[] }[]
 }

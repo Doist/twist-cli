@@ -12,15 +12,15 @@ import { formatJson, pluralize, printDryRun } from '../../lib/output.js'
 import { resolveChannelMemberRefs, resolveChannelRef } from '../../lib/refs.js'
 import { channelUserIds, describeExpansion, logExpansion } from './membership-helpers.js'
 
-export type SyncOptions = MutationOptions & {
+export type SetOptions = MutationOptions & {
     apply?: boolean
     includeSelf?: boolean
 }
 
-export async function syncChannelMembers(
+export async function setChannelMembers(
     channelRef: string,
     refs: string[],
-    options: SyncOptions,
+    options: SetOptions,
 ): Promise<void> {
     const workspaceId = await getCurrentWorkspaceId()
     const [channel, sessionUser, memberRefs] = await Promise.all([
@@ -40,7 +40,7 @@ export async function syncChannelMembers(
     if (wouldRemoveSelf && !options.includeSelf) {
         throw new CliError(
             'INVALID_VALUE',
-            `Sync would remove you (id:${selfId}) from "${channel.name}".`,
+            `Set would remove you (id:${selfId}) from "${channel.name}".`,
             [
                 'Pass --include-self to allow removing yourself, or include yourself in the ref list.',
             ],
@@ -54,12 +54,12 @@ export async function syncChannelMembers(
     const isDryRun = options.dryRun || !options.apply
 
     if (isDryRun) {
-        printDryRun(`sync channel membership`, {
+        printDryRun(`set channel membership`, {
             Channel: `${channel.name} (id:${channel.id})`,
             'Expanded from groups': describeExpansion(expandedFrom),
             'To add': toAdd.length > 0 ? toAdd.join(', ') : '(none)',
             'To remove': toRemove.length > 0 ? toRemove.join(', ') : '(none)',
-            Note: options.apply ? undefined : 'sync is dry-run by default; pass --apply to mutate.',
+            Note: options.apply ? undefined : 'set is dry-run by default; pass --apply to mutate.',
         })
         return
     }
@@ -91,7 +91,7 @@ export async function syncChannelMembers(
 
     logExpansion(expandedFrom)
     console.log(
-        `Synced "${channel.name}": +${toAdd.length} / -${toRemove.length} (now ${newMemberCount} ${pluralize(newMemberCount, 'member')}).`,
+        `Set "${channel.name}": +${toAdd.length} / -${toRemove.length} (now ${newMemberCount} ${pluralize(newMemberCount, 'member')}).`,
     )
     if (toAdd.length > 0) console.log(`  Added: ${toAdd.join(', ')}`)
     if (toRemove.length > 0) console.log(`  Removed: ${toRemove.join(', ')}`)

@@ -52,7 +52,7 @@ beforeEach(() => {
     refsMocks.resolveChannelRef.mockResolvedValue(sampleChannel)
 })
 
-describe('tw channel sync', () => {
+describe('tw channel members set', () => {
     it('dry-run by default — does not mutate', async () => {
         refsMocks.resolveChannelMemberRefs.mockResolvedValue({
             userIds: [1, 4, 5],
@@ -65,7 +65,8 @@ describe('tw channel sync', () => {
             'node',
             'tw',
             'channel',
-            'sync',
+            'members',
+            'set',
             'general',
             'id:1',
             'id:4',
@@ -91,7 +92,8 @@ describe('tw channel sync', () => {
             'node',
             'tw',
             'channel',
-            'sync',
+            'members',
+            'set',
             'general',
             'id:1',
             'id:4',
@@ -116,7 +118,8 @@ describe('tw channel sync', () => {
                 'node',
                 'tw',
                 'channel',
-                'sync',
+                'members',
+                'set',
                 'general',
                 'id:2',
                 'id:3',
@@ -138,7 +141,8 @@ describe('tw channel sync', () => {
             'node',
             'tw',
             'channel',
-            'sync',
+            'members',
+            'set',
             'general',
             'id:2',
             'id:3',
@@ -163,7 +167,8 @@ describe('tw channel sync', () => {
             'node',
             'tw',
             'channel',
-            'sync',
+            'members',
+            'set',
             'general',
             'id:1',
             'group:Backend',
