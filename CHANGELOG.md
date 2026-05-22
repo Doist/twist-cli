@@ -1,3 +1,9 @@
+## [2.43.0](https://github.com/Doist/twist-cli/compare/v2.42.0...v2.43.0) (2026-05-22)
+
+### Features
+
+- **channel:** channel membership control (members/add/remove/sync) ([#244](https://github.com/Doist/twist-cli/issues/244)) ([84ea32b](https://github.com/Doist/twist-cli/commit/84ea32b6498597ecfbc0ce9ce5094c19dbc0ee07))
+
 ## [2.42.0](https://github.com/Doist/twist-cli/compare/v2.41.2...v2.42.0) (2026-05-21)
 
 ### Features

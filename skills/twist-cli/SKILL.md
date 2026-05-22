@@ -4,7 +4,7 @@ description: "Twist messaging CLI. View and respond to inbox threads, channel th
 license: MIT
 metadata:
   author: Doist
-  version: "2.42.0"
+  version: "2.43.0"
 ---
 
 # Twist CLI (tw)
