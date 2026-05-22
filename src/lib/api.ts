@@ -1,6 +1,7 @@
 import {
     type BatchResponse,
     type Channel,
+    type CreateChannelArgs,
     type Group,
     TwistApi,
     type User,
@@ -346,12 +347,7 @@ export async function removeUsersFromGroup(id: number, userIds: number[]): Promi
     await client.groups.removeUsers({ id, userIds })
 }
 
-export async function createChannel(args: {
-    workspaceId: number
-    name: string
-    description?: string
-    public?: boolean
-}): Promise<Channel> {
+export async function createChannel(args: CreateChannelArgs): Promise<Channel> {
     const client = await getTwistClient()
     return client.channels.createChannel(args)
 }

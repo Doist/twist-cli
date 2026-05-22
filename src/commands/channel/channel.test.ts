@@ -412,7 +412,7 @@ describe('tw channel create', () => {
     it('resolves --workspace ref when provided', async () => {
         refsMocks.resolveWorkspaceRef.mockResolvedValue({ id: 42, name: 'Other' })
         const program = createProgram()
-        vi.spyOn(console, 'log').mockImplementation(() => {})
+        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
 
         await program.parseAsync([
             'node',
@@ -431,6 +431,8 @@ describe('tw channel create', () => {
             description: undefined,
             public: true,
         })
+
+        consoleSpy.mockRestore()
     })
 
     it('passes --description and --private through to createChannel', async () => {
@@ -438,7 +440,7 @@ describe('tw channel create', () => {
             createChannel(999, 'Leadership', { public: false, description: 'Internal' }),
         )
         const program = createProgram()
-        vi.spyOn(console, 'log').mockImplementation(() => {})
+        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
 
         await program.parseAsync([
             'node',
@@ -457,6 +459,8 @@ describe('tw channel create', () => {
             description: 'Internal',
             public: false,
         })
+
+        consoleSpy.mockRestore()
     })
 
     it('does not call the API on --dry-run', async () => {
@@ -491,6 +495,30 @@ describe('tw channel create', () => {
         const output = JSON.parse(consoleSpy.mock.calls[0][0])
         expect(output.id).toBe(123)
         expect(output.name).toBe('Engineering')
+
+        consoleSpy.mockRestore()
+    })
+
+    it('forwards --full so JSON output includes all channel fields', async () => {
+        apiMocks.createChannel.mockResolvedValue(
+            createChannel(123, 'Engineering', { description: 'Eng channel', creator: 9 }),
+        )
+        const program = createProgram()
+        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+        await program.parseAsync([
+            'node',
+            'tw',
+            'channel',
+            'create',
+            'Engineering',
+            '--json',
+            '--full',
+        ])
+
+        const output = JSON.parse(consoleSpy.mock.calls[0][0])
+        // The default-shape filter drops `public`/`creator`; --full keeps them.
+        expect(output).toMatchObject({ id: 123, name: 'Engineering', public: true, creator: 9 })
 
         consoleSpy.mockRestore()
     })
@@ -548,19 +576,41 @@ describe('tw channel delete', () => {
         consoleSpy.mockRestore()
     })
 
-    it('errors in --json mode without --yes', async () => {
+    it('does not delete when --yes is combined with --dry-run', async () => {
+        const program = createProgram()
+        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+        await program.parseAsync([
+            'node',
+            'tw',
+            'channel',
+            'delete',
+            'Engineering',
+            '--yes',
+            '--dry-run',
+        ])
+
+        expect(apiMocks.deleteChannel).not.toHaveBeenCalled()
+        const text = consoleSpy.mock.calls.map((c) => String(c[0])).join('\n')
+        expect(text).toContain('delete channel')
+
+        consoleSpy.mockRestore()
+    })
+
+    it('errors in --json mode without --yes before doing any lookups', async () => {
         const program = createProgram()
         await expect(
             program.parseAsync(['node', 'tw', 'channel', 'delete', 'Engineering', '--json']),
         ).rejects.toMatchObject({ code: 'MISSING_YES_FLAG' })
         expect(apiMocks.deleteChannel).not.toHaveBeenCalled()
+        // The guard fires before any ref/workspace resolution.
+        expect(refsMocks.resolveChannelRef).not.toHaveBeenCalled()
+        expect(apiMocks.getCurrentWorkspaceId).not.toHaveBeenCalled()
     })
 
     it('translates a 403 from the API into a FORBIDDEN CliError', async () => {
-        const apiError = Object.assign(new Error('Request failed with status 403'), {
-            httpStatusCode: 403,
-            responseData: {},
-        })
+        const { TwistRequestError } = await import('@doist/twist-sdk')
+        const apiError = new TwistRequestError('Request failed with status 403', 403, {})
         apiMocks.deleteChannel.mockRejectedValueOnce(apiError)
         const program = createProgram()
 
@@ -631,6 +681,21 @@ describe('tw channel archive', () => {
 
         const output = JSON.parse(consoleSpy.mock.calls[0][0])
         expect(output).toEqual({ id: 500, archived: true })
+
+        consoleSpy.mockRestore()
+    })
+
+    it('skips the API call when channel is already archived', async () => {
+        refsMocks.resolveChannelRef.mockResolvedValue(
+            createChannel(500, 'Engineering', { archived: true }),
+        )
+        const program = createProgram()
+        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+        await program.parseAsync(['node', 'tw', 'channel', 'archive', 'Engineering'])
+
+        expect(apiMocks.archiveChannel).not.toHaveBeenCalled()
+        expect(consoleSpy.mock.calls[0][0]).toContain('already in target state')
 
         consoleSpy.mockRestore()
     })

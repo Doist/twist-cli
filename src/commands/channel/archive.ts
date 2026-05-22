@@ -1,56 +1,57 @@
 import { archiveChannel, getCurrentWorkspaceId, unarchiveChannel } from '../../lib/api.js'
 import type { MutationOptions } from '../../lib/options.js'
 import { formatJson, printDryRun } from '../../lib/output.js'
-import { resolveChannelRef } from '../../lib/refs.js'
+import { resolveChannelRef, resolveWorkspaceRef } from '../../lib/refs.js'
 
-type ArchiveChannelOptions = MutationOptions
+type ArchiveChannelOptions = MutationOptions & { workspace?: string }
 
-export async function archiveChannelCommand(
+async function setArchiveState(
     ref: string,
     options: ArchiveChannelOptions,
+    archive: boolean,
 ): Promise<void> {
-    const workspaceId = await getCurrentWorkspaceId()
+    const action = archive ? 'archive' : 'unarchive'
+    const workspaceId = options.workspace
+        ? (await resolveWorkspaceRef(options.workspace)).id
+        : await getCurrentWorkspaceId()
     const channel = await resolveChannelRef(ref, workspaceId)
 
     if (options.dryRun) {
-        printDryRun('archive channel', {
+        printDryRun(`${action} channel`, {
             Channel: `${channel.name} (id:${channel.id})`,
             'Currently archived': channel.archived ? 'yes' : 'no',
         })
         return
     }
 
-    await archiveChannel(channel.id)
+    if (channel.archived !== archive) {
+        if (archive) {
+            await archiveChannel(channel.id)
+        } else {
+            await unarchiveChannel(channel.id)
+        }
+    }
 
     if (options.json) {
-        console.log(formatJson({ id: channel.id, archived: true }))
+        console.log(formatJson({ id: channel.id, archived: archive }))
         return
     }
 
-    console.log(`Channel "${channel.name}" (id:${channel.id}) archived.`)
+    const verb = archive ? 'archived' : 'unarchived'
+    const noop = channel.archived === archive ? ' (already in target state)' : ''
+    console.log(`Channel "${channel.name}" (id:${channel.id}) ${verb}${noop}.`)
+}
+
+export async function archiveChannelCommand(
+    ref: string,
+    options: ArchiveChannelOptions,
+): Promise<void> {
+    await setArchiveState(ref, options, true)
 }
 
 export async function unarchiveChannelCommand(
     ref: string,
     options: ArchiveChannelOptions,
 ): Promise<void> {
-    const workspaceId = await getCurrentWorkspaceId()
-    const channel = await resolveChannelRef(ref, workspaceId)
-
-    if (options.dryRun) {
-        printDryRun('unarchive channel', {
-            Channel: `${channel.name} (id:${channel.id})`,
-            'Currently archived': channel.archived ? 'yes' : 'no',
-        })
-        return
-    }
-
-    await unarchiveChannel(channel.id)
-
-    if (options.json) {
-        console.log(formatJson({ id: channel.id, archived: false }))
-        return
-    }
-
-    console.log(`Channel "${channel.name}" (id:${channel.id}) unarchived.`)
+    await setArchiveState(ref, options, false)
 }

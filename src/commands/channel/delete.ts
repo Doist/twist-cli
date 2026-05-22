@@ -1,25 +1,26 @@
+import { TwistRequestError } from '@doist/twist-sdk'
 import { deleteChannel, getCurrentWorkspaceId } from '../../lib/api.js'
 import { CliError } from '../../lib/errors.js'
 import type { MutationOptions } from '../../lib/options.js'
 import { formatJson, printDryRun } from '../../lib/output.js'
-import { resolveChannelRef } from '../../lib/refs.js'
+import { resolveChannelRef, resolveWorkspaceRef } from '../../lib/refs.js'
 
-type DeleteChannelOptions = MutationOptions & { yes?: boolean }
-
-function isForbidden(error: unknown): boolean {
-    return (
-        typeof error === 'object' &&
-        error !== null &&
-        'httpStatusCode' in error &&
-        (error as { httpStatusCode: number }).httpStatusCode === 403
-    )
-}
+type DeleteChannelOptions = MutationOptions & { yes?: boolean; workspace?: string }
 
 export async function deleteChannelCommand(
     ref: string,
     options: DeleteChannelOptions,
 ): Promise<void> {
-    const workspaceId = await getCurrentWorkspaceId()
+    if (!options.yes && options.json && !options.dryRun) {
+        throw new CliError(
+            'MISSING_YES_FLAG',
+            '--yes is required to execute deletion in --json mode.',
+        )
+    }
+
+    const workspaceId = options.workspace
+        ? (await resolveWorkspaceRef(options.workspace)).id
+        : await getCurrentWorkspaceId()
     const channel = await resolveChannelRef(ref, workspaceId)
 
     if (options.dryRun) {
@@ -31,12 +32,6 @@ export async function deleteChannelCommand(
     }
 
     if (!options.yes) {
-        if (options.json) {
-            throw new CliError(
-                'MISSING_YES_FLAG',
-                '--yes is required to execute deletion in --json mode.',
-            )
-        }
         console.log(`Would delete: ${channel.name} (id:${channel.id})`)
         console.log('Use --yes to confirm.')
         return
@@ -45,7 +40,7 @@ export async function deleteChannelCommand(
     try {
         await deleteChannel(channel.id)
     } catch (error) {
-        if (isForbidden(error)) {
+        if (error instanceof TwistRequestError && error.httpStatusCode === 403) {
             throw new CliError(
                 'FORBIDDEN',
                 `Twist refused to delete "${channel.name}" (id:${channel.id}): 403 Forbidden.`,

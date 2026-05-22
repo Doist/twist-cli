@@ -117,6 +117,7 @@ Examples:
     channel
         .command('delete <channel-ref>')
         .description('Permanently delete a channel')
+        .option('--workspace <ref>', 'Workspace ID or name')
         .option('--yes', 'Confirm deletion')
         .option('--dry-run', 'Show what would happen without executing')
         .option('--json', 'Output result as JSON')
@@ -133,6 +134,7 @@ Examples:
     channel
         .command('archive <channel-ref>')
         .description('Archive a channel')
+        .option('--workspace <ref>', 'Workspace ID or name')
         .option('--dry-run', 'Show what would happen without executing')
         .option('--json', 'Output result as JSON')
         .addHelpText(
@@ -150,6 +152,7 @@ Notes:
     channel
         .command('unarchive <channel-ref>')
         .description('Unarchive a channel')
+        .option('--workspace <ref>', 'Workspace ID or name')
         .option('--dry-run', 'Show what would happen without executing')
         .option('--json', 'Output result as JSON')
         .addHelpText(
