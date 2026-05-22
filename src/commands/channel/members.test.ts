@@ -10,6 +10,7 @@ const apiMocks = vi.hoisted(() => ({
     getTwistClient: vi.fn(),
     getSessionUser: vi.fn(),
     getWorkspaceGroups: vi.fn(),
+    getOptionalBatchData: vi.fn(),
     addUsersToChannel: vi.fn(),
     removeUsersFromChannel: vi.fn(),
 }))
@@ -56,11 +57,21 @@ beforeEach(() => {
     vi.clearAllMocks()
     vi.restoreAllMocks()
     apiMocks.getCurrentWorkspaceId.mockResolvedValue(1)
+    // Return a tagged sentinel per user id so we can assert that batch() received the
+    // exact requests built by the SDK call.
+    mockGetUserById.mockImplementation((args: { userId: number }) => ({
+        __req: 'getUserById',
+        userId: args.userId,
+    }))
     apiMocks.getTwistClient.mockResolvedValue({
         workspaceUsers: { getUserById: mockGetUserById },
         channels: { getChannel: mockGetChannel },
         batch: mockBatch,
     })
+    // The default real-world behaviour: pass through response.data, ignoring the label.
+    apiMocks.getOptionalBatchData.mockImplementation((response: { code: number; data: unknown }) =>
+        response && response.code < 400 ? (response.data ?? null) : null,
+    )
     apiMocks.getSessionUser.mockResolvedValue({ id: 1, name: 'Me', email: 'me@d.com' })
     apiMocks.getWorkspaceGroups.mockResolvedValue([frontendGroup, backendGroup, allInChannel])
     refsMocks.resolveChannelRef.mockResolvedValue(sampleChannel)
@@ -105,6 +116,62 @@ describe('tw channel members (list)', () => {
         expect(output.groupsFullyInChannel.map((g: { id: number }) => g.id).sort()).toEqual([
             100, 300,
         ])
+    })
+
+    it('batches one getUserById request per channel member', async () => {
+        const program = createProgram()
+        vi.spyOn(console, 'log').mockImplementation(() => {})
+
+        await program.parseAsync(['node', 'tw', 'channel', 'members', 'general', '--json'])
+
+        // Verify the batch wiring: getUserById is built for each userId, then those
+        // requests are passed verbatim into batch().
+        expect(mockGetUserById).toHaveBeenCalledTimes(3)
+        expect(mockGetUserById).toHaveBeenNthCalledWith(
+            1,
+            { workspaceId: 1, userId: 1 },
+            { batch: true },
+        )
+        expect(mockBatch).toHaveBeenCalledWith(
+            { __req: 'getUserById', userId: 1 },
+            { __req: 'getUserById', userId: 2 },
+            { __req: 'getUserById', userId: 3 },
+        )
+    })
+
+    it('ndjson default shape matches json default shape', async () => {
+        const program = createProgram()
+        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+        await program.parseAsync(['node', 'tw', 'channel', 'members', 'general', '--ndjson'])
+
+        const line = consoleSpy.mock.calls[0][0].split('\n').filter(Boolean)[0]
+        const output = JSON.parse(line)
+        expect(output.id).toBe(500)
+        expect(output.members).toHaveLength(3)
+        // Slim shape — no raw SDK fields like `creator`, `version` unless --full was passed.
+        expect(output).not.toHaveProperty('creator')
+        expect(output).not.toHaveProperty('version')
+    })
+
+    it('--full ndjson includes raw channel fields', async () => {
+        const program = createProgram()
+        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+        await program.parseAsync([
+            'node',
+            'tw',
+            'channel',
+            'members',
+            'general',
+            '--ndjson',
+            '--full',
+        ])
+
+        const line = consoleSpy.mock.calls[0][0].split('\n').filter(Boolean)[0]
+        const output = JSON.parse(line)
+        expect(output).toHaveProperty('creator')
+        expect(output).toHaveProperty('version')
     })
 })
 
@@ -265,6 +332,80 @@ describe('tw channel remove', () => {
         await program.parseAsync(['node', 'tw', 'channel', 'remove', 'general', 'id:99', 'id:100'])
 
         expect(apiMocks.removeUsersFromChannel).not.toHaveBeenCalled()
+    })
+
+    it('--dry-run does not mutate', async () => {
+        refsMocks.resolveChannelMemberRefs.mockResolvedValue({
+            userIds: [2, 3],
+            expandedFrom: [],
+        })
+        const program = createProgram()
+        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+        await program.parseAsync([
+            'node',
+            'tw',
+            'channel',
+            'remove',
+            'general',
+            'id:2',
+            'id:3',
+            '--dry-run',
+        ])
+
+        expect(apiMocks.removeUsersFromChannel).not.toHaveBeenCalled()
+        expect(consoleSpy.mock.calls.some((c) => String(c[0]).includes('[dry-run]'))).toBe(true)
+    })
+
+    it('--json shape includes removed/notMembers', async () => {
+        refsMocks.resolveChannelMemberRefs.mockResolvedValue({
+            userIds: [2, 99],
+            expandedFrom: [],
+        })
+        const program = createProgram()
+        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+        await program.parseAsync([
+            'node',
+            'tw',
+            'channel',
+            'remove',
+            'general',
+            'id:2',
+            'id:99',
+            '--json',
+        ])
+
+        const output = JSON.parse(consoleSpy.mock.calls[0][0])
+        expect(output).toMatchObject({ id: 500, removed: [2], notMembers: [99] })
+    })
+
+    it('--full fetches and prints the updated channel', async () => {
+        refsMocks.resolveChannelMemberRefs.mockResolvedValue({
+            userIds: [2],
+            expandedFrom: [],
+        })
+        mockGetChannel.mockResolvedValue({ ...sampleChannel, userIds: [1, 3] })
+        const program = createProgram()
+        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+        await program.parseAsync([
+            'node',
+            'tw',
+            'channel',
+            'remove',
+            'general',
+            'id:2',
+            '--json',
+            '--full',
+        ])
+
+        expect(mockGetChannel).toHaveBeenCalledWith(500)
+        const output = JSON.parse(consoleSpy.mock.calls[0][0])
+        // --full returns the full SDK channel object
+        expect(output.id).toBe(500)
+        expect(output).toHaveProperty('creator')
+        expect(output).toHaveProperty('version')
     })
 })
 

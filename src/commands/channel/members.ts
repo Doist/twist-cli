@@ -2,6 +2,7 @@ import type { Channel, Group, User, WorkspaceUser } from '@doist/twist-sdk'
 import {
     addUsersToChannel,
     getCurrentWorkspaceId,
+    getOptionalBatchData,
     getSessionUser,
     getTwistClient,
     getWorkspaceGroups,
@@ -17,10 +18,6 @@ type ChannelMutationOptions = MutationOptions
 export type SyncOptions = MutationOptions & {
     apply?: boolean
     includeSelf?: boolean
-}
-
-function dedupe(ids: number[]): number[] {
-    return [...new Set(ids)]
 }
 
 function channelUserIds(channel: Channel): number[] {
@@ -39,10 +36,22 @@ async function fetchUsersByIds(
     const responses = await client.batch(...calls)
     const map = new Map<number, WorkspaceUser>()
     userIds.forEach((id, i) => {
-        const user = responses[i]?.data
+        const user = getOptionalBatchData(responses[i], `user ${id}`)
         if (user) map.set(id, user)
     })
     return map
+}
+
+function logExpansion(
+    expandedFrom: { groupId: number; groupName: string; userIds: number[] }[],
+): void {
+    for (const g of expandedFrom) {
+        console.log(
+            colors.timestamp(
+                `Expanded group "${g.groupName}" → ${g.userIds.length} ${pluralize(g.userIds.length, 'user')}`,
+            ),
+        )
+    }
 }
 
 function describeExpansion(
@@ -61,12 +70,10 @@ async function mutateChannelMembership(
     options: ChannelMutationOptions,
 ): Promise<void> {
     const workspaceId = await getCurrentWorkspaceId()
-    const channel = await resolveChannelRef(channelRef, workspaceId)
-    const { userIds: requestedIds, expandedFrom } = await resolveChannelMemberRefs(
-        refs,
-        workspaceId,
-    )
-    const requested = dedupe(requestedIds)
+    const [channel, { userIds: requested, expandedFrom }] = await Promise.all([
+        resolveChannelRef(channelRef, workspaceId),
+        resolveChannelMemberRefs(refs, workspaceId),
+    ])
 
     const current = new Set(channelUserIds(channel))
     const actionable =
@@ -134,15 +141,7 @@ async function mutateChannelMembership(
             ? `No new members added to "${channel.name}" (already in channel).`
             : `No members removed from "${channel.name}" (none of the users were in channel).`
 
-    if (expandedFrom.length > 0) {
-        for (const g of expandedFrom) {
-            console.log(
-                colors.timestamp(
-                    `Expanded group "${g.groupName}" → ${g.userIds.length} ${pluralize(g.userIds.length, 'user')}`,
-                ),
-            )
-        }
-    }
+    logExpansion(expandedFrom)
 
     if (actionable.length === 0) {
         console.log(noneMsg)
@@ -183,13 +182,12 @@ export async function listChannelMembers(
     options: ViewOptions & { full?: boolean },
 ): Promise<void> {
     const workspaceId = await getCurrentWorkspaceId()
-    const channel = await resolveChannelRef(channelRef, workspaceId)
-    const userIds = channelUserIds(channel)
-
-    const [userMap, groups] = await Promise.all([
-        fetchUsersByIds(workspaceId, userIds),
+    const [channel, groups] = await Promise.all([
+        resolveChannelRef(channelRef, workspaceId),
         getWorkspaceGroups(workspaceId),
     ])
+    const userIds = channelUserIds(channel)
+    const userMap = await fetchUsersByIds(workspaceId, userIds)
 
     const userIdSet = new Set(userIds)
     const fullyInChannel = groupsFullyInChannel(groups, userIdSet)
@@ -199,28 +197,26 @@ export async function listChannelMembers(
         return { id, name: user?.name ?? null, email: user?.email ?? null }
     })
 
+    const slimPayload = {
+        id: channel.id,
+        name: channel.name,
+        workspaceId: channel.workspaceId,
+        members,
+        groupsFullyInChannel: fullyInChannel.map((g) => ({
+            id: g.id,
+            name: g.name,
+            userIds: g.userIds,
+        })),
+    }
+    const fullPayload = { ...channel, members, groupsFullyInChannel: fullyInChannel }
+
     if (options.json) {
-        const payload = {
-            id: channel.id,
-            name: channel.name,
-            workspaceId: channel.workspaceId,
-            members,
-            groupsFullyInChannel: fullyInChannel.map((g) => ({
-                id: g.id,
-                name: g.name,
-                userIds: g.userIds,
-            })),
-        }
-        if (options.full) {
-            console.log(formatJson({ ...channel, members, groupsFullyInChannel: fullyInChannel }))
-        } else {
-            console.log(formatJson(payload))
-        }
+        console.log(formatJson(options.full ? fullPayload : slimPayload))
         return
     }
 
     if (options.ndjson) {
-        console.log(formatNdjson([{ ...channel, members, groupsFullyInChannel: fullyInChannel }]))
+        console.log(formatNdjson([options.full ? fullPayload : slimPayload]))
         return
     }
 
@@ -252,11 +248,12 @@ export async function syncChannelMembers(
     options: SyncOptions,
 ): Promise<void> {
     const workspaceId = await getCurrentWorkspaceId()
-    const [channel, sessionUser] = await Promise.all([
+    const [channel, sessionUser, memberRefs] = await Promise.all([
         resolveChannelRef(channelRef, workspaceId),
         getSessionUser() as Promise<User>,
+        resolveChannelMemberRefs(refs, workspaceId),
     ])
-    const { userIds: targetIds, expandedFrom } = await resolveChannelMemberRefs(refs, workspaceId)
+    const { userIds: targetIds, expandedFrom } = memberRefs
     const desired = new Set(targetIds)
     const current = new Set(channelUserIds(channel))
 
@@ -292,12 +289,10 @@ export async function syncChannelMembers(
         return
     }
 
-    if (toAdd.length > 0) {
-        await addUsersToChannel(channel.id, toAdd)
-    }
-    if (toRemove.length > 0) {
-        await removeUsersFromChannel(channel.id, toRemove)
-    }
+    await Promise.all([
+        toAdd.length > 0 ? addUsersToChannel(channel.id, toAdd) : Promise.resolve(),
+        toRemove.length > 0 ? removeUsersFromChannel(channel.id, toRemove) : Promise.resolve(),
+    ])
 
     const newMemberCount = current.size + toAdd.length - toRemove.length
 
@@ -319,15 +314,7 @@ export async function syncChannelMembers(
         return
     }
 
-    if (expandedFrom.length > 0) {
-        for (const g of expandedFrom) {
-            console.log(
-                colors.timestamp(
-                    `Expanded group "${g.groupName}" → ${g.userIds.length} ${pluralize(g.userIds.length, 'user')}`,
-                ),
-            )
-        }
-    }
+    logExpansion(expandedFrom)
     console.log(
         `Synced "${channel.name}": +${toAdd.length} / -${toRemove.length} (now ${newMemberCount} ${pluralize(newMemberCount, 'member')}).`,
     )
