@@ -1,5 +1,6 @@
 import { Command } from 'commander'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { captureConsole } from '../../test-helpers/console.js'
 
 const storeMocks = vi.hoisted(() => ({
     set: vi.fn(),
@@ -63,13 +64,11 @@ describe('account command', () => {
     beforeEach(() => {
         vi.clearAllMocks()
         legacyMocks.isLegacyAuthActive.mockResolvedValue(false)
-        consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
-        errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+        consoleSpy = captureConsole()
+        errorSpy = captureConsole('error')
     })
 
     afterEach(() => {
-        consoleSpy.mockRestore()
-        errorSpy.mockRestore()
         vi.unstubAllEnvs()
     })
 

@@ -1,5 +1,6 @@
 import { Command } from 'commander'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { captureConsole } from '../../test-helpers/console.js'
 
 const apiMocks = vi.hoisted(() => ({
     getTwistClient: vi.fn(),
@@ -93,13 +94,11 @@ describe('comment implicit view', () => {
 
     it('tw comment <ref> routes to view (not unknown command)', async () => {
         const program = createProgram()
-        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+        captureConsole()
 
         await expect(program.parseAsync(['node', 'tw', 'comment', '300'])).rejects.toThrow(
             'MOCK_API_REACHED',
         )
-
-        consoleSpy.mockRestore()
     })
 })
 
@@ -112,34 +111,32 @@ describe('comment view', () => {
         const client = createClient()
         apiMocks.getTwistClient.mockResolvedValue(client)
         const program = createProgram()
-        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+        const consoleSpy = captureConsole()
 
         await program.parseAsync(['node', 'tw', 'comment', 'view', '300'])
 
         expect(client.comments.getComment).toHaveBeenCalledWith(300)
         expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('Comment 300'))
-        consoleSpy.mockRestore()
     })
 
     it('outputs JSON with --json', async () => {
         const client = createClient()
         apiMocks.getTwistClient.mockResolvedValue(client)
         const program = createProgram()
-        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+        const consoleSpy = captureConsole()
 
         await program.parseAsync(['node', 'tw', 'comment', 'view', '300', '--json'])
 
         const jsonOutput = JSON.parse(consoleSpy.mock.calls[0][0])
         expect(jsonOutput.id).toBe(300)
         expect(jsonOutput.content).toBe('Comment 300')
-        consoleSpy.mockRestore()
     })
 
     it('outputs NDJSON with --ndjson', async () => {
         const client = createClient()
         apiMocks.getTwistClient.mockResolvedValue(client)
         const program = createProgram()
-        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+        const consoleSpy = captureConsole()
 
         await program.parseAsync(['node', 'tw', 'comment', 'view', '300', '--ndjson'])
 
@@ -148,21 +145,19 @@ describe('comment view', () => {
         const parsed = JSON.parse(line)
         expect(parsed.id).toBe(300)
         expect(parsed.content).toBe('Comment 300')
-        consoleSpy.mockRestore()
     })
 
     it('includes creatorName in --json --full output', async () => {
         const client = createClient()
         apiMocks.getTwistClient.mockResolvedValue(client)
         const program = createProgram()
-        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+        const consoleSpy = captureConsole()
 
         await program.parseAsync(['node', 'tw', 'comment', 'view', '300', '--json', '--full'])
 
         const jsonOutput = JSON.parse(consoleSpy.mock.calls[0][0])
         expect(jsonOutput.id).toBe(300)
         expect(jsonOutput.creatorName).toBe('Bob')
-        consoleSpy.mockRestore()
     })
 })
 
@@ -175,7 +170,7 @@ describe('comment update', () => {
         const client = createClient()
         apiMocks.getTwistClient.mockResolvedValue(client)
         const program = createProgram()
-        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+        const consoleSpy = captureConsole()
 
         await program.parseAsync(['node', 'tw', 'comment', 'update', '300', 'Updated content'])
 
@@ -184,12 +179,11 @@ describe('comment update', () => {
             content: 'Updated content',
         })
         expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('Comment updated:'))
-        consoleSpy.mockRestore()
     })
 
     it('shows dry run output', async () => {
         const program = createProgram()
-        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+        const consoleSpy = captureConsole()
 
         await program.parseAsync([
             'node',
@@ -204,21 +198,19 @@ describe('comment update', () => {
         expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('Would update comment'))
         expect(consoleSpy).toHaveBeenCalledWith('  Comment: 300')
         expect(consoleSpy).toHaveBeenCalledWith('  Content: New content')
-        consoleSpy.mockRestore()
     })
 
     it('outputs JSON with --json', async () => {
         const client = createClient()
         apiMocks.getTwistClient.mockResolvedValue(client)
         const program = createProgram()
-        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+        const consoleSpy = captureConsole()
 
         await program.parseAsync(['node', 'tw', 'comment', 'update', '300', 'Updated', '--json'])
 
         const jsonOutput = JSON.parse(consoleSpy.mock.calls[0][0])
         expect(jsonOutput.id).toBe(300)
         expect(jsonOutput.content).toBe('Updated')
-        consoleSpy.mockRestore()
     })
 
     it('reads content from stdin', async () => {
@@ -226,7 +218,7 @@ describe('comment update', () => {
         const client = createClient()
         apiMocks.getTwistClient.mockResolvedValue(client)
         const program = createProgram()
-        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+        captureConsole()
 
         await program.parseAsync(['node', 'tw', 'comment', 'update', '300'])
 
@@ -234,18 +226,15 @@ describe('comment update', () => {
             id: 300,
             content: 'Content from stdin',
         })
-        consoleSpy.mockRestore()
     })
 
     it('errors when no content is provided', async () => {
         const program = createProgram()
-        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+        captureConsole()
 
         await expect(
             program.parseAsync(['node', 'tw', 'comment', 'update', '300']),
         ).rejects.toHaveProperty('code', 'MISSING_CONTENT')
-
-        consoleSpy.mockRestore()
     })
 })
 
@@ -258,20 +247,19 @@ describe('comment delete', () => {
         const client = createClient()
         apiMocks.getTwistClient.mockResolvedValue(client)
         const program = createProgram()
-        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+        const consoleSpy = captureConsole()
 
         await program.parseAsync(['node', 'tw', 'comment', 'delete', '300'])
 
         expect(client.comments.deleteComment).toHaveBeenCalledWith(300)
         expect(consoleSpy).toHaveBeenCalledWith('Comment 300 deleted.')
-        consoleSpy.mockRestore()
     })
 
     it('shows dry run output', async () => {
         const client = createClient()
         apiMocks.getTwistClient.mockResolvedValue(client)
         const program = createProgram()
-        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+        const consoleSpy = captureConsole()
 
         await program.parseAsync(['node', 'tw', 'comment', 'delete', '300', '--dry-run'])
 
@@ -279,7 +267,6 @@ describe('comment delete', () => {
         expect(consoleSpy).toHaveBeenCalledWith('  Comment: 300')
         expect(consoleSpy).toHaveBeenCalledWith('  Thread: 500')
         expect(client.comments.deleteComment).not.toHaveBeenCalled()
-        consoleSpy.mockRestore()
     })
 
     it('rejects non-creator with NOT_CREATOR in dry-run', async () => {
@@ -311,12 +298,11 @@ describe('comment delete', () => {
         const client = createClient()
         apiMocks.getTwistClient.mockResolvedValue(client)
         const program = createProgram()
-        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+        const consoleSpy = captureConsole()
 
         await program.parseAsync(['node', 'tw', 'comment', 'delete', '300', '--json'])
 
         const jsonOutput = JSON.parse(consoleSpy.mock.calls[0][0])
         expect(jsonOutput).toEqual({ id: 300, deleted: true })
-        consoleSpy.mockRestore()
     })
 })

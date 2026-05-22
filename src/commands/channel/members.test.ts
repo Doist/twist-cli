@@ -1,5 +1,6 @@
 import { Command } from 'commander'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { captureConsole } from '../../test-helpers/console.js'
 
 const mockBatch = vi.fn()
 const mockGetUserById = vi.fn()
@@ -86,7 +87,7 @@ describe('tw channel members (list)', () => {
 
     it('lists users and groups fully in channel', async () => {
         const program = createProgram()
-        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+        const consoleSpy = captureConsole()
 
         await program.parseAsync(['node', 'tw', 'channel', 'members', 'general'])
 
@@ -103,7 +104,7 @@ describe('tw channel members (list)', () => {
 
     it('outputs JSON with default shape', async () => {
         const program = createProgram()
-        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+        const consoleSpy = captureConsole()
 
         await program.parseAsync(['node', 'tw', 'channel', 'members', 'general', '--json'])
 
@@ -118,7 +119,7 @@ describe('tw channel members (list)', () => {
 
     it('batches one getUserById request per channel member', async () => {
         const program = createProgram()
-        vi.spyOn(console, 'log').mockImplementation(() => {})
+        captureConsole()
 
         await program.parseAsync(['node', 'tw', 'channel', 'members', 'general', '--json'])
 
@@ -139,7 +140,7 @@ describe('tw channel members (list)', () => {
 
     it('ndjson default shape matches json default shape', async () => {
         const program = createProgram()
-        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+        const consoleSpy = captureConsole()
 
         await program.parseAsync(['node', 'tw', 'channel', 'members', 'general', '--ndjson'])
 
@@ -154,7 +155,7 @@ describe('tw channel members (list)', () => {
 
     it('--full ndjson includes raw channel fields', async () => {
         const program = createProgram()
-        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+        const consoleSpy = captureConsole()
 
         await program.parseAsync([
             'node',

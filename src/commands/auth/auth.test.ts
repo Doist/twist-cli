@@ -1,5 +1,6 @@
 import { Command } from 'commander'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { captureConsole } from '../../test-helpers/console.js'
 
 // Mock the auth module (only the read-side shims are stubbed; the
 // write-side path now goes through `createTwistTokenStore` from
@@ -114,14 +115,8 @@ describe('auth command', () => {
     beforeEach(() => {
         vi.clearAllMocks()
 
-        // Mock console.log to capture output
-        consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
-        errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
-    })
-
-    afterEach(() => {
-        consoleSpy.mockRestore()
-        errorSpy.mockRestore()
+        consoleSpy = captureConsole()
+        errorSpy = captureConsole('error')
     })
 
     const STORED_ACCOUNT: TwistAccount = {

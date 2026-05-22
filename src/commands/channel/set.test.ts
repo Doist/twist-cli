@@ -1,5 +1,6 @@
 import { Command } from 'commander'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { captureConsole } from '../../test-helpers/console.js'
 
 const apiMocks = vi.hoisted(() => ({
     getCurrentWorkspaceId: vi.fn().mockResolvedValue(1),
@@ -59,7 +60,7 @@ describe('tw channel members set', () => {
             expandedFrom: [],
         })
         const program = createProgram()
-        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+        const consoleSpy = captureConsole()
 
         await program.parseAsync([
             'node',
@@ -86,7 +87,7 @@ describe('tw channel members set', () => {
             expandedFrom: [],
         })
         const program = createProgram()
-        vi.spyOn(console, 'log').mockImplementation(() => {})
+        captureConsole()
 
         await program.parseAsync([
             'node',
@@ -135,7 +136,7 @@ describe('tw channel members set', () => {
             expandedFrom: [],
         })
         const program = createProgram()
-        vi.spyOn(console, 'log').mockImplementation(() => {})
+        captureConsole()
 
         await program.parseAsync([
             'node',
@@ -161,7 +162,7 @@ describe('tw channel members set', () => {
             expandedFrom: [{ groupId: 200, groupName: 'Backend', userIds: [4] }],
         })
         const program = createProgram()
-        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+        const consoleSpy = captureConsole()
 
         await program.parseAsync([
             'node',

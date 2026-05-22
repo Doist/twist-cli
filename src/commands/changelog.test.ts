@@ -1,5 +1,6 @@
 import { Command } from 'commander'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { captureConsole } from '../test-helpers/console.js'
 
 vi.mock('node:fs/promises')
 
@@ -43,7 +44,7 @@ describe('changelog wrapper', () => {
     let logSpy: ReturnType<typeof vi.spyOn>
 
     beforeEach(() => {
-        logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+        logSpy = captureConsole()
     })
 
     afterEach(() => {

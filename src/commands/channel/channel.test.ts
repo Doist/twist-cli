@@ -1,6 +1,7 @@
 import { describeEmptyMachineOutput } from '@doist/cli-core/testing'
 import { Command } from 'commander'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { captureConsole } from '../../test-helpers/console.js'
 
 const apiMocks = vi.hoisted(() => ({
     getTwistClient: vi.fn(),
@@ -96,7 +97,7 @@ describe('channels list', () => {
             ],
         })
         apiMocks.getTwistClient.mockResolvedValue(client)
-        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+        const consoleSpy = captureConsole()
         const program = createProgram()
 
         await program.parseAsync(['node', 'tw', 'channels'])
@@ -109,8 +110,6 @@ describe('channels list', () => {
         expect(consoleSpy).toHaveBeenCalledTimes(1)
         expect(consoleSpy.mock.calls[0][0]).toContain('General')
         expect(consoleSpy.mock.calls[0][0]).not.toContain('Leadership')
-
-        consoleSpy.mockRestore()
     })
 
     it('also works via the singular channel command name', async () => {
@@ -118,7 +117,7 @@ describe('channels list', () => {
             joinedChannels: [createChannel(10, 'General')],
         })
         apiMocks.getTwistClient.mockResolvedValue(client)
-        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+        const consoleSpy = captureConsole()
         const program = createProgram()
 
         await program.parseAsync(['node', 'tw', 'channel'])
@@ -128,8 +127,6 @@ describe('channels list', () => {
             archived: false,
         })
         expect(consoleSpy.mock.calls[0][0]).toContain('General')
-
-        consoleSpy.mockRestore()
     })
 
     it('supports explicit channel list subcommand', async () => {
@@ -137,7 +134,7 @@ describe('channels list', () => {
             joinedChannels: [createChannel(10, 'General')],
         })
         apiMocks.getTwistClient.mockResolvedValue(client)
-        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+        captureConsole()
         const program = createProgram()
 
         await program.parseAsync(['node', 'tw', 'channel', 'list'])
@@ -146,8 +143,6 @@ describe('channels list', () => {
             workspaceId: 1,
             archived: false,
         })
-
-        consoleSpy.mockRestore()
     })
 
     it('includes joined private channels when --include-private-channels is enabled', async () => {
@@ -159,7 +154,7 @@ describe('channels list', () => {
             ],
         })
         apiMocks.getTwistClient.mockResolvedValue(client)
-        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+        const consoleSpy = captureConsole()
         const program = createProgram()
 
         await program.parseAsync(['node', 'tw', 'channels'])
@@ -171,8 +166,6 @@ describe('channels list', () => {
         })
         expect(consoleSpy.mock.calls[1][0]).toContain('Leadership')
         expect(consoleSpy.mock.calls[1][0]).toContain('[private]')
-
-        consoleSpy.mockRestore()
     })
 
     it('lists active public channels and marks whether they are joined', async () => {
@@ -188,7 +181,7 @@ describe('channels list', () => {
             ],
         })
         apiMocks.getTwistClient.mockResolvedValue(client)
-        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+        const consoleSpy = captureConsole()
         const program = createProgram()
 
         await program.parseAsync(['node', 'tw', 'channels', '--scope', 'public'])
@@ -201,8 +194,6 @@ describe('channels list', () => {
         expect(consoleSpy.mock.calls[1][0]).toContain('Marketing')
         expect(consoleSpy.mock.calls[1][0]).toContain('[not joined]')
         expect(consoleSpy.mock.calls[0][0]).not.toContain('Archive')
-
-        consoleSpy.mockRestore()
     })
 
     it('lists only discoverable channels in JSON mode', async () => {
@@ -211,7 +202,7 @@ describe('channels list', () => {
             publicChannels: [createChannel(10, 'General'), createChannel(30, 'Marketing')],
         })
         apiMocks.getTwistClient.mockResolvedValue(client)
-        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+        const consoleSpy = captureConsole()
         const program = createProgram()
 
         await program.parseAsync(['node', 'tw', 'channels', '--scope', 'discoverable', '--json'])
@@ -220,8 +211,6 @@ describe('channels list', () => {
         expect(jsonOutput).toEqual([
             { id: 30, name: 'Marketing', workspaceId: 1, archived: false, joined: false },
         ])
-
-        consoleSpy.mockRestore()
     })
 
     it('lists archived joined channels with --state archived', async () => {
@@ -229,7 +218,7 @@ describe('channels list', () => {
             joinedChannels: [createChannel(90, 'Old General', { archived: true })],
         })
         apiMocks.getTwistClient.mockResolvedValue(client)
-        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+        const consoleSpy = captureConsole()
         const program = createProgram()
 
         await program.parseAsync(['node', 'tw', 'channels', '--state', 'archived'])
@@ -238,8 +227,6 @@ describe('channels list', () => {
         expect(consoleSpy).toHaveBeenCalledTimes(1)
         expect(consoleSpy.mock.calls[0][0]).toContain('Old General')
         expect(consoleSpy.mock.calls[0][0]).toContain('(archived)')
-
-        consoleSpy.mockRestore()
     })
 
     it('lists all visible public channels with --scope public --state all', async () => {
@@ -251,7 +238,7 @@ describe('channels list', () => {
             ],
         })
         apiMocks.getTwistClient.mockResolvedValue(client)
-        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+        const consoleSpy = captureConsole()
         const program = createProgram()
 
         await program.parseAsync([
@@ -270,8 +257,6 @@ describe('channels list', () => {
             { id: 10, name: 'General', workspaceId: 1, archived: false, joined: true },
             { id: 40, name: 'Archive', workspaceId: 1, archived: true, joined: false },
         ])
-
-        consoleSpy.mockRestore()
     })
 
     it('includes archived state in joined JSON output without --full', async () => {
@@ -282,7 +267,7 @@ describe('channels list', () => {
             ],
         })
         apiMocks.getTwistClient.mockResolvedValue(client)
-        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+        const consoleSpy = captureConsole()
         const program = createProgram()
 
         await program.parseAsync(['node', 'tw', 'channels', '--state', 'all', '--json'])
@@ -292,8 +277,6 @@ describe('channels list', () => {
             { id: 10, name: 'General', workspaceId: 1, archived: false },
             { id: 40, name: 'Archive', workspaceId: 1, archived: true },
         ])
-
-        consoleSpy.mockRestore()
     })
 
     it('includes archived state in joined NDJSON output without --full', async () => {
@@ -304,7 +287,7 @@ describe('channels list', () => {
             ],
         })
         apiMocks.getTwistClient.mockResolvedValue(client)
-        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+        const consoleSpy = captureConsole()
         const program = createProgram()
 
         await program.parseAsync(['node', 'tw', 'channels', '--state', 'all', '--ndjson'])
@@ -316,8 +299,6 @@ describe('channels list', () => {
             { id: 10, name: 'General', workspaceId: 1, archived: false },
             { id: 40, name: 'Archive', workspaceId: 1, archived: true },
         ])
-
-        consoleSpy.mockRestore()
     })
 
     it('includes joined metadata in full JSON for public scope', async () => {
@@ -326,7 +307,7 @@ describe('channels list', () => {
             publicChannels: [createChannel(10, 'General', { description: 'Everyone' })],
         })
         apiMocks.getTwistClient.mockResolvedValue(client)
-        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+        const consoleSpy = captureConsole()
         const program = createProgram()
 
         await program.parseAsync([
@@ -346,8 +327,6 @@ describe('channels list', () => {
             description: 'Everyone',
             joined: true,
         })
-
-        consoleSpy.mockRestore()
     })
 
     describeEmptyMachineOutput('empty machine output contract', {
@@ -371,14 +350,12 @@ describe('channels list', () => {
             ],
         })
         apiMocks.getTwistClient.mockResolvedValue(client)
-        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+        const consoleSpy = captureConsole()
         const program = createProgram()
 
         await program.parseAsync(['node', 'tw', 'channels', '--scope', 'discoverable'])
 
         expect(consoleSpy).toHaveBeenCalledWith('No active discoverable channels found.')
-
-        consoleSpy.mockRestore()
     })
 
     it('rejects invalid scope values', async () => {

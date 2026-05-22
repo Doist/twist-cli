@@ -1,6 +1,7 @@
 import { readFile } from 'node:fs/promises'
 import { Command } from 'commander'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { captureConsole } from '../test-helpers/console.js'
 
 vi.mock('chalk')
 
@@ -70,7 +71,7 @@ describe('doctor command', () => {
     let originalProcessVersion: PropertyDescriptor | undefined
 
     beforeEach(() => {
-        consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+        consoleSpy = captureConsole()
         vi.clearAllMocks()
         vi.unstubAllGlobals()
         process.exitCode = undefined
@@ -99,7 +100,6 @@ describe('doctor command', () => {
     })
 
     afterEach(() => {
-        consoleSpy.mockRestore()
         process.exitCode = undefined
         if (originalProcessVersion) {
             Object.defineProperty(process, 'version', originalProcessVersion)

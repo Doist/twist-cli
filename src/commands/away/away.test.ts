@@ -1,6 +1,7 @@
 import { TwistRequestError } from '@doist/twist-sdk'
 import { Command } from 'commander'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { captureConsole } from '../../test-helpers/console.js'
 
 const apiMocks = vi.hoisted(() => ({
     getSessionUser: vi.fn(),
@@ -45,13 +46,12 @@ describe('away', () => {
                 name: 'Test User',
                 awayMode: null,
             })
-            const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+            const logSpy = captureConsole()
             const program = createProgram()
 
             await program.parseAsync(['node', 'tw', 'away'])
 
             expect(logSpy).toHaveBeenCalledWith('Not away.')
-            logSpy.mockRestore()
         })
 
         it('shows away status when set', async () => {
@@ -60,19 +60,18 @@ describe('away', () => {
                 name: 'Test User',
                 awayMode: { type: 'vacation', dateFrom: '2026-03-10', dateTo: '2026-03-20' },
             })
-            const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+            const logSpy = captureConsole()
             const program = createProgram()
 
             await program.parseAsync(['node', 'tw', 'away'])
 
             expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('Vacation'))
-            logSpy.mockRestore()
         })
     })
 
     describe('set', () => {
         it('calls users.update with awayMode', async () => {
-            const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+            captureConsole()
             const program = createProgram()
 
             await program.parseAsync(['node', 'tw', 'away', 'set', 'vacation', '2026-03-20'])
@@ -85,11 +84,10 @@ describe('away', () => {
                     }),
                 }),
             )
-            logSpy.mockRestore()
         })
 
         it('supports --from flag', async () => {
-            const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+            captureConsole()
             const program = createProgram()
 
             await program.parseAsync([
@@ -106,11 +104,10 @@ describe('away', () => {
             expect(apiMocks.updateUser).toHaveBeenCalledWith({
                 awayMode: { type: 'vacation', dateFrom: '2026-03-15', dateTo: '2026-03-20' },
             })
-            logSpy.mockRestore()
         })
 
         it('shows dry-run message', async () => {
-            const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+            const logSpy = captureConsole()
             const program = createProgram()
 
             await program.parseAsync([
@@ -125,7 +122,6 @@ describe('away', () => {
 
             expect(apiMocks.updateUser).not.toHaveBeenCalled()
             expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('Would set away status'))
-            logSpy.mockRestore()
         })
 
         it('propagates insufficient scope errors (handled globally by API proxy)', async () => {
@@ -152,25 +148,23 @@ describe('away', () => {
 
     describe('clear', () => {
         it('calls users.update with empty string awayMode to clear', async () => {
-            const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+            const logSpy = captureConsole()
             const program = createProgram()
 
             await program.parseAsync(['node', 'tw', 'away', 'clear'])
 
             expect(apiMocks.updateUser).toHaveBeenCalledWith({ awayMode: '' })
             expect(logSpy).toHaveBeenCalledWith('Away status cleared.')
-            logSpy.mockRestore()
         })
 
         it('shows dry-run message', async () => {
-            const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+            const logSpy = captureConsole()
             const program = createProgram()
 
             await program.parseAsync(['node', 'tw', 'away', 'clear', '--dry-run'])
 
             expect(apiMocks.updateUser).not.toHaveBeenCalled()
             expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('Would clear away status'))
-            logSpy.mockRestore()
         })
     })
 })
