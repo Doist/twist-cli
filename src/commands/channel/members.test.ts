@@ -262,15 +262,7 @@ describe('tw channel remove', () => {
         const program = createProgram()
         vi.spyOn(console, 'log').mockImplementation(() => {})
 
-        await program.parseAsync([
-            'node',
-            'tw',
-            'channel',
-            'remove',
-            'general',
-            'id:99',
-            'id:100',
-        ])
+        await program.parseAsync(['node', 'tw', 'channel', 'remove', 'general', 'id:99', 'id:100'])
 
         expect(apiMocks.removeUsersFromChannel).not.toHaveBeenCalled()
     })
@@ -285,7 +277,16 @@ describe('tw channel sync', () => {
         const program = createProgram()
         const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
 
-        await program.parseAsync(['node', 'tw', 'channel', 'sync', 'general', 'id:1', 'id:4', 'id:5'])
+        await program.parseAsync([
+            'node',
+            'tw',
+            'channel',
+            'sync',
+            'general',
+            'id:1',
+            'id:4',
+            'id:5',
+        ])
 
         expect(apiMocks.addUsersToChannel).not.toHaveBeenCalled()
         expect(apiMocks.removeUsersFromChannel).not.toHaveBeenCalled()

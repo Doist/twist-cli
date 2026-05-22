@@ -269,12 +269,15 @@ export async function syncChannelMembers(
         throw new CliError(
             'INVALID_VALUE',
             `Sync would remove you (id:${selfId}) from "${channel.name}".`,
-            ['Pass --include-self to allow removing yourself, or include yourself in the ref list.'],
+            [
+                'Pass --include-self to allow removing yourself, or include yourself in the ref list.',
+            ],
         )
     }
-    const toRemove = wouldRemoveSelf && !options.includeSelf
-        ? toRemoveAll.filter((id) => id !== selfId)
-        : toRemoveAll
+    const toRemove =
+        wouldRemoveSelf && !options.includeSelf
+            ? toRemoveAll.filter((id) => id !== selfId)
+            : toRemoveAll
 
     const isDryRun = options.dryRun || !options.apply
 

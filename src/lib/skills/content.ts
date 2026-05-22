@@ -221,6 +221,14 @@ tw channel threads <ref> --since 2026-01-01 # Filter by last-updated date (ISO)
 tw channel threads <ref> --limit 20         # Max threads per page (default: 50)
 tw channel threads <ref> --limit 20 --cursor <cursor-from-prev> # Paginate
 tw channel threads <ref> --json  # { results, nextCursor } with isUnread + url
+tw channel members <channel-ref>            # List members + groups whose membership ⊆ channel
+tw channel members <ref> --json             # JSON with id, name, members, groupsFullyInChannel
+tw channel add <channel-ref> <ref...>       # Add users and/or group:<ref> (group expansion is one-shot)
+tw channel add <ref> alice group:Frontend   # Mix of user refs and group: prefix
+tw channel add <ref> id:123 --dry-run       # Preview the diff
+tw channel remove <channel-ref> <ref...>    # Remove users and/or group:<ref>
+tw channel sync <channel-ref> <ref...>      # Replace membership; dry-run by default
+tw channel sync <ref> group:Squad --apply   # Mutate. Refuses to remove self unless --include-self
 tw groups                        # List workspace groups
 tw groups --search "frontend"    # Filter groups by name (case-insensitive)
 tw groups --json                 # JSON output
@@ -245,6 +253,8 @@ tw groups remove-user <ref> id:123,id:456      # Comma-separated ID refs
 If a channel is not found in \`tw channels\`, widen with broader listings such as \`tw channels --scope public\`, then \`tw channels --scope public --state all\`. Check \`tw channels --help\` for other available filters.
 
 \`tw channel threads\` returns every thread in the channel; pagination filters (\`--limit\`, \`--cursor\`, \`--since\`, \`--until\`, \`--unread\`) are applied client-side after fetch. \`--archive-filter\` is applied server-side. Results are sorted newest-first by last activity. In \`--json\` / \`--ndjson\`, the response includes a \`nextCursor\` string (opaque) you can pass via \`--cursor\` to fetch the next page; NDJSON emits the cursor as a final \`{ "_meta": true, "nextCursor": "..." }\` line.
+
+\`tw channel add\`, \`remove\`, and \`sync\` accept user refs (id:N, email, name) and \`group:<ref>\` mixed in any order. Groups are expanded to their current users at call time — the group is **not** persistently linked to the channel, so users added later to the group will not auto-join. \`sync\` is dry-run by default; pass \`--apply\` to mutate and \`--include-self\` to allow the diff to remove the acting user. \`tw channel members\` shows the user list plus a "groups fully in channel" hint — groups whose entire membership is currently present in the channel.
 
 ## Away Status
 
