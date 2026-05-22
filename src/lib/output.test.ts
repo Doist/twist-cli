@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { captureConsole } from '../test-helpers/console.js'
 import { BaseCliError } from './errors.js'
 import { isAccessible, resetGlobalArgs } from './global-args.js'
 import { formatError, formatErrorJson, printDryRun, printEmpty } from './output.js'
@@ -44,19 +45,17 @@ describe('isAccessible', () => {
 
 describe('printDryRun', () => {
     it('prints header, details, and footer', () => {
-        const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+        const logSpy = captureConsole()
 
         printDryRun('delete thread', { Thread: 'My thread (500)' })
 
         expect(logSpy).toHaveBeenNthCalledWith(1, '[dry-run] Would delete thread:')
         expect(logSpy).toHaveBeenNthCalledWith(2, '  Thread: My thread (500)')
         expect(logSpy).toHaveBeenNthCalledWith(3, 'Run without --dry-run to execute.')
-
-        logSpy.mockRestore()
     })
 
     it('skips undefined values', () => {
-        const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+        const logSpy = captureConsole()
 
         printDryRun('mute thread', {
             Thread: 'My thread (500)',
@@ -68,12 +67,10 @@ describe('printDryRun', () => {
         expect(calls).toContain('  Thread: My thread (500)')
         expect(calls).toContain('  Duration: 60 minutes')
         expect(calls.some((line) => String(line).includes('Notes'))).toBe(false)
-
-        logSpy.mockRestore()
     })
 
     it('indents continuation lines for multiline values', () => {
-        const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+        const logSpy = captureConsole()
 
         printDryRun('update thread', {
             Content: 'First line\nSecond line\nThird line',
@@ -84,19 +81,15 @@ describe('printDryRun', () => {
         expect(logSpy).toHaveBeenNthCalledWith(3, '    Second line')
         expect(logSpy).toHaveBeenNthCalledWith(4, '    Third line')
         expect(logSpy).toHaveBeenNthCalledWith(5, 'Run without --dry-run to execute.')
-
-        logSpy.mockRestore()
     })
 
     it('works without details', () => {
-        const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+        const logSpy = captureConsole()
 
         printDryRun('clear away status')
 
         expect(logSpy).toHaveBeenCalledWith('[dry-run] Would clear away status:')
         expect(logSpy).toHaveBeenCalledWith('Run without --dry-run to execute.')
-
-        logSpy.mockRestore()
     })
 })
 
@@ -104,11 +97,7 @@ describe('printEmpty', () => {
     let logSpy: ReturnType<typeof vi.spyOn>
 
     beforeEach(() => {
-        logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
-    })
-
-    afterEach(() => {
-        logSpy.mockRestore()
+        logSpy = captureConsole()
     })
 
     it('prints "[]" for --json', () => {

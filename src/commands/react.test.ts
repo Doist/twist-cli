@@ -1,5 +1,6 @@
-import { Command } from 'commander'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { captureConsole } from '../test-helpers/console.js'
+import { createTestProgram } from '../test-helpers/program.js'
 
 const apiMocks = vi.hoisted(() => ({
     getTwistClient: vi.fn(),
@@ -13,12 +14,7 @@ vi.mock('../lib/api.js', () => ({
 
 import { registerReactCommand } from './react.js'
 
-function createProgram() {
-    const program = new Command()
-    program.exitOverride()
-    registerReactCommand(program)
-    return program
-}
+const createProgram = () => createTestProgram(registerReactCommand)
 
 describe('react refs', () => {
     beforeEach(() => {
@@ -35,7 +31,7 @@ describe('react refs', () => {
 
     it('accepts thread URLs for react', async () => {
         const program = createProgram()
-        const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+        captureConsole()
 
         await program.parseAsync([
             'node',
@@ -47,12 +43,11 @@ describe('react refs', () => {
         ])
 
         expect(apiMocks.addReaction).toHaveBeenCalledWith({ threadId: 99, reaction: '👍' })
-        logSpy.mockRestore()
     })
 
     it('accepts message URLs for unreact', async () => {
         const program = createProgram()
-        const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+        captureConsole()
 
         await program.parseAsync([
             'node',
@@ -64,12 +59,11 @@ describe('react refs', () => {
         ])
 
         expect(apiMocks.removeReaction).toHaveBeenCalledWith({ messageId: 44, reaction: '❤️' })
-        logSpy.mockRestore()
     })
 
     it('outputs JSON for react --json', async () => {
         const program = createProgram()
-        const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+        const logSpy = captureConsole()
 
         await program.parseAsync(['node', 'tw', 'react', 'thread', '99', '+1', '--json'])
 
@@ -81,12 +75,11 @@ describe('react refs', () => {
             emoji: '👍',
             action: 'added',
         })
-        logSpy.mockRestore()
     })
 
     it('outputs JSON for unreact --json', async () => {
         const program = createProgram()
-        const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+        const logSpy = captureConsole()
 
         await program.parseAsync(['node', 'tw', 'unreact', 'comment', '42', 'heart', '--json'])
 
@@ -98,12 +91,11 @@ describe('react refs', () => {
             emoji: '❤️',
             action: 'removed',
         })
-        logSpy.mockRestore()
     })
 
     it('outputs JSON for react --json --dry-run without calling API', async () => {
         const program = createProgram()
-        const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+        const logSpy = captureConsole()
 
         await program.parseAsync([
             'node',
@@ -125,6 +117,5 @@ describe('react refs', () => {
             action: 'added',
             dryRun: true,
         })
-        logSpy.mockRestore()
     })
 })

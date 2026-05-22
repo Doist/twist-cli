@@ -1,6 +1,7 @@
 import { describeEmptyMachineOutput } from '@doist/cli-core/testing'
-import { Command } from 'commander'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { captureConsole } from '../test-helpers/console.js'
+import { createTestProgram } from '../test-helpers/program.js'
 
 const apiMocks = vi.hoisted(() => ({
     getTwistClient: vi.fn(),
@@ -29,12 +30,7 @@ vi.mock('chalk')
 
 import { registerInboxCommand } from './inbox.js'
 
-function createProgram() {
-    const program = new Command()
-    program.exitOverride()
-    registerInboxCommand(program)
-    return program
-}
+const createProgram = () => createTestProgram(registerInboxCommand)
 
 describe('inbox --workspace conflict', () => {
     beforeEach(() => {
@@ -169,7 +165,7 @@ describe('inbox empty output (channel filter)', () => {
             channels: { getChannel: vi.fn() },
             batch: mockBatch,
         })
-        logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+        logSpy = captureConsole()
     })
 
     it('outputs [] for --json when --channel filter matches nothing', async () => {
@@ -242,7 +238,7 @@ describe('inbox batch errors', () => {
             channels: { getChannel: vi.fn() },
             batch: mockBatch,
         })
-        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+        const consoleSpy = captureConsole()
         const program = createProgram()
 
         await program.parseAsync(['node', 'tw', 'inbox', '--json'])
@@ -250,7 +246,5 @@ describe('inbox batch errors', () => {
         const output = JSON.parse(consoleSpy.mock.calls[0][0])
         expect(output).toHaveLength(1)
         expect(output[0]).toMatchObject({ id: 1, isUnread: false })
-
-        consoleSpy.mockRestore()
     })
 })

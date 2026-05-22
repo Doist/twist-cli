@@ -1,5 +1,6 @@
 import { Command } from 'commander'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { createTestProgram } from '../test-helpers/program.js'
 
 vi.mock('./thread/index.js', () => ({
     registerThreadCommand: (program: Command) => {
@@ -30,12 +31,7 @@ vi.mock('./msg/index.js', () => ({
 
 import { registerViewCommand } from './view.js'
 
-function createProgram() {
-    const program = new Command()
-    program.exitOverride()
-    registerViewCommand(program)
-    return program
-}
+const createProgram = () => createTestProgram(registerViewCommand)
 
 describe('tw view <url> routing', () => {
     beforeEach(() => {

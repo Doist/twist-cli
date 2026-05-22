@@ -1,6 +1,7 @@
 import { describeEmptyMachineOutput } from '@doist/cli-core/testing'
-import { Command } from 'commander'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { captureConsole } from '../test-helpers/console.js'
+import { createTestProgram } from '../test-helpers/program.js'
 
 const apiMocks = vi.hoisted(() => ({
     getCurrentWorkspaceId: vi.fn().mockResolvedValue(1),
@@ -22,12 +23,7 @@ vi.mock('chalk')
 
 import { registerUserCommand } from './user.js'
 
-function createProgram() {
-    const program = new Command()
-    program.exitOverride()
-    registerUserCommand(program)
-    return program
-}
+const createProgram = () => createTestProgram(registerUserCommand)
 
 describe('users --workspace conflict', () => {
     beforeEach(() => {
@@ -76,7 +72,7 @@ describe('user --json', () => {
 
     it('outputs essential user fields as JSON', async () => {
         const program = createProgram()
-        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+        const consoleSpy = captureConsole()
 
         await program.parseAsync(['node', 'tw', 'user', '--json'])
 
@@ -88,13 +84,11 @@ describe('user --json', () => {
         expect(jsonOutput.timezone).toBe('America/New_York')
         expect(jsonOutput).not.toHaveProperty('lang')
         expect(jsonOutput).not.toHaveProperty('shortName')
-
-        consoleSpy.mockRestore()
     })
 
     it('outputs full user fields with --full', async () => {
         const program = createProgram()
-        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+        const consoleSpy = captureConsole()
 
         await program.parseAsync(['node', 'tw', 'user', '--json', '--full'])
 
@@ -103,7 +97,5 @@ describe('user --json', () => {
         expect(jsonOutput).toHaveProperty('lang', 'en')
         expect(jsonOutput).toHaveProperty('shortName', 'Jane')
         expect(jsonOutput).toHaveProperty('defaultWorkspace', 1)
-
-        consoleSpy.mockRestore()
     })
 })

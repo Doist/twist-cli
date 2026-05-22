@@ -1,5 +1,6 @@
-import { Command } from 'commander'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { captureConsole } from '../test-helpers/console.js'
+import { createTestProgram } from '../test-helpers/program.js'
 
 const refsMocks = vi.hoisted(() => ({
     resolveWorkspaceRef: vi.fn(),
@@ -33,12 +34,7 @@ vi.mock('chalk')
 
 import { registerSearchCommand } from './search.js'
 
-function createProgram() {
-    const program = new Command()
-    program.exitOverride()
-    registerSearchCommand(program)
-    return program
-}
+const createProgram = () => createTestProgram(registerSearchCommand)
 
 describe('search --workspace conflict', () => {
     beforeEach(() => {
@@ -72,7 +68,7 @@ describe('search --workspace conflict', () => {
         })
 
         const program = createProgram()
-        const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+        captureConsole()
         await program.parseAsync([
             'node',
             'tw',
@@ -90,8 +86,6 @@ describe('search --workspace conflict', () => {
                 conversationIds: [30, 40],
             }),
         )
-
-        logSpy.mockRestore()
     })
 
     it('fetches every page when --all is set', async () => {
@@ -109,7 +103,7 @@ describe('search --workspace conflict', () => {
             })
 
         const program = createProgram()
-        const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+        captureConsole()
 
         await program.parseAsync(['node', 'tw', 'search', 'query', '--all'])
 
@@ -127,7 +121,5 @@ describe('search --workspace conflict', () => {
                 cursor: 'cursor-1',
             }),
         )
-
-        logSpy.mockRestore()
     })
 })

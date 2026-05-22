@@ -1,5 +1,6 @@
-import { Command } from 'commander'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { captureConsole } from '../test-helpers/console.js'
+import { createTestProgram } from '../test-helpers/program.js'
 
 const refsMocks = vi.hoisted(() => ({
     resolveWorkspaceRef: vi.fn(),
@@ -33,12 +34,7 @@ vi.mock('chalk')
 
 import { registerMentionsCommand } from './mentions.js'
 
-function createProgram() {
-    const program = new Command()
-    program.exitOverride()
-    registerMentionsCommand(program)
-    return program
-}
+const createProgram = () => createTestProgram(registerMentionsCommand)
 
 describe('mentions', () => {
     beforeEach(() => {
@@ -61,7 +57,7 @@ describe('mentions', () => {
 
     it('searches using mentionSelf without a query', async () => {
         const program = createProgram()
-        const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+        captureConsole()
 
         await program.parseAsync(['node', 'tw', 'mentions'])
 
@@ -73,8 +69,6 @@ describe('mentions', () => {
                 title: undefined,
             }),
         )
-
-        logSpy.mockRestore()
     })
 
     it('fetches every page when --all is set', async () => {
@@ -92,7 +86,7 @@ describe('mentions', () => {
             })
 
         const program = createProgram()
-        const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+        captureConsole()
 
         await program.parseAsync(['node', 'tw', 'mentions', '--all'])
 
@@ -110,13 +104,11 @@ describe('mentions', () => {
                 cursor: 'cursor-1',
             }),
         )
-
-        logSpy.mockRestore()
     })
 
     it('emits an empty JSON payload when no mentions match', async () => {
         const program = createProgram()
-        const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+        const logSpy = captureConsole()
 
         await program.parseAsync(['node', 'tw', 'mentions', '--json'])
 
@@ -125,13 +117,11 @@ describe('mentions', () => {
             results: [],
             nextCursor: null,
         })
-
-        logSpy.mockRestore()
     })
 
     it('emits NDJSON metadata when no mentions match', async () => {
         const program = createProgram()
-        const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+        const logSpy = captureConsole()
 
         await program.parseAsync(['node', 'tw', 'mentions', '--ndjson'])
 
@@ -140,7 +130,5 @@ describe('mentions', () => {
             _meta: true,
             nextCursor: null,
         })
-
-        logSpy.mockRestore()
     })
 })

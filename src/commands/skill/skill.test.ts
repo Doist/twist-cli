@@ -1,8 +1,9 @@
 import { mkdir, readFile, rm, stat } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { Command } from 'commander'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { captureConsole } from '../../test-helpers/console.js'
+import { createTestProgram } from '../../test-helpers/program.js'
 
 vi.mock('chalk')
 
@@ -20,12 +21,7 @@ const packageJson = JSON.parse(
     await readFile(new URL('../../../package.json', import.meta.url), 'utf-8'),
 ) as { version: string }
 
-function createProgram() {
-    const program = new Command()
-    program.exitOverride()
-    registerSkillCommand(program)
-    return program
-}
+const createProgram = () => createTestProgram(registerSkillCommand)
 
 describe('skill registry', () => {
     it('returns claude-code installer', () => {
@@ -230,14 +226,13 @@ describe('listAgents', () => {
 
 describe('skill command', () => {
     let consoleSpy: ReturnType<typeof vi.spyOn>
-    let consoleErrorSpy: ReturnType<typeof vi.spyOn>
     let testDir: string
     const originalCwd = process.cwd()
 
     beforeEach(async () => {
         vi.clearAllMocks()
-        consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
-        consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+        consoleSpy = captureConsole()
+        captureConsole('error')
 
         testDir = join(tmpdir(), `twist-cli-test-${Date.now()}`)
         await mkdir(testDir, { recursive: true })
@@ -245,8 +240,6 @@ describe('skill command', () => {
     })
 
     afterEach(async () => {
-        consoleSpy.mockRestore()
-        consoleErrorSpy.mockRestore()
         process.chdir(originalCwd)
         await rm(testDir, { recursive: true, force: true })
     })

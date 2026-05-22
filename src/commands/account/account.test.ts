@@ -1,5 +1,6 @@
-import { Command } from 'commander'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { captureConsole } from '../../test-helpers/console.js'
+import { createTestProgram } from '../../test-helpers/program.js'
 
 const storeMocks = vi.hoisted(() => ({
     set: vi.fn(),
@@ -31,12 +32,7 @@ import { type TwistAccount } from '../../lib/auth-provider.js'
 import { TOKEN_ENV_VAR } from '../../lib/auth.js'
 import { registerAccountCommand } from './index.js'
 
-function createProgram() {
-    const program = new Command()
-    program.exitOverride()
-    registerAccountCommand(program)
-    return program
-}
+const createProgram = () => createTestProgram(registerAccountCommand)
 
 /** Seed `store.list()` and `store.setDefault/clear` resolvers in one call. */
 function seedStore(...records: Array<TwistAccount | [TwistAccount, 'default']>): void {
@@ -63,13 +59,11 @@ describe('account command', () => {
     beforeEach(() => {
         vi.clearAllMocks()
         legacyMocks.isLegacyAuthActive.mockResolvedValue(false)
-        consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
-        errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+        consoleSpy = captureConsole()
+        errorSpy = captureConsole('error')
     })
 
     afterEach(() => {
-        consoleSpy.mockRestore()
-        errorSpy.mockRestore()
         vi.unstubAllEnvs()
     })
 

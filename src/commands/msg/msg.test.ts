@@ -1,5 +1,6 @@
-import { Command } from 'commander'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { captureConsole } from '../../test-helpers/console.js'
+import { createTestProgram } from '../../test-helpers/program.js'
 
 const apiMocks = vi.hoisted(() => ({
     getTwistClient: vi.fn(),
@@ -72,12 +73,7 @@ function createClient({ messageCreator = 1, sessionUserId = 1 } = {}) {
     }
 }
 
-function createProgram() {
-    const program = new Command()
-    program.exitOverride()
-    registerMsgCommand(program)
-    return program
-}
+const createProgram = () => createTestProgram(registerMsgCommand)
 
 describe('msg implicit view', () => {
     beforeEach(() => {
@@ -87,13 +83,11 @@ describe('msg implicit view', () => {
 
     it('tw msg <ref> routes to view (not unknown command)', async () => {
         const program = createProgram()
-        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+        captureConsole()
 
         await expect(program.parseAsync(['node', 'tw', 'msg', '200'])).rejects.toThrow(
             'MOCK_API_REACHED',
         )
-
-        consoleSpy.mockRestore()
     })
 })
 
@@ -106,20 +100,19 @@ describe('msg delete', () => {
         const client = createClient()
         apiMocks.getTwistClient.mockResolvedValue(client)
         const program = createProgram()
-        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+        const consoleSpy = captureConsole()
 
         await program.parseAsync(['node', 'tw', 'msg', 'delete', '200'])
 
         expect(client.conversationMessages.deleteMessage).toHaveBeenCalledWith(200)
         expect(consoleSpy).toHaveBeenCalledWith('Message 200 deleted.')
-        consoleSpy.mockRestore()
     })
 
     it('shows dry run output', async () => {
         const client = createClient()
         apiMocks.getTwistClient.mockResolvedValue(client)
         const program = createProgram()
-        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+        const consoleSpy = captureConsole()
 
         await program.parseAsync(['node', 'tw', 'msg', 'delete', '200', '--dry-run'])
 
@@ -127,7 +120,6 @@ describe('msg delete', () => {
         expect(consoleSpy).toHaveBeenCalledWith('  Message: 200')
         expect(consoleSpy).toHaveBeenCalledWith('  Conversation: 42')
         expect(client.conversationMessages.deleteMessage).not.toHaveBeenCalled()
-        consoleSpy.mockRestore()
     })
 
     it('rejects non-creator with NOT_CREATOR in dry-run', async () => {
@@ -145,12 +137,11 @@ describe('msg delete', () => {
         const client = createClient()
         apiMocks.getTwistClient.mockResolvedValue(client)
         const program = createProgram()
-        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+        const consoleSpy = captureConsole()
 
         await program.parseAsync(['node', 'tw', 'msg', 'delete', '200', '--json'])
 
         const jsonOutput = JSON.parse(consoleSpy.mock.calls[0][0])
         expect(jsonOutput).toEqual({ id: 200, deleted: true })
-        consoleSpy.mockRestore()
     })
 })

@@ -1,6 +1,7 @@
 import { describeEmptyMachineOutput } from '@doist/cli-core/testing'
-import { Command } from 'commander'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { captureConsole } from '../../test-helpers/console.js'
+import { createTestProgram } from '../../test-helpers/program.js'
 
 const mockBatch = vi.fn()
 const mockGetUserById = vi.fn()
@@ -32,12 +33,7 @@ vi.mock('chalk')
 
 import { registerGroupsCommand } from './index.js'
 
-function createProgram() {
-    const program = new Command()
-    program.exitOverride()
-    registerGroupsCommand(program)
-    return program
-}
+const createProgram = () => createTestProgram(registerGroupsCommand)
 
 const sampleGroups = [
     {
@@ -88,7 +84,7 @@ describeEmptyMachineOutput('tw groups list empty output', {
 describe('tw groups list (default)', () => {
     it('lists all groups', async () => {
         const program = createProgram()
-        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+        const consoleSpy = captureConsole()
 
         await program.parseAsync(['node', 'tw', 'groups'])
 
@@ -98,7 +94,7 @@ describe('tw groups list (default)', () => {
 
     it('outputs JSON', async () => {
         const program = createProgram()
-        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+        const consoleSpy = captureConsole()
 
         await program.parseAsync(['node', 'tw', 'groups', '--json'])
 
@@ -109,7 +105,7 @@ describe('tw groups list (default)', () => {
 
     it('still works with explicit list subcommand', async () => {
         const program = createProgram()
-        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+        const consoleSpy = captureConsole()
 
         await program.parseAsync(['node', 'tw', 'groups', 'list'])
 
@@ -118,7 +114,7 @@ describe('tw groups list (default)', () => {
 
     it('filters groups with --search', async () => {
         const program = createProgram()
-        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+        const consoleSpy = captureConsole()
 
         await program.parseAsync(['node', 'tw', 'groups', '--search', 'front'])
 
@@ -129,7 +125,7 @@ describe('tw groups list (default)', () => {
     it('shows empty message when no groups match', async () => {
         apiMocks.getWorkspaceGroups.mockResolvedValue([])
         const program = createProgram()
-        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+        const consoleSpy = captureConsole()
 
         await program.parseAsync(['node', 'tw', 'groups'])
 
@@ -139,7 +135,7 @@ describe('tw groups list (default)', () => {
 
     it('outputs NDJSON', async () => {
         const program = createProgram()
-        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+        const consoleSpy = captureConsole()
 
         await program.parseAsync(['node', 'tw', 'groups', '--ndjson'])
 
@@ -152,7 +148,7 @@ describe('tw groups list (default)', () => {
 
     it('includes all fields with --json --full', async () => {
         const program = createProgram()
-        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+        const consoleSpy = captureConsole()
 
         await program.parseAsync(['node', 'tw', 'groups', '--json', '--full'])
 
@@ -164,7 +160,7 @@ describe('tw groups list (default)', () => {
     it('accepts [workspace-ref] positional argument', async () => {
         refsMocks.resolveWorkspaceRef.mockResolvedValue({ id: 1, name: 'Test' })
         const program = createProgram()
-        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+        const consoleSpy = captureConsole()
 
         await program.parseAsync(['node', 'tw', 'groups', 'list', '1'])
 
@@ -187,7 +183,7 @@ describe('tw groups view', () => {
 
     it('resolves group ref and batch-fetches only group members', async () => {
         const program = createProgram()
-        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+        const consoleSpy = captureConsole()
 
         await program.parseAsync(['node', 'tw', 'groups', 'view', 'Frontend'])
 
@@ -202,7 +198,7 @@ describe('tw groups view', () => {
 
     it('outputs JSON with enriched members (default shape)', async () => {
         const program = createProgram()
-        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+        const consoleSpy = captureConsole()
 
         await program.parseAsync(['node', 'tw', 'groups', 'view', 'id:100', '--json'])
 
@@ -218,7 +214,7 @@ describe('tw groups view', () => {
 
     it('outputs JSON with all fields when --full', async () => {
         const program = createProgram()
-        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+        const consoleSpy = captureConsole()
 
         await program.parseAsync(['node', 'tw', 'groups', 'view', 'id:100', '--json', '--full'])
 
@@ -237,7 +233,7 @@ describe('tw groups create', () => {
 
     it('creates a group without users', async () => {
         const program = createProgram()
-        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+        const consoleSpy = captureConsole()
 
         await program.parseAsync(['node', 'tw', 'groups', 'create', 'Design'])
 
@@ -252,7 +248,7 @@ describe('tw groups create', () => {
     it('resolves --users and passes ids to createGroup', async () => {
         refsMocks.resolveUserRefs.mockResolvedValue([10, 20])
         const program = createProgram()
-        vi.spyOn(console, 'log').mockImplementation(() => {})
+        captureConsole()
 
         await program.parseAsync([
             'node',
@@ -288,7 +284,7 @@ describe('tw groups rename', () => {
 
     it('renames an existing group', async () => {
         const program = createProgram()
-        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+        const consoleSpy = captureConsole()
 
         await program.parseAsync(['node', 'tw', 'groups', 'rename', 'Frontend', 'FE Team'])
 
@@ -304,7 +300,7 @@ describe('tw groups delete', () => {
 
     it('refuses to delete without --yes', async () => {
         const program = createProgram()
-        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+        const consoleSpy = captureConsole()
 
         await program.parseAsync(['node', 'tw', 'groups', 'delete', 'Frontend'])
 
@@ -314,7 +310,7 @@ describe('tw groups delete', () => {
 
     it('deletes when --yes is passed', async () => {
         const program = createProgram()
-        vi.spyOn(console, 'log').mockImplementation(() => {})
+        captureConsole()
 
         await program.parseAsync(['node', 'tw', 'groups', 'delete', 'Frontend', '--yes'])
 
@@ -337,7 +333,7 @@ describe('tw groups add-user', () => {
     it('joins variadic refs and resolves them', async () => {
         refsMocks.resolveUserRefs.mockResolvedValue([3, 4])
         const program = createProgram()
-        vi.spyOn(console, 'log').mockImplementation(() => {})
+        captureConsole()
 
         await program.parseAsync([
             'node',
@@ -356,7 +352,7 @@ describe('tw groups add-user', () => {
     it('mixes comma- and space-separated refs', async () => {
         refsMocks.resolveUserRefs.mockResolvedValue([3, 4, 5])
         const program = createProgram()
-        vi.spyOn(console, 'log').mockImplementation(() => {})
+        captureConsole()
 
         await program.parseAsync([
             'node',
@@ -374,7 +370,7 @@ describe('tw groups add-user', () => {
     it('skips users already in the group', async () => {
         refsMocks.resolveUserRefs.mockResolvedValue([1, 3])
         const program = createProgram()
-        vi.spyOn(console, 'log').mockImplementation(() => {})
+        captureConsole()
 
         await program.parseAsync(['node', 'tw', 'groups', 'add-user', 'Frontend', 'id:1,id:3'])
 
@@ -384,7 +380,7 @@ describe('tw groups add-user', () => {
     it('makes no API call when all users are already members', async () => {
         refsMocks.resolveUserRefs.mockResolvedValue([1, 2])
         const program = createProgram()
-        vi.spyOn(console, 'log').mockImplementation(() => {})
+        captureConsole()
 
         await program.parseAsync(['node', 'tw', 'groups', 'add-user', 'Frontend', 'id:1,id:2'])
 
@@ -401,7 +397,7 @@ describe('tw groups add-user', () => {
     it('deduplicates resolved user IDs', async () => {
         refsMocks.resolveUserRefs.mockResolvedValue([3, 3, 4])
         const program = createProgram()
-        vi.spyOn(console, 'log').mockImplementation(() => {})
+        captureConsole()
 
         await program.parseAsync([
             'node',
@@ -426,7 +422,7 @@ describe('tw groups remove-user', () => {
     it('only removes users that are members', async () => {
         refsMocks.resolveUserRefs.mockResolvedValue([2, 3, 99])
         const program = createProgram()
-        vi.spyOn(console, 'log').mockImplementation(() => {})
+        captureConsole()
 
         await program.parseAsync([
             'node',
@@ -443,7 +439,7 @@ describe('tw groups remove-user', () => {
     it('makes no API call when none of the users are members', async () => {
         refsMocks.resolveUserRefs.mockResolvedValue([99, 100])
         const program = createProgram()
-        vi.spyOn(console, 'log').mockImplementation(() => {})
+        captureConsole()
 
         await program.parseAsync([
             'node',
@@ -467,7 +463,7 @@ describe('tw groups remove-user', () => {
     it('deduplicates resolved user IDs', async () => {
         refsMocks.resolveUserRefs.mockResolvedValue([2, 2, 3])
         const program = createProgram()
-        vi.spyOn(console, 'log').mockImplementation(() => {})
+        captureConsole()
 
         await program.parseAsync([
             'node',

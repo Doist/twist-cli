@@ -1,5 +1,7 @@
-import { Command } from 'commander'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { createChannelFixture } from '../../lib/__fixtures__/channels.js'
+import { captureConsole } from '../../test-helpers/console.js'
+import { createTestProgram } from '../../test-helpers/program.js'
 
 const mockGetChannel = vi.fn()
 
@@ -26,25 +28,9 @@ vi.mock('chalk')
 
 import { registerChannelCommand } from './index.js'
 
-function createProgram() {
-    const program = new Command()
-    program.exitOverride()
-    registerChannelCommand(program)
-    return program
-}
+const createProgram = () => createTestProgram(registerChannelCommand)
 
-const sampleChannel = {
-    id: 500,
-    name: 'general',
-    workspaceId: 1,
-    userIds: [1, 2, 3],
-    creator: 1,
-    public: true,
-    archived: false,
-    created: new Date(),
-    version: 1,
-    url: 'https://twist.com/a/1/ch/500',
-}
+const sampleChannel = createChannelFixture()
 
 beforeEach(() => {
     vi.clearAllMocks()
@@ -63,7 +49,7 @@ describe('tw channel members remove', () => {
             expandedFrom: [],
         })
         const program = createProgram()
-        vi.spyOn(console, 'log').mockImplementation(() => {})
+        captureConsole()
 
         await program.parseAsync([
             'node',
@@ -86,7 +72,7 @@ describe('tw channel members remove', () => {
             expandedFrom: [],
         })
         const program = createProgram()
-        vi.spyOn(console, 'log').mockImplementation(() => {})
+        captureConsole()
 
         await program.parseAsync([
             'node',
@@ -108,7 +94,7 @@ describe('tw channel members remove', () => {
             expandedFrom: [],
         })
         const program = createProgram()
-        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+        const consoleSpy = captureConsole()
 
         await program.parseAsync([
             'node',
@@ -132,7 +118,7 @@ describe('tw channel members remove', () => {
             expandedFrom: [],
         })
         const program = createProgram()
-        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+        const consoleSpy = captureConsole()
 
         await program.parseAsync([
             'node',
@@ -157,7 +143,7 @@ describe('tw channel members remove', () => {
         })
         mockGetChannel.mockResolvedValue({ ...sampleChannel, userIds: [1, 3] })
         const program = createProgram()
-        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+        const consoleSpy = captureConsole()
 
         await program.parseAsync([
             'node',

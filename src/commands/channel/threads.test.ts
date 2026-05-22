@@ -1,5 +1,6 @@
-import { Command } from 'commander'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { captureConsole } from '../../test-helpers/console.js'
+import { createTestProgram } from '../../test-helpers/program.js'
 
 const apiMocks = vi.hoisted(() => ({
     getTwistClient: vi.fn(),
@@ -38,12 +39,7 @@ import { assertChannelIsPublic } from '../../lib/public-channels.js'
 import { decodeCursor, encodeCursor } from './helpers.js'
 import { registerChannelCommand } from './index.js'
 
-function createProgram() {
-    const program = new Command()
-    program.exitOverride()
-    registerChannelCommand(program)
-    return program
-}
+const createProgram = () => createTestProgram(registerChannelCommand)
 
 type Thread = {
     id: number
@@ -214,7 +210,7 @@ describe('channel threads', () => {
             threads: [createThread(1), createThread(2), createThread(3)],
             unread: [{ threadId: 2 }],
         })
-        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+        const consoleSpy = captureConsole()
         const program = createProgram()
 
         await program.parseAsync(['node', 'tw', 'channel', 'threads', '12345', '--json'])
@@ -223,8 +219,6 @@ describe('channel threads', () => {
         expect(output.results.find((t: { id: number }) => t.id === 1).isUnread).toBe(false)
         expect(output.results.find((t: { id: number }) => t.id === 2).isUnread).toBe(true)
         expect(output.results.find((t: { id: number }) => t.id === 3).isUnread).toBe(false)
-
-        consoleSpy.mockRestore()
     })
 
     it('--unread filters to unread threads only', async () => {
@@ -232,7 +226,7 @@ describe('channel threads', () => {
             threads: [createThread(1), createThread(2), createThread(3)],
             unread: [{ threadId: 2 }],
         })
-        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+        const consoleSpy = captureConsole()
         const program = createProgram()
 
         await program.parseAsync([
@@ -248,8 +242,6 @@ describe('channel threads', () => {
         const output = JSON.parse(consoleSpy.mock.calls[0][0])
         expect(output.results).toHaveLength(1)
         expect(output.results[0].id).toBe(2)
-
-        consoleSpy.mockRestore()
     })
 
     it('--since filters by lastUpdated', async () => {
@@ -260,7 +252,7 @@ describe('channel threads', () => {
                 createThread(3, { lastUpdated: new Date('2026-03-01T00:00:00Z') }),
             ],
         })
-        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+        const consoleSpy = captureConsole()
         const program = createProgram()
 
         await program.parseAsync([
@@ -276,8 +268,6 @@ describe('channel threads', () => {
 
         const output = JSON.parse(consoleSpy.mock.calls[0][0])
         expect(output.results.map((t: { id: number }) => t.id).sort()).toEqual([2, 3])
-
-        consoleSpy.mockRestore()
     })
 
     it('--until filters by lastUpdated (exclusive)', async () => {
@@ -288,7 +278,7 @@ describe('channel threads', () => {
                 createThread(3, { lastUpdated: new Date('2026-03-01T00:00:00Z') }),
             ],
         })
-        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+        const consoleSpy = captureConsole()
         const program = createProgram()
 
         await program.parseAsync([
@@ -304,8 +294,6 @@ describe('channel threads', () => {
 
         const output = JSON.parse(consoleSpy.mock.calls[0][0])
         expect(output.results.map((t: { id: number }) => t.id)).toEqual([1])
-
-        consoleSpy.mockRestore()
     })
 
     it('sorts newest-first by lastUpdated', async () => {
@@ -316,15 +304,13 @@ describe('channel threads', () => {
                 createThread(3, { lastUpdated: new Date('2026-02-01T00:00:00Z') }),
             ],
         })
-        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+        const consoleSpy = captureConsole()
         const program = createProgram()
 
         await program.parseAsync(['node', 'tw', 'channel', 'threads', '12345', '--json'])
 
         const output = JSON.parse(consoleSpy.mock.calls[0][0])
         expect(output.results.map((t: { id: number }) => t.id)).toEqual([2, 3, 1])
-
-        consoleSpy.mockRestore()
     })
 
     it('--limit truncates results and emits nextCursor', async () => {
@@ -337,7 +323,7 @@ describe('channel threads', () => {
                 createThread(5, { lastUpdated: new Date('2026-01-01T00:00:00Z') }),
             ],
         })
-        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+        const consoleSpy = captureConsole()
         const program = createProgram()
 
         await program.parseAsync([
@@ -354,8 +340,6 @@ describe('channel threads', () => {
         const output = JSON.parse(consoleSpy.mock.calls[0][0])
         expect(output.results.map((t: { id: number }) => t.id)).toEqual([1, 2])
         expect(output.nextCursor).toEqual(encodeCursor(2))
-
-        consoleSpy.mockRestore()
     })
 
     it('--cursor advances to the next page', async () => {
@@ -368,7 +352,7 @@ describe('channel threads', () => {
                 createThread(5, { lastUpdated: new Date('2026-01-01T00:00:00Z') }),
             ],
         })
-        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+        const consoleSpy = captureConsole()
         const program = createProgram()
 
         await program.parseAsync([
@@ -387,35 +371,29 @@ describe('channel threads', () => {
         const output = JSON.parse(consoleSpy.mock.calls[0][0])
         expect(output.results.map((t: { id: number }) => t.id)).toEqual([3, 4])
         expect(output.nextCursor).toEqual(encodeCursor(4))
-
-        consoleSpy.mockRestore()
     })
 
     it('nextCursor is null on the last page', async () => {
         setupClient({
             threads: [createThread(1), createThread(2)],
         })
-        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+        const consoleSpy = captureConsole()
         const program = createProgram()
 
         await program.parseAsync(['node', 'tw', 'channel', 'threads', '12345', '--json'])
 
         const output = JSON.parse(consoleSpy.mock.calls[0][0])
         expect(output.nextCursor).toBeNull()
-
-        consoleSpy.mockRestore()
     })
 
     it('calls assertChannelIsPublic after resolving the channel', async () => {
         setupClient({ threads: [createThread(1)] })
-        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+        captureConsole()
         const program = createProgram()
 
         await program.parseAsync(['node', 'tw', 'channel', 'threads', '12345', '--json'])
 
         expect(vi.mocked(assertChannelIsPublic)).toHaveBeenCalledWith(100, 1)
-
-        consoleSpy.mockRestore()
     })
 
     it('propagates the error when the channel is private and the guard rejects', async () => {
@@ -487,14 +465,12 @@ describe('channel threads', () => {
     it('prints empty-state message when no threads', async () => {
         refsMocks.resolveChannelRef.mockResolvedValue(channel(100, 'general'))
         setupClient({ threads: [] })
-        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+        const consoleSpy = captureConsole()
         const program = createProgram()
 
         await program.parseAsync(['node', 'tw', 'channel', 'threads', 'general'])
 
         expect(consoleSpy).toHaveBeenCalledWith('No threads in #general.')
-
-        consoleSpy.mockRestore()
     })
 
     it('--json emits isUnread and url without --full', async () => {
@@ -502,7 +478,7 @@ describe('channel threads', () => {
             threads: [createThread(1)],
             unread: [{ threadId: 1 }],
         })
-        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+        const consoleSpy = captureConsole()
         const program = createProgram()
 
         await program.parseAsync(['node', 'tw', 'channel', 'threads', '12345', '--json'])
@@ -513,8 +489,6 @@ describe('channel threads', () => {
             isUnread: true,
             url: 'https://twist.com/a/1/ch/100/t/1',
         })
-
-        consoleSpy.mockRestore()
     })
 
     it('--ndjson emits one thread per line plus _meta terminator when paginated', async () => {
@@ -525,7 +499,7 @@ describe('channel threads', () => {
                 createThread(3, { lastUpdated: new Date('2026-01-03T00:00:00Z') }),
             ],
         })
-        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+        const consoleSpy = captureConsole()
         const program = createProgram()
 
         await program.parseAsync([
@@ -547,13 +521,11 @@ describe('channel threads', () => {
         expect(first.id).toBe(1)
         expect(second.id).toBe(2)
         expect(meta).toEqual({ _meta: true, nextCursor: encodeCursor(2) })
-
-        consoleSpy.mockRestore()
     })
 
     it('does not crash when unreadResp.data is null (regression: batch getUnread returning null)', async () => {
         setupClient({ threads: [createThread(1)], unread: null })
-        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+        const consoleSpy = captureConsole()
         const program = createProgram()
 
         await expect(
@@ -563,8 +535,6 @@ describe('channel threads', () => {
         const output = JSON.parse(consoleSpy.mock.calls[0][0])
         expect(output.results).toHaveLength(1)
         expect(output.results[0].isUnread).toBe(false)
-
-        consoleSpy.mockRestore()
     })
 
     it('surfaces API error when threads batch sub-request fails', async () => {
@@ -590,15 +560,13 @@ describe('channel threads', () => {
         setupClient({
             threads: [createThread(1, { pinned: true })],
         })
-        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+        const consoleSpy = captureConsole()
         const program = createProgram()
 
         await program.parseAsync(['node', 'tw', 'channel', 'threads', '12345', '--json', '--full'])
 
         const output = JSON.parse(consoleSpy.mock.calls[0][0])
         expect(output.results[0]).toHaveProperty('pinned', true)
-
-        consoleSpy.mockRestore()
     })
 })
 

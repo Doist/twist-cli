@@ -1,5 +1,7 @@
-import { Command } from 'commander'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { createChannelFixture } from '../../lib/__fixtures__/channels.js'
+import { captureConsole } from '../../test-helpers/console.js'
+import { createTestProgram } from '../../test-helpers/program.js'
 
 const mockBatch = vi.fn()
 const mockGetUserById = vi.fn()
@@ -28,25 +30,9 @@ vi.mock('chalk')
 
 import { registerChannelCommand } from './index.js'
 
-function createProgram() {
-    const program = new Command()
-    program.exitOverride()
-    registerChannelCommand(program)
-    return program
-}
+const createProgram = () => createTestProgram(registerChannelCommand)
 
-const sampleChannel = {
-    id: 500,
-    name: 'general',
-    workspaceId: 1,
-    userIds: [1, 2, 3],
-    creator: 1,
-    public: true,
-    archived: false,
-    created: new Date(),
-    version: 1,
-    url: 'https://twist.com/a/1/ch/500',
-}
+const sampleChannel = createChannelFixture()
 
 const frontendGroup = { id: 100, name: 'Frontend', workspaceId: 1, userIds: [1, 2], version: 1 }
 const backendGroup = { id: 200, name: 'Backend', workspaceId: 1, userIds: [4, 5], version: 1 }
@@ -86,7 +72,7 @@ describe('tw channel members (list)', () => {
 
     it('lists users and groups fully in channel', async () => {
         const program = createProgram()
-        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+        const consoleSpy = captureConsole()
 
         await program.parseAsync(['node', 'tw', 'channel', 'members', 'general'])
 
@@ -103,7 +89,7 @@ describe('tw channel members (list)', () => {
 
     it('outputs JSON with default shape', async () => {
         const program = createProgram()
-        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+        const consoleSpy = captureConsole()
 
         await program.parseAsync(['node', 'tw', 'channel', 'members', 'general', '--json'])
 
@@ -118,7 +104,7 @@ describe('tw channel members (list)', () => {
 
     it('batches one getUserById request per channel member', async () => {
         const program = createProgram()
-        vi.spyOn(console, 'log').mockImplementation(() => {})
+        captureConsole()
 
         await program.parseAsync(['node', 'tw', 'channel', 'members', 'general', '--json'])
 
@@ -139,7 +125,7 @@ describe('tw channel members (list)', () => {
 
     it('ndjson default shape matches json default shape', async () => {
         const program = createProgram()
-        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+        const consoleSpy = captureConsole()
 
         await program.parseAsync(['node', 'tw', 'channel', 'members', 'general', '--ndjson'])
 
@@ -154,7 +140,7 @@ describe('tw channel members (list)', () => {
 
     it('--full ndjson includes raw channel fields', async () => {
         const program = createProgram()
-        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+        const consoleSpy = captureConsole()
 
         await program.parseAsync([
             'node',
