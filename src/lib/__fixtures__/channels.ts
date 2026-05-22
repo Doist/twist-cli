@@ -1,6 +1,8 @@
+import type { Channel } from '@doist/twist-sdk'
+
 // A fully-populated channel object as returned by the API, for tests that
 // resolve/fetch a single channel. Pass overrides to vary individual fields.
-export function createChannelFixture(overrides: Record<string, unknown> = {}) {
+export function createChannelFixture(overrides: Partial<Channel> = {}): Channel {
     return {
         id: 500,
         name: 'general',
