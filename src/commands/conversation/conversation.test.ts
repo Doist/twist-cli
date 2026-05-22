@@ -1,9 +1,9 @@
 import { describeEmptyMachineOutput } from '@doist/cli-core/testing'
 import type { BatchResponse as TwistBatchResponse } from '@doist/twist-sdk'
-import { Command } from 'commander'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { CliError } from '../../lib/errors.js'
 import { captureConsole } from '../../test-helpers/console.js'
+import { createTestProgram } from '../../test-helpers/program.js'
 
 const apiMocks = vi.hoisted(() => ({
     getTwistClient: vi.fn(),
@@ -192,12 +192,7 @@ function createClient({
     }
 }
 
-function createProgram() {
-    const program = new Command()
-    program.exitOverride()
-    registerConversationCommand(program)
-    return program
-}
+const createProgram = () => createTestProgram(registerConversationCommand)
 
 describe('conversation implicit view', () => {
     beforeEach(() => {

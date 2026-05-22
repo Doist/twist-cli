@@ -1,7 +1,7 @@
 import { describeEmptyMachineOutput } from '@doist/cli-core/testing'
-import { Command } from 'commander'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { captureConsole } from '../../test-helpers/console.js'
+import { createTestProgram } from '../../test-helpers/program.js'
 
 const mockBatch = vi.fn()
 const mockGetUserById = vi.fn()
@@ -33,12 +33,7 @@ vi.mock('chalk')
 
 import { registerGroupsCommand } from './index.js'
 
-function createProgram() {
-    const program = new Command()
-    program.exitOverride()
-    registerGroupsCommand(program)
-    return program
-}
+const createProgram = () => createTestProgram(registerGroupsCommand)
 
 const sampleGroups = [
     {

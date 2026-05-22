@@ -1,6 +1,6 @@
-import { Command } from 'commander'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { captureConsole } from '../test-helpers/console.js'
+import { createTestProgram } from '../test-helpers/program.js'
 
 const apiMocks = vi.hoisted(() => ({
     getTwistClient: vi.fn(),
@@ -14,12 +14,7 @@ vi.mock('../lib/api.js', () => ({
 
 import { registerReactCommand } from './react.js'
 
-function createProgram() {
-    const program = new Command()
-    program.exitOverride()
-    registerReactCommand(program)
-    return program
-}
+const createProgram = () => createTestProgram(registerReactCommand)
 
 describe('react refs', () => {
     beforeEach(() => {

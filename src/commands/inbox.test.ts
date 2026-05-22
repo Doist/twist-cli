@@ -1,7 +1,7 @@
 import { describeEmptyMachineOutput } from '@doist/cli-core/testing'
-import { Command } from 'commander'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { captureConsole } from '../test-helpers/console.js'
+import { createTestProgram } from '../test-helpers/program.js'
 
 const apiMocks = vi.hoisted(() => ({
     getTwistClient: vi.fn(),
@@ -30,12 +30,7 @@ vi.mock('chalk')
 
 import { registerInboxCommand } from './inbox.js'
 
-function createProgram() {
-    const program = new Command()
-    program.exitOverride()
-    registerInboxCommand(program)
-    return program
-}
+const createProgram = () => createTestProgram(registerInboxCommand)
 
 describe('inbox --workspace conflict', () => {
     beforeEach(() => {

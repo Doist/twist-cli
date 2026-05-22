@@ -1,7 +1,7 @@
 import { TwistRequestError } from '@doist/twist-sdk'
-import { Command } from 'commander'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { captureConsole } from '../../test-helpers/console.js'
+import { createTestProgram } from '../../test-helpers/program.js'
 
 const apiMocks = vi.hoisted(() => ({
     getSessionUser: vi.fn(),
@@ -18,12 +18,7 @@ vi.mock('chalk')
 
 import { registerAwayCommand } from './index.js'
 
-function createProgram() {
-    const program = new Command()
-    program.exitOverride()
-    registerAwayCommand(program)
-    return program
-}
+const createProgram = () => createTestProgram(registerAwayCommand)
 
 describe('away', () => {
     beforeEach(() => {

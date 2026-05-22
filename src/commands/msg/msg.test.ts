@@ -1,6 +1,6 @@
-import { Command } from 'commander'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { captureConsole } from '../../test-helpers/console.js'
+import { createTestProgram } from '../../test-helpers/program.js'
 
 const apiMocks = vi.hoisted(() => ({
     getTwistClient: vi.fn(),
@@ -73,12 +73,7 @@ function createClient({ messageCreator = 1, sessionUserId = 1 } = {}) {
     }
 }
 
-function createProgram() {
-    const program = new Command()
-    program.exitOverride()
-    registerMsgCommand(program)
-    return program
-}
+const createProgram = () => createTestProgram(registerMsgCommand)
 
 describe('msg implicit view', () => {
     beforeEach(() => {

@@ -1,6 +1,6 @@
-import { Command } from 'commander'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { captureConsole } from '../../test-helpers/console.js'
+import { createTestProgram } from '../../test-helpers/program.js'
 
 vi.mock('chalk')
 
@@ -33,12 +33,7 @@ const mockReadConfigStrict = vi.mocked(readConfigStrict)
 const mockProbeApiToken = vi.mocked(probeApiToken)
 const mockSetConfig = vi.mocked(setConfig)
 
-function createProgram() {
-    const program = new Command()
-    program.exitOverride()
-    registerConfigCommand(program)
-    return program
-}
+const createProgram = () => createTestProgram(registerConfigCommand)
 
 const fullConfig: Config = {
     token: 'tw_abcdefghij1234567890',

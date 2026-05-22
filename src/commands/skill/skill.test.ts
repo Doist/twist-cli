@@ -1,9 +1,9 @@
 import { mkdir, readFile, rm, stat } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { Command } from 'commander'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { captureConsole } from '../../test-helpers/console.js'
+import { createTestProgram } from '../../test-helpers/program.js'
 
 vi.mock('chalk')
 
@@ -21,12 +21,7 @@ const packageJson = JSON.parse(
     await readFile(new URL('../../../package.json', import.meta.url), 'utf-8'),
 ) as { version: string }
 
-function createProgram() {
-    const program = new Command()
-    program.exitOverride()
-    registerSkillCommand(program)
-    return program
-}
+const createProgram = () => createTestProgram(registerSkillCommand)
 
 describe('skill registry', () => {
     it('returns claude-code installer', () => {

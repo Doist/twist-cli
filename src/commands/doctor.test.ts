@@ -1,7 +1,7 @@
 import { readFile } from 'node:fs/promises'
-import { Command } from 'commander'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { captureConsole } from '../test-helpers/console.js'
+import { createTestProgram } from '../test-helpers/program.js'
 
 vi.mock('chalk')
 
@@ -49,12 +49,7 @@ const mockCreateWrappedTwistClient = vi.mocked(createWrappedTwistClient)
 const mockProbeApiToken = vi.mocked(probeApiToken)
 const mockGetConfig = vi.mocked(getConfig)
 
-function createProgram() {
-    const program = new Command()
-    program.exitOverride()
-    registerDoctorCommand(program)
-    return program
-}
+const createProgram = () => createTestProgram(registerDoctorCommand)
 
 function mockFetch(version: string) {
     vi.stubGlobal(

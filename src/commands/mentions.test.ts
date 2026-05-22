@@ -1,6 +1,6 @@
-import { Command } from 'commander'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { captureConsole } from '../test-helpers/console.js'
+import { createTestProgram } from '../test-helpers/program.js'
 
 const refsMocks = vi.hoisted(() => ({
     resolveWorkspaceRef: vi.fn(),
@@ -34,12 +34,7 @@ vi.mock('chalk')
 
 import { registerMentionsCommand } from './mentions.js'
 
-function createProgram() {
-    const program = new Command()
-    program.exitOverride()
-    registerMentionsCommand(program)
-    return program
-}
+const createProgram = () => createTestProgram(registerMentionsCommand)
 
 describe('mentions', () => {
     beforeEach(() => {

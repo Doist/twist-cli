@@ -1,7 +1,7 @@
 import { describeEmptyMachineOutput } from '@doist/cli-core/testing'
-import { Command } from 'commander'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { captureConsole } from '../../test-helpers/console.js'
+import { createTestProgram } from '../../test-helpers/program.js'
 
 const apiMocks = vi.hoisted(() => ({
     getTwistClient: vi.fn(),
@@ -37,12 +37,7 @@ vi.mock('chalk')
 
 import { registerChannelCommand } from './index.js'
 
-function createProgram() {
-    const program = new Command()
-    program.exitOverride()
-    registerChannelCommand(program)
-    return program
-}
+const createProgram = () => createTestProgram(registerChannelCommand)
 
 function createChannel(id: number, name: string, overrides: Partial<Record<string, unknown>> = {}) {
     return {

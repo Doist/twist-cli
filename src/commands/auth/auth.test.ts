@@ -1,6 +1,7 @@
 import { Command } from 'commander'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { captureConsole } from '../../test-helpers/console.js'
+import { createTestProgram } from '../../test-helpers/program.js'
 
 // Mock the auth module (only the read-side shims are stubbed; the
 // write-side path now goes through `createTwistTokenStore` from
@@ -90,12 +91,7 @@ const mockGetAuthMetadata = vi.mocked(getAuthMetadata)
 const mockCreateWrappedTwistClient = vi.mocked(createWrappedTwistClient)
 const mockAttachLoginCommand = vi.mocked(attachLoginCommand)
 
-function createProgram() {
-    const program = new Command()
-    program.exitOverride()
-    registerAuthCommand(program)
-    return program
-}
+const createProgram = () => createTestProgram(registerAuthCommand)
 
 const TEST_USER: User = {
     id: 1,

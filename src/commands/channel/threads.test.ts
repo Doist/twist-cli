@@ -1,6 +1,6 @@
-import { Command } from 'commander'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { captureConsole } from '../../test-helpers/console.js'
+import { createTestProgram } from '../../test-helpers/program.js'
 
 const apiMocks = vi.hoisted(() => ({
     getTwistClient: vi.fn(),
@@ -39,12 +39,7 @@ import { assertChannelIsPublic } from '../../lib/public-channels.js'
 import { decodeCursor, encodeCursor } from './helpers.js'
 import { registerChannelCommand } from './index.js'
 
-function createProgram() {
-    const program = new Command()
-    program.exitOverride()
-    registerChannelCommand(program)
-    return program
-}
+const createProgram = () => createTestProgram(registerChannelCommand)
 
 type Thread = {
     id: number
