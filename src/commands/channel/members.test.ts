@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { createChannelFixture } from '../../lib/__fixtures__/channels.js'
 import { captureConsole } from '../../test-helpers/console.js'
 import { createTestProgram } from '../../test-helpers/program.js'
 
@@ -31,18 +32,7 @@ import { registerChannelCommand } from './index.js'
 
 const createProgram = () => createTestProgram(registerChannelCommand)
 
-const sampleChannel = {
-    id: 500,
-    name: 'general',
-    workspaceId: 1,
-    userIds: [1, 2, 3],
-    creator: 1,
-    public: true,
-    archived: false,
-    created: new Date(),
-    version: 1,
-    url: 'https://twist.com/a/1/ch/500',
-}
+const sampleChannel = createChannelFixture()
 
 const frontendGroup = { id: 100, name: 'Frontend', workspaceId: 1, userIds: [1, 2], version: 1 }
 const backendGroup = { id: 200, name: 'Backend', workspaceId: 1, userIds: [4, 5], version: 1 }
