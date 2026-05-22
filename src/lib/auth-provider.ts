@@ -29,6 +29,8 @@ export const READ_WRITE_SCOPES = [
     'user:write',
     'workspaces:read',
     'channels:read',
+    'channels:write',
+    'channels:remove',
     'threads:read',
     'threads:write',
     'comments:read',

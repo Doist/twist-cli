@@ -25,6 +25,7 @@ import {
     parseTwistUrl,
     partitionNotifyIds,
     resolveChannelId,
+    resolveChannelMemberRefs,
     resolveChannelRef,
     resolveCommentId,
     resolveConversationId,
@@ -509,5 +510,76 @@ describe('resolveUserRefs', () => {
         await expect(resolveUserRefs('nobody', 1)).rejects.toMatchObject({
             code: 'USER_NOT_FOUND',
         })
+    })
+})
+
+describe('resolveChannelMemberRefs', () => {
+    const sampleUsers = [
+        { id: 10, name: 'Alice', email: 'a@d.com' },
+        { id: 20, name: 'Bob', email: 'b@d.com' },
+        { id: 30, name: 'Carol', email: 'c@d.com' },
+    ]
+    const designGroup = { id: 100, name: 'Design', workspaceId: 1, userIds: [10, 20], version: 1 }
+    const engGroup = { id: 200, name: 'Eng', workspaceId: 1, userIds: [20, 30], version: 1 }
+
+    beforeEach(() => {
+        apiMocks.getWorkspaceUsers.mockResolvedValue(sampleUsers)
+        apiMocks.getGroup.mockImplementation(async (id: number) => {
+            if (id === 100) return designGroup
+            if (id === 200) return engGroup
+            throw new Error(`unexpected group id ${id}`)
+        })
+    })
+
+    it('rejects empty input', async () => {
+        await expect(resolveChannelMemberRefs([], 1)).rejects.toMatchObject({
+            code: 'MISSING_USERS',
+        })
+    })
+
+    it('rejects empty group ref', async () => {
+        await expect(resolveChannelMemberRefs(['group:'], 1)).rejects.toMatchObject({
+            code: 'INVALID_REF',
+        })
+    })
+
+    it('resolves user-only refs in input order', async () => {
+        const { userIds, expandedFrom } = await resolveChannelMemberRefs(['id:30', 'id:10'], 1)
+        expect(userIds).toEqual([30, 10])
+        expect(expandedFrom).toEqual([])
+    })
+
+    it('expands group:<id> refs', async () => {
+        const { userIds, expandedFrom } = await resolveChannelMemberRefs(['group:100'], 1)
+        expect(userIds).toEqual([10, 20])
+        expect(expandedFrom).toEqual([{ groupId: 100, groupName: 'Design', userIds: [10, 20] }])
+    })
+
+    it('preserves input order across mixed user and group: refs', async () => {
+        // 'group:100' (id:200 in mock) expands to [10, 20]; then 'id:30' adds 30 last.
+        const { userIds } = await resolveChannelMemberRefs(['group:100', 'id:30'], 1)
+        expect(userIds).toEqual([10, 20, 30])
+
+        // Reversed input → user id:30 first, then the group's [10, 20].
+        const reversed = await resolveChannelMemberRefs(['id:30', 'group:100'], 1)
+        expect(reversed.userIds).toEqual([30, 10, 20])
+    })
+
+    it('dedupes across users and group expansion (input-order kept)', async () => {
+        // group:100 → [10, 20]; group:200 → [20, 30]. With 'id:10' first, that wins
+        // the order slot; 20 appears once from group:100; 30 only from group:200.
+        const { userIds, expandedFrom } = await resolveChannelMemberRefs(
+            ['id:10', 'group:100', 'group:200'],
+            1,
+        )
+        expect(userIds).toEqual([10, 20, 30])
+        expect(expandedFrom.map((g) => g.groupId)).toEqual([100, 200])
+        // expandedFrom records pre-dedup ids per group
+        expect(expandedFrom[1].userIds).toEqual([20, 30])
+    })
+
+    it('is case-insensitive on the group: prefix', async () => {
+        const { expandedFrom } = await resolveChannelMemberRefs(['GROUP:100'], 1)
+        expect(expandedFrom[0]).toMatchObject({ groupId: 100 })
     })
 })

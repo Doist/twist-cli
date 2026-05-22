@@ -1,6 +1,10 @@
 import { Command, Option } from 'commander'
 import { withCaseInsensitiveChoices } from '../../lib/completion.js'
+import { addChannelMembers } from './add.js'
 import { listChannels } from './list.js'
+import { listChannelMembers } from './members.js'
+import { removeChannelMembers } from './remove.js'
+import { setChannelMembers } from './set.js'
 import { showChannelThreads } from './threads.js'
 
 export function registerChannelCommand(program: Command): void {
@@ -86,4 +90,94 @@ Notes:
   and --unread are applied client-side; --archive-filter is applied server-side.`,
         )
         .action(showChannelThreads)
+
+    const members = channel
+        .command('members')
+        .description('Channel membership operations (list, add, remove, set)')
+
+    members
+        .command('list <channel-ref>', { isDefault: true })
+        .description("List a channel's members and groups fully present in the channel")
+        .option('--json', 'Output as JSON')
+        .option('--ndjson', 'Output as newline-delimited JSON')
+        .option('--full', 'Include all fields in JSON output')
+        .addHelpText(
+            'after',
+            `
+Examples:
+  tw channel members 12345
+  tw channel members "general" --json
+  tw channel members add 12345 alice group:Design
+  tw channel members remove 12345 alice
+  tw channel members set 12345 group:Squad --apply
+
+Notes:
+  "Groups fully in channel" lists groups whose entire current membership is
+  already in the channel — a hint, not a persistent link.`,
+        )
+        .action(listChannelMembers)
+
+    members
+        .command('add <channel-ref> [refs...]')
+        .description('Add users and/or groups to a channel')
+        .option('--dry-run', 'Show what would change without changing')
+        .option('--json', 'Output result as JSON')
+        .option('--full', 'Include the full updated channel in JSON output')
+        .addHelpText(
+            'after',
+            `
+Examples:
+  tw channel members add 12345 alice@doist.com bob@doist.com
+  tw channel members add "general" group:Frontend
+  tw channel members add 12345 alice group:Design id:789 --json
+
+Notes:
+  Refs accept user identifiers (id:N, email, name) or "group:<ref>" to expand
+  a group to its current members. Group expansion is one-shot — users added
+  later to the group will not auto-join the channel.`,
+        )
+        .action(addChannelMembers)
+
+    members
+        .command('remove <channel-ref> [refs...]')
+        .description('Remove users and/or groups from a channel')
+        .option('--dry-run', 'Show what would change without changing')
+        .option('--json', 'Output result as JSON')
+        .option('--full', 'Include the full updated channel in JSON output')
+        .addHelpText(
+            'after',
+            `
+Examples:
+  tw channel members remove 12345 alice@doist.com
+  tw channel members remove "general" group:Frontend
+
+Notes:
+  Refs accept user identifiers (id:N, email, name) or "group:<ref>" to expand
+  a group to its current members.`,
+        )
+        .action(removeChannelMembers)
+
+    members
+        .command('set <channel-ref> [refs...]')
+        .description('Replace channel membership with the resolved set of refs')
+        .option('--apply', 'Actually mutate (otherwise dry-run)')
+        .option('--include-self', 'Allow set to remove the acting user')
+        .option('--dry-run', 'Force dry-run (default behaviour)')
+        .option('--json', 'Output result as JSON')
+        .option('--full', 'Include the full updated channel in JSON output')
+        .addHelpText(
+            'after',
+            `
+Examples:
+  tw channel members set 12345 group:Frontend group:Design
+  tw channel members set "general" alice bob carol --apply
+  tw channel members set 12345 group:Squad --apply --include-self
+
+Notes:
+  Dry-run by default. Pass --apply to mutate.
+  Refuses to remove the acting user unless --include-self is also passed.
+  Group expansion is one-shot — users added later to a referenced group will
+  not auto-join the channel.`,
+        )
+        .action(setChannelMembers)
 }
