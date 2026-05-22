@@ -10,7 +10,7 @@ import {
 } from '@doist/twist-sdk'
 import { getApiToken } from './auth.js'
 import { getConfig, updateConfig } from './config.js'
-import { CliError, isInsufficientScope } from './errors.js'
+import { CliError, isForbidden, isInsufficientScope } from './errors.js'
 import { ensureWriteAllowed, isMutatingMethod } from './permissions.js'
 import { getProgressTracker } from './progress.js'
 import { withSpinner } from './spinner.js'
@@ -196,6 +196,12 @@ function wrapResult(
                     'This action requires permissions your current token does not have.',
                     ['Run `tw auth login` to re-authenticate with the required scopes'],
                 )
+            }
+            if (isForbidden(error)) {
+                throw new CliError('FORBIDDEN', 'Twist refused this action: 403 Forbidden.', [
+                    'You may not have permission for this action — workspace admins can perform it',
+                    'Or re-authenticate with `tw auth login` if your scopes look wrong',
+                ])
             }
             throw error
         })

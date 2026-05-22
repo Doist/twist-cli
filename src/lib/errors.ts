@@ -88,6 +88,21 @@ export function isInsufficientScope(error: unknown): boolean {
 }
 
 /**
+ * Check whether an error is any Twist API 403 response.
+ *
+ * Precedence: callers must test `isInsufficientScope` first so OAuth-scope
+ * 403s keep their dedicated `INSUFFICIENT_SCOPE` code and hints; `isForbidden`
+ * is the catch-all fallback for plain workspace-permission 403s.
+ */
+export function isForbidden(error: unknown): boolean {
+    if (typeof error !== 'object' || error === null || !('httpStatusCode' in error)) {
+        return false
+    }
+    const { httpStatusCode } = error as { httpStatusCode: number }
+    return httpStatusCode === 403
+}
+
+/**
  * Twist-flavoured CliError that preserves the historical positional
  * `(code, message, hints?, type?)` signature used across hundreds of call
  * sites. Internally it forwards to the cli-core options-object form.

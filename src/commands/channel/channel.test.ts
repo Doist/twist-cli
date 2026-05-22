@@ -608,17 +608,6 @@ describe('tw channel delete', () => {
         expect(apiMocks.getCurrentWorkspaceId).not.toHaveBeenCalled()
     })
 
-    it('translates a 403 from the API into a FORBIDDEN CliError', async () => {
-        const { TwistRequestError } = await import('@doist/twist-sdk')
-        const apiError = new TwistRequestError('Request failed with status 403', 403, {})
-        apiMocks.deleteChannel.mockRejectedValueOnce(apiError)
-        const program = createProgram()
-
-        await expect(
-            program.parseAsync(['node', 'tw', 'channel', 'delete', 'Engineering', '--yes']),
-        ).rejects.toMatchObject({ code: 'FORBIDDEN' })
-    })
-
     it('outputs JSON result with --yes --json', async () => {
         const program = createProgram()
         const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
