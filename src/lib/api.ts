@@ -308,9 +308,10 @@ export async function getWorkspaceUsers(
     options: { includeRemoved?: boolean } = {},
 ): Promise<WorkspaceUser[]> {
     const client = await getTwistClient()
-    const users = await client.workspaceUsers.getWorkspaceUsers({ workspaceId })
-    if (options.includeRemoved) return users
-    return users.filter((u) => !u.removed)
+    return client.workspaceUsers.getWorkspaceUsers({
+        workspaceId,
+        includeRemoved: options.includeRemoved,
+    })
 }
 
 export async function getWorkspaceGroups(workspaceId: number): Promise<Group[]> {

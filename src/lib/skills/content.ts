@@ -208,8 +208,9 @@ tw search "query" --all          # Fetch all result pages
 tw user                          # Show current user info
 tw user --json                   # JSON output
 tw user --json --full            # Include all fields in JSON output
-tw users                         # List workspace users
+tw users                         # List active workspace users
 tw users --search <text>         # Filter by name/email
+tw users --include-removed       # Include users removed from the workspace
 tw channels                      # List active joined workspace channels (alias of: tw channel list)
 tw channels --state all          # Include archived joined channels too
 tw channels --scope discoverable # Active public channels you can see but have not joined
