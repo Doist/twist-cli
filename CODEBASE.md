@@ -134,9 +134,9 @@ don't duplicate it here.
 - **`auth.ts`** — read-side token resolver: `getApiToken`, `probeApiToken`,
   `getAuthMetadata`, `NoTokenError`, `TOKEN_ENV_VAR` (`TWIST_API_TOKEN`).
 - **`auth-provider.ts`** — `createTwistAuthProvider()` (cli-core **DCR** provider
-    - Twist `validate`), `createTwistTokenStore()` (cli-core keyring store wrapped
-      with env-token/legacy fallbacks), `matchTwistAccount`, `getScopes`,
-      `isLegacyAuthActive`, `getActiveTokenSource`.
+  with a Twist `validate` hook), `createTwistTokenStore()` (cli-core keyring
+  store wrapped with env-token/legacy fallbacks), `matchTwistAccount`,
+  `getScopes`, `isLegacyAuthActive`, `getActiveTokenSource`.
 - **`user-records.ts`** — `UserRecordStore<TwistAccount>` adapter over
   `config.users[]` (REPLACE-not-merge `upsert`).
 - **`twist-account.ts`** — `makeTwistAccount` / `toTwistAccount` mappers.
