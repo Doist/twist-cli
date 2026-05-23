@@ -1,42 +1,99 @@
+import {
+    type AccountRef,
+    attachAccountListCommand,
+    attachAccountRemoveCommand,
+    attachAccountUseCommand,
+} from '@doist/cli-core/auth'
+import chalk from 'chalk'
 import { Command } from 'commander'
-import { createTwistTokenStore } from '../../lib/auth-provider.js'
+import { createTwistTokenStore, type TwistTokenStore } from '../../lib/auth-provider.js'
 import type { ViewOptions } from '../../lib/options.js'
+import { logTokenStorageResult } from '../auth/helpers.js'
 import { currentAccount } from './current.js'
-import { listAccounts } from './list.js'
-import { removeAccount } from './remove.js'
-import { useAccount } from './use.js'
+import { assertV2Available } from './helpers.js'
 
-function withJsonFlags(cmd: Command): Command {
-    return cmd
-        .option('--json', 'Output as JSON')
-        .option('--ndjson', 'Output as newline-delimited JSON')
+/**
+ * Guard the v2-store mutators so a pending v1→v2 migration (store empty, legacy
+ * token still live) surfaces AUTH_MIGRATION_PENDING instead of a misleading
+ * empty list / ACCOUNT_NOT_FOUND. cli-core's attachers own the command action,
+ * so the guard lives in the store rather than at a call site. `current` uses the
+ * unguarded store — it reports the legacy/env session rather than erroring.
+ */
+function withLegacyGuard(store: TwistTokenStore): TwistTokenStore {
+    return Object.assign(Object.create(store) as TwistTokenStore, {
+        async list() {
+            await assertV2Available()
+            return store.list()
+        },
+        async setDefault(ref: AccountRef) {
+            await assertV2Available()
+            return store.setDefault(ref)
+        },
+        async clear(ref?: AccountRef) {
+            await assertV2Available()
+            return store.clear(ref)
+        },
+    })
 }
 
 export function registerAccountCommand(program: Command): void {
     const account = program.command('account').description('Manage stored CLI accounts')
     const store = createTwistTokenStore()
+    const guarded = withLegacyGuard(store)
 
-    withJsonFlags(
-        account.command('list', { isDefault: true }).description('List stored CLI accounts'),
-    ).action((options: ViewOptions) => listAccounts(options, store))
+    attachAccountListCommand(account, {
+        store: guarded,
+        description: 'List stored CLI accounts',
+        renderText: (ctx) => {
+            if (ctx.accounts.length === 0) {
+                return 'No stored accounts. Run `tw auth login` to add one.'
+            }
+            const lines = [`Stored accounts (${ctx.accounts.length}):`]
+            for (const { account: acc, isDefault } of ctx.accounts) {
+                const marker = isDefault ? chalk.green('*') : ' '
+                lines.push(`  ${marker} ${chalk.dim(`id:${acc.id}`)}  ${acc.label}`)
+            }
+            const def = ctx.accounts.find((entry) => entry.isDefault)
+            if (def) {
+                lines.push(`Default: ${chalk.dim(`id:${def.account.id}`)}  ${def.account.label}`)
+            }
+            return lines
+        },
+    })
 
-    withJsonFlags(
-        account
-            .command('current')
-            .description('Show the currently active account (honours TWIST_API_TOKEN)'),
-    ).action((options: ViewOptions) => currentAccount(options, store))
+    attachAccountUseCommand(account, {
+        store: guarded,
+        description: 'Set the default stored account (id, id:<n>, or display name)',
+    })
 
-    withJsonFlags(
-        account
-            .command('use <ref>')
-            .description('Set the default stored account (id, id:<n>, or display name)'),
-    ).action((ref: string, options: ViewOptions) => useAccount(ref, options, store))
+    attachAccountRemoveCommand(account, {
+        store: guarded,
+        description: 'Remove a stored account (clears keyring + config entry)',
+        onRemoved: (ctx) => {
+            const result = store.getLastClearResult()
+            if (result) {
+                logTokenStorageResult(
+                    result,
+                    'Stored token removed from the system credential manager',
+                    ctx.view.json || ctx.view.ndjson,
+                )
+            }
+        },
+    })
 
-    withJsonFlags(
-        account
-            .command('remove <ref>')
-            .description('Remove a stored account (clears keyring + config entry)'),
-    ).action((ref: string, options: ViewOptions) => removeAccount(ref, options, store))
+    // `current` stays bespoke: cli-core's attacher resolves via the store's
+    // token-free `activeAccount()`, bypassing twist's TWIST_API_TOKEN / legacy
+    // overrides, and its sync render hooks can't run the async legacy check.
+    account
+        .command('current')
+        .description('Show the currently active account (honours TWIST_API_TOKEN)')
+        .option('--json', 'Output as JSON')
+        .option('--ndjson', 'Output as newline-delimited JSON')
+        .action((options: ViewOptions) => currentAccount(options, store))
+
+    // The list attacher adds `list` without commander's `isDefault`, so wire the
+    // parent default explicitly to keep `tw account` (no subcommand) listing.
+    ;(account as unknown as { _defaultCommandName: string })._defaultCommandName = 'list'
 
     account.addHelpText(
         'after',

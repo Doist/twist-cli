@@ -28,13 +28,19 @@ vi.mock('../../lib/auth-provider.js', async (importOriginal) => {
 vi.mock('chalk')
 
 import { ACCOUNT_ALAN, ACCOUNT_ELLIE } from '../../lib/__fixtures__/accounts.js'
-import { type TwistAccount } from '../../lib/auth-provider.js'
+import { matchTwistAccount, type TwistAccount } from '../../lib/auth-provider.js'
 import { TOKEN_ENV_VAR } from '../../lib/auth.js'
+import { CliError } from '../../lib/errors.js'
 import { registerAccountCommand } from './index.js'
 
 const createProgram = () => createTestProgram(registerAccountCommand)
 
-/** Seed `store.list()` and `store.setDefault/clear` resolvers in one call. */
+/**
+ * Seed an in-memory store that mirrors the real keyring store closely enough
+ * for the cli-core attachers: `setDefault` / `clear` resolve the raw `<ref>`
+ * through `matchTwistAccount` (id / id:N / display name), mutate the shared
+ * list, and `clear` returns the `ClearedAccount` the remove attacher needs.
+ */
 function seedStore(...records: Array<TwistAccount | [TwistAccount, 'default']>): void {
     const list = records.map((spec) =>
         Array.isArray(spec)
@@ -42,8 +48,17 @@ function seedStore(...records: Array<TwistAccount | [TwistAccount, 'default']>):
             : { account: spec, isDefault: false },
     )
     storeMocks.list.mockResolvedValue(list)
-    storeMocks.setDefault.mockResolvedValue(undefined)
-    storeMocks.clear.mockResolvedValue(undefined)
+    storeMocks.setDefault.mockImplementation(async (ref: string) => {
+        const match = list.find((entry) => matchTwistAccount(entry.account, ref))
+        if (!match) throw new CliError('ACCOUNT_NOT_FOUND', `No stored account matches "${ref}".`)
+        for (const entry of list) entry.isDefault = entry === match
+    })
+    storeMocks.clear.mockImplementation(async (ref: string) => {
+        const index = list.findIndex((entry) => matchTwistAccount(entry.account, ref))
+        if (index < 0) return null
+        const [removed] = list.splice(index, 1)
+        return { account: removed.account, wasDefault: removed.isDefault }
+    })
     storeMocks.getLastClearResult.mockReturnValue({ storage: 'secure-store' })
 }
 
@@ -102,15 +117,18 @@ describe('account command', () => {
             )
         })
 
-        it('emits a JSON envelope with id, label, isDefault', async () => {
+        it('emits the cli-core {accounts, default} envelope', async () => {
             seedStore([ACCOUNT_ALAN, 'default'], ACCOUNT_ELLIE)
 
             await createProgram().parseAsync(['node', 'tw', 'account', 'list', '--json'])
 
-            expect(JSON.parse(consoleSpy.mock.calls[0][0] as string)).toEqual([
-                { id: '1', label: 'Alan Grant', isDefault: true },
-                { id: '2', label: 'Ellie Sattler', isDefault: false },
-            ])
+            expect(JSON.parse(consoleSpy.mock.calls[0][0] as string)).toEqual({
+                accounts: [
+                    { account: ACCOUNT_ALAN, isDefault: true },
+                    { account: ACCOUNT_ELLIE, isDefault: false },
+                ],
+                default: '1',
+            })
         })
     })
 
@@ -197,61 +215,61 @@ describe('account command', () => {
     })
 
     describe('use', () => {
-        it('sets the default account by canonical id when the ref matches', async () => {
+        it('sets the default account and echoes the ref in human mode', async () => {
             seedStore(ACCOUNT_ALAN, [ACCOUNT_ELLIE, 'default'])
 
             await createProgram().parseAsync(['node', 'tw', 'account', 'use', '1'])
 
             expect(storeMocks.setDefault).toHaveBeenCalledTimes(1)
             expect(storeMocks.setDefault).toHaveBeenCalledWith('1')
-            const output = stdout()
-            expect(output).toContain('Default account set to')
-            expect(output).toContain('Alan Grant')
+            expect(stdout()).toContain('Default account set to 1')
         })
 
-        it('rejects unknown refs with ACCOUNT_NOT_FOUND before touching the store', async () => {
+        it('propagates ACCOUNT_NOT_FOUND from the store on an unknown ref', async () => {
             seedStore([ACCOUNT_ALAN, 'default'])
 
             await expect(
                 createProgram().parseAsync(['node', 'tw', 'account', 'use', '999']),
             ).rejects.toHaveProperty('code', 'ACCOUNT_NOT_FOUND')
-
-            expect(storeMocks.setDefault).not.toHaveBeenCalled()
         })
 
-        it('matches refs by display name and resolves to the canonical id', async () => {
+        it('resolves a display-name ref to the canonical default id under --json', async () => {
             seedStore(ACCOUNT_ALAN, [ACCOUNT_ELLIE, 'default'])
 
-            await createProgram().parseAsync(['node', 'tw', 'account', 'use', 'alan grant'])
+            await createProgram().parseAsync([
+                'node',
+                'tw',
+                'account',
+                'use',
+                'alan grant',
+                '--json',
+            ])
 
-            expect(storeMocks.setDefault).toHaveBeenCalledTimes(1)
-            const output = stdout()
-            expect(output).toContain('Alan Grant')
-            expect(output).not.toContain('Ellie Sattler')
+            expect(storeMocks.setDefault).toHaveBeenCalledWith('alan grant')
+            expect(JSON.parse(consoleSpy.mock.calls[0][0] as string)).toEqual({
+                ok: true,
+                default: '1',
+            })
         })
     })
 
     describe('remove', () => {
-        it('clears the account by canonical id and prints the removed label', async () => {
+        it('clears the account by ref and prints the removed label', async () => {
             seedStore([ACCOUNT_ALAN, 'default'], ACCOUNT_ELLIE)
 
             await createProgram().parseAsync(['node', 'tw', 'account', 'remove', 'ellie sattler'])
 
             expect(storeMocks.clear).toHaveBeenCalledTimes(1)
-            expect(storeMocks.clear).toHaveBeenCalledWith('2')
-            const output = stdout()
-            expect(output).toContain('Removed account')
-            expect(output).toContain('Ellie Sattler')
+            expect(storeMocks.clear).toHaveBeenCalledWith('ellie sattler')
+            expect(stdout()).toContain('Removed Ellie Sattler')
         })
 
-        it('rejects unknown refs with ACCOUNT_NOT_FOUND before clearing', async () => {
+        it('surfaces ACCOUNT_NOT_FOUND when the store reports no match', async () => {
             seedStore([ACCOUNT_ALAN, 'default'])
 
             await expect(
                 createProgram().parseAsync(['node', 'tw', 'account', 'remove', '999']),
             ).rejects.toHaveProperty('code', 'ACCOUNT_NOT_FOUND')
-
-            expect(storeMocks.clear).not.toHaveBeenCalled()
         })
 
         it('surfaces keyring-fallback warnings on stderr', async () => {
@@ -269,16 +287,15 @@ describe('account command', () => {
             )
         })
 
-        it('emits a JSON envelope and suppresses the plain confirmation', async () => {
+        it('emits the cli-core {ok, removed} envelope and suppresses the plain confirmation', async () => {
             seedStore([ACCOUNT_ALAN, 'default'])
 
             await createProgram().parseAsync(['node', 'tw', 'account', 'remove', '1', '--json'])
 
             expect(consoleSpy).toHaveBeenCalledTimes(1)
             expect(JSON.parse(consoleSpy.mock.calls[0][0] as string)).toEqual({
-                id: '1',
-                label: 'Alan Grant',
-                removed: true,
+                ok: true,
+                removed: '1',
             })
         })
     })
