@@ -20,17 +20,22 @@ import { assertV2Available } from './helpers.js'
  * unguarded store — it reports the legacy/env session rather than erroring.
  */
 function withLegacyGuard(store: TwistTokenStore): TwistTokenStore {
+    // Cache the check: a cli-core attacher can call the store more than once
+    // per command (`use --json` does setDefault + a follow-up list), and legacy
+    // state can't change mid-command, so read it at most once per invocation.
+    let guard: Promise<void> | undefined
+    const ensureV2 = () => (guard ??= assertV2Available())
     return Object.assign(Object.create(store) as TwistTokenStore, {
         async list() {
-            await assertV2Available()
+            await ensureV2()
             return store.list()
         },
         async setDefault(ref: AccountRef) {
-            await assertV2Available()
+            await ensureV2()
             return store.setDefault(ref)
         },
         async clear(ref?: AccountRef) {
-            await assertV2Available()
+            await ensureV2()
             return store.clear(ref)
         },
     })

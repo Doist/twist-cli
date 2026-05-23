@@ -251,6 +251,15 @@ describe('account command', () => {
                 default: '1',
             })
         })
+
+        it('emits nothing on success under --ndjson', async () => {
+            seedStore(ACCOUNT_ALAN, [ACCOUNT_ELLIE, 'default'])
+
+            await createProgram().parseAsync(['node', 'tw', 'account', 'use', '1', '--ndjson'])
+
+            expect(storeMocks.setDefault).toHaveBeenCalledWith('1')
+            expect(consoleSpy).not.toHaveBeenCalled()
+        })
     })
 
     describe('remove', () => {
