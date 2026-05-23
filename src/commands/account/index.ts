@@ -1,15 +1,21 @@
+import { emitView } from '@doist/cli-core'
 import {
     type AccountRef,
+    attachAccountCurrentCommand,
     attachAccountListCommand,
     attachAccountRemoveCommand,
     attachAccountUseCommand,
 } from '@doist/cli-core/auth'
 import chalk from 'chalk'
 import { Command } from 'commander'
-import { createTwistTokenStore, type TwistTokenStore } from '../../lib/auth-provider.js'
-import type { ViewOptions } from '../../lib/options.js'
+import {
+    createTwistTokenStore,
+    isLegacyAuthActive,
+    type TwistTokenStore,
+} from '../../lib/auth-provider.js'
+import { TOKEN_ENV_VAR } from '../../lib/auth.js'
+import { CliError } from '../../lib/errors.js'
 import { logTokenStorageResult } from '../auth/helpers.js'
-import { currentAccount } from './current.js'
 import { assertV2Available } from './helpers.js'
 
 /**
@@ -86,15 +92,47 @@ export function registerAccountCommand(program: Command): void {
         },
     })
 
-    // `current` stays bespoke: cli-core's attacher resolves via the store's
-    // token-free `activeAccount()`, bypassing twist's TWIST_API_TOKEN / legacy
-    // overrides, and its sync render hooks can't run the async legacy check.
-    account
-        .command('current')
-        .description('Show the currently active account (honours TWIST_API_TOKEN)')
-        .option('--json', 'Output as JSON')
-        .option('--ndjson', 'Output as newline-delimited JSON')
-        .action((options: ViewOptions) => currentAccount(options, store))
+    // env-token / legacy sessions resolve as `null` from `store.activeAccount()`
+    // (see auth-provider.ts), so the env/legacy notices live in
+    // `onNotAuthenticated` — the one async hook, where `isLegacyAuthActive()`
+    // can run. A resolved account renders as a normal `config` source.
+    attachAccountCurrentCommand(account, {
+        store,
+        description: 'Show the currently active account (honours TWIST_API_TOKEN)',
+        renderText: ({ account: acc }) => {
+            const lines = [
+                `Active account: ${chalk.dim(`id:${acc.id}`)}  ${acc.label}`,
+                `  Mode:  ${acc.authMode}`,
+            ]
+            if (acc.authScope) lines.push(`  Scope: ${acc.authScope}`)
+            return lines
+        },
+        renderJson: ({ account: acc }) => ({
+            id: acc.id,
+            label: acc.label,
+            authMode: acc.authMode,
+            authScope: acc.authScope || undefined,
+            source: 'config',
+        }),
+        async onNotAuthenticated({ view }) {
+            if (process.env[TOKEN_ENV_VAR]) {
+                emitView(view, { source: 'env' }, () => [
+                    `Active token sourced from environment variable ${TOKEN_ENV_VAR} (no stored account).`,
+                ])
+                return
+            }
+            if (await isLegacyAuthActive()) {
+                emitView(view, { source: 'legacy' }, () => [
+                    'Active token is a legacy single-user session (pre-multi-account).',
+                    chalk.dim('Run `tw auth status` while online to migrate it into the v2 store.'),
+                ])
+                return
+            }
+            throw new CliError('NO_TOKEN', 'No stored account is currently active.', [
+                'Run: tw auth login',
+            ])
+        },
+    })
 
     // The list attacher adds `list` without commander's `isDefault`, so wire the
     // parent default explicitly to keep `tw account` (no subcommand) listing.

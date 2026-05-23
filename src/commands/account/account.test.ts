@@ -6,6 +6,7 @@ const storeMocks = vi.hoisted(() => ({
     set: vi.fn(),
     clear: vi.fn(),
     active: vi.fn(),
+    activeAccount: vi.fn(),
     list: vi.fn(),
     setDefault: vi.fn(),
     getLastStorageResult: vi.fn(),
@@ -60,11 +61,6 @@ function seedStore(...records: Array<TwistAccount | [TwistAccount, 'default']>):
         return { account: removed.account, wasDefault: removed.isDefault }
     })
     storeMocks.getLastClearResult.mockReturnValue({ storage: 'secure-store' })
-}
-
-const LEGACY_SNAPSHOT = {
-    token: 'tk_legacy',
-    account: { id: '', label: '', authMode: 'unknown' as const, authScope: '' },
 }
 
 describe('account command', () => {
@@ -133,9 +129,9 @@ describe('account command', () => {
     })
 
     describe('current', () => {
-        it('renders the active account from store.active()', async () => {
+        it('renders the active account resolved by the store', async () => {
             vi.stubEnv(TOKEN_ENV_VAR, '')
-            storeMocks.active.mockResolvedValue({ token: 'tk_abc', account: ACCOUNT_ALAN })
+            storeMocks.activeAccount.mockResolvedValue({ account: ACCOUNT_ALAN, isDefault: true })
 
             await createProgram().parseAsync(['node', 'tw', 'account', 'current'])
 
@@ -145,62 +141,9 @@ describe('account command', () => {
             expect(output).toContain('Scope: user:read')
         })
 
-        it.each([['--json'], ['--ndjson']])(
-            'emits {source:"env"} in %s mode without touching store.active',
-            async (flag) => {
-                vi.stubEnv(TOKEN_ENV_VAR, 'tk_env_supplied')
-
-                await createProgram().parseAsync(['node', 'tw', 'account', 'current', flag])
-
-                expect(consoleSpy).toHaveBeenCalledTimes(1)
-                expect(JSON.parse(consoleSpy.mock.calls[0][0] as string)).toEqual({ source: 'env' })
-                expect(storeMocks.active).not.toHaveBeenCalled()
-            },
-        )
-
-        it('renders a legacy-session notice when active() returns an empty-id snapshot', async () => {
-            vi.stubEnv(TOKEN_ENV_VAR, '')
-            storeMocks.active.mockResolvedValue(LEGACY_SNAPSHOT)
-
-            await createProgram().parseAsync(['node', 'tw', 'account', 'current'])
-
-            expect(stdout()).toContain('legacy single-user session')
-        })
-
-        it('emits {source:"legacy"} in --json mode for legacy snapshots', async () => {
-            vi.stubEnv(TOKEN_ENV_VAR, '')
-            storeMocks.active.mockResolvedValue(LEGACY_SNAPSHOT)
-
-            await createProgram().parseAsync(['node', 'tw', 'account', 'current', '--json'])
-
-            expect(JSON.parse(consoleSpy.mock.calls[0][0] as string)).toEqual({ source: 'legacy' })
-        })
-
-        it('reports a populated legacy snapshot (authUserId set) as legacy, not config', async () => {
-            // `readLegacyTokenSnapshot` populates id/label from v1 flat
-            // fields when present, so the empty-id check alone misses this
-            // case — `isLegacyAuthActive()` is the authoritative signal.
-            vi.stubEnv(TOKEN_ENV_VAR, '')
-            legacyMocks.isLegacyAuthActive.mockResolvedValue(true)
-            storeMocks.active.mockResolvedValue({ token: 'tk_legacy', account: ACCOUNT_ALAN })
-
-            await createProgram().parseAsync(['node', 'tw', 'account', 'current', '--json'])
-
-            expect(JSON.parse(consoleSpy.mock.calls[0][0] as string)).toEqual({ source: 'legacy' })
-        })
-
-        it('throws NO_TOKEN when nothing is active', async () => {
-            vi.stubEnv(TOKEN_ENV_VAR, '')
-            storeMocks.active.mockResolvedValue(null)
-
-            await expect(
-                createProgram().parseAsync(['node', 'tw', 'account', 'current']),
-            ).rejects.toHaveProperty('code', 'NO_TOKEN')
-        })
-
         it('emits a JSON envelope with the active account fields', async () => {
             vi.stubEnv(TOKEN_ENV_VAR, '')
-            storeMocks.active.mockResolvedValue({ token: 'tk_abc', account: ACCOUNT_ALAN })
+            storeMocks.activeAccount.mockResolvedValue({ account: ACCOUNT_ALAN, isDefault: true })
 
             await createProgram().parseAsync(['node', 'tw', 'account', 'current', '--json'])
 
@@ -211,6 +154,49 @@ describe('account command', () => {
                 authScope: 'user:read',
                 source: 'config',
             })
+        })
+
+        it.each([['--json'], ['--ndjson']])(
+            'emits {source:"env"} in %s mode when TWIST_API_TOKEN is set',
+            async (flag) => {
+                vi.stubEnv(TOKEN_ENV_VAR, 'tk_env_supplied')
+                storeMocks.activeAccount.mockResolvedValue(null)
+
+                await createProgram().parseAsync(['node', 'tw', 'account', 'current', flag])
+
+                expect(consoleSpy).toHaveBeenCalledTimes(1)
+                expect(JSON.parse(consoleSpy.mock.calls[0][0] as string)).toEqual({ source: 'env' })
+            },
+        )
+
+        it('renders a legacy-session notice when the store reports no v2 account', async () => {
+            vi.stubEnv(TOKEN_ENV_VAR, '')
+            storeMocks.activeAccount.mockResolvedValue(null)
+            legacyMocks.isLegacyAuthActive.mockResolvedValue(true)
+
+            await createProgram().parseAsync(['node', 'tw', 'account', 'current'])
+
+            expect(stdout()).toContain('legacy single-user session')
+        })
+
+        it('emits {source:"legacy"} in --json mode for a stuck legacy session', async () => {
+            vi.stubEnv(TOKEN_ENV_VAR, '')
+            storeMocks.activeAccount.mockResolvedValue(null)
+            legacyMocks.isLegacyAuthActive.mockResolvedValue(true)
+
+            await createProgram().parseAsync(['node', 'tw', 'account', 'current', '--json'])
+
+            expect(JSON.parse(consoleSpy.mock.calls[0][0] as string)).toEqual({ source: 'legacy' })
+        })
+
+        it('throws NO_TOKEN when nothing is active', async () => {
+            vi.stubEnv(TOKEN_ENV_VAR, '')
+            storeMocks.activeAccount.mockResolvedValue(null)
+            legacyMocks.isLegacyAuthActive.mockResolvedValue(false)
+
+            await expect(
+                createProgram().parseAsync(['node', 'tw', 'account', 'current']),
+            ).rejects.toHaveProperty('code', 'NO_TOKEN')
         })
     })
 
