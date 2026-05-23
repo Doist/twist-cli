@@ -20,10 +20,9 @@ export function withUserRefAware(
         clear: async (ref?: AccountRef) => {
             if (ref === undefined && requestedRef !== undefined) {
                 const account = await findAccountInStore(store, requestedRef)
-                await store.clear(account.id)
-                return
+                return store.clear(account.id)
             }
-            await store.clear(ref)
+            return store.clear(ref)
         },
     })
 }

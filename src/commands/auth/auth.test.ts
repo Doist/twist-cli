@@ -423,7 +423,9 @@ describe('auth command', () => {
                     return { token: 'snapshot_token', account: SNAPSHOT_ACCOUNT }
                 },
                 async set() {},
-                async clear() {},
+                async clear() {
+                    return null
+                },
                 async list() {
                     return [{ account: SNAPSHOT_ACCOUNT, isDefault: true }]
                 },
@@ -431,6 +433,9 @@ describe('auth command', () => {
                 async setBundle() {},
                 async activeBundle() {
                     return { account: SNAPSHOT_ACCOUNT, bundle: { accessToken: 'snapshot_token' } }
+                },
+                async activeAccount() {
+                    return { account: SNAPSHOT_ACCOUNT, isDefault: true }
                 },
                 getLastStorageResult: () => undefined,
                 getLastClearResult: () => undefined,
@@ -525,13 +530,18 @@ describe('auth command', () => {
                     return null
                 },
                 async set() {},
-                async clear() {},
+                async clear() {
+                    return null
+                },
                 async list() {
                     return []
                 },
                 async setDefault() {},
                 async setBundle() {},
                 async activeBundle() {
+                    return null
+                },
+                async activeAccount() {
                     return null
                 },
                 getLastStorageResult: () => undefined,

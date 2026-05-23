@@ -327,6 +327,16 @@ export function createTwistTokenStore(): TwistTokenStore {
             }
             return inner.activeBundle(ref)
         },
+        // cli-core's `account current` resolves through `activeAccount()`. An
+        // env-token or stuck-legacy session isn't a v2 store account, so report
+        // `null` (the attacher then routes to its `onNotAuthenticated` hook,
+        // which renders the env/legacy notice). Still triggers migration via
+        // `resolveOverrideSnapshot` → `ensureMigrated`, mirroring `active()`.
+        async activeAccount(ref?: AccountRef) {
+            const override = await resolveOverrideSnapshot(ref)
+            if (override) return null
+            return inner.activeAccount(ref)
+        },
         async set(account: TwistAccount, token: string) {
             await maybeDischargeLegacy()
             return inner.set(account, token)
