@@ -230,7 +230,22 @@ export async function resolveChannelRef(ref: string, workspaceId: number): Promi
     }
 
     if (parsed.type === 'name') {
-        const channels = await client.channels.getChannels({ workspaceId })
+        // getChannels is membership-scoped — it returns only channels the current user has
+        // joined (across active + archived). Public channels the user hasn't joined are not
+        // included, so name-resolving e.g. `tw channel archive "Old Public Channel"` would
+        // fail with CHANNEL_NOT_FOUND even though the channel is discoverable. Merge with
+        // getPublicChannels (workspace-scoped, returns all public channels regardless of
+        // membership) and dedupe by id so a joined-and-public channel doesn't match twice.
+        const [joined, publicChannels] = await Promise.all([
+            client.channels.getChannels({ workspaceId }),
+            client.workspaces.getPublicChannels(workspaceId),
+        ])
+        const byId = new Map<number, Channel>()
+        for (const channel of joined) byId.set(channel.id, channel)
+        for (const channel of publicChannels) {
+            if (!byId.has(channel.id)) byId.set(channel.id, channel)
+        }
+        const channels = Array.from(byId.values())
         return matchByName(channels, parsed.name, {
             ambiguousCode: 'AMBIGUOUS_CHANNEL',
             notFoundCode: 'CHANNEL_NOT_FOUND',
