@@ -48,7 +48,7 @@ export function registerAccountCommand(program: Command): void {
 
     attachAccountListCommand(account, {
         store: guarded,
-        description: 'List stored CLI accounts',
+        description: 'List stored Twist accounts',
         renderText: (ctx) => {
             if (ctx.accounts.length === 0) {
                 return 'No stored accounts. Run `tw auth login` to add one.'
