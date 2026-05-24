@@ -1,6 +1,6 @@
+import { createTestProgram } from '@doist/cli-core/testing'
 import { Command } from 'commander'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { createTestProgram } from '../test-helpers/program.js'
 
 vi.mock('./thread/index.js', () => ({
     registerThreadCommand: (program: Command) => {

@@ -1,9 +1,8 @@
 import { mkdir, readFile, rm, stat } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { captureConsole, createTestProgram } from '@doist/cli-core/testing'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { captureConsole } from '../../test-helpers/console.js'
-import { createTestProgram } from '../../test-helpers/program.js'
 
 vi.mock('chalk')
 

@@ -1,7 +1,6 @@
+import { captureConsole, createTestProgram } from '@doist/cli-core/testing'
 import type { BatchResponse as TwistBatchResponse } from '@doist/twist-sdk'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { captureConsole } from '../../test-helpers/console.js'
-import { createTestProgram } from '../../test-helpers/program.js'
 
 const apiMocks = vi.hoisted(() => ({
     getTwistClient: vi.fn(),

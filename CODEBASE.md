@@ -30,7 +30,7 @@ come from `@doist/cli-core`.
 ├─ CODEBASE.md            # This file — descriptive map
 ├─ CLAUDE.md              # One-liner forward to AGENTS.md
 ├─ tsconfig.json          # Includes src + tests (type-check, IDE)
-├─ tsconfig.build.json    # Excludes *.test.ts/.spec.ts, __mocks__, __fixtures__, test-helpers
+├─ tsconfig.build.json    # Excludes *.test.ts/.spec.ts, __mocks__, __fixtures__
 ├─ vitest.config.ts       # { globals, root: 'src', inlines @doist/cli-core }
 ├─ .oxlintrc.json / .oxfmtrc.json
 ├─ lefthook.yml           # Pre-commit: type-check + oxlint + oxfmt; pre-push: tests
@@ -51,8 +51,8 @@ src/
 ├─ lib/                   # Shared utilities. See catalog — don't reimplement.
 │  ├─ skills/             # content.ts (SKILL_CONTENT) + installer plumbing
 │  └─ __fixtures__/       # accounts.ts, channels.ts — test fixtures (excluded from build)
-├─ test-helpers/          # captureConsole (console.ts), createTestProgram (program.ts)
 └─ __mocks__/             # Manual vitest mocks for npm packages (chalk.ts)
+                          # (program harness + console spies: @doist/cli-core/testing)
 ```
 
 ## Architecture flow
@@ -210,8 +210,9 @@ cli-core's `migrateLegacyAuth`.
 - **Runner:** vitest. `npm test` (one-shot), `npm run test:watch`. Single file:
   `npx vitest run src/lib/refs.test.ts`.
 - **Location:** colocated `*.test.ts` next to the module under test.
-- **Helpers:** `src/test-helpers/` — `createTestProgram(register)` (Commander
-  harness), `captureConsole(method)` (stdout/stderr spy). Fixtures in
+- **Helpers:** `createTestProgram(register)` (Commander harness) and
+  `captureConsole(method)` / `captureStream(stream)` (output spies) come from the
+  shared `@doist/cli-core/testing` subpath — not local files. Fixtures in
   `src/lib/__fixtures__/` (`accounts.ts`, `channels.ts`) — don't hand-build
   account/channel objects. Manual npm-package mocks in `src/__mocks__/` (`chalk.ts`).
 - **`@doist/cli-core` inlining:** `vitest.config.ts` lists it in
@@ -223,7 +224,7 @@ cli-core's `migrateLegacyAuth`.
 
 - **Build:** `tsc -p tsconfig.build.json` → `dist/` (then `chmod +x`). Two-tsconfig
   setup: `tsconfig.json` includes tests (type-check/IDE); `tsconfig.build.json`
-  excludes `*.test.ts`/`.spec.ts`, `__mocks__`, `__fixtures__`, `test-helpers`.
+  excludes `*.test.ts`/`.spec.ts`, `__mocks__`, `__fixtures__`.
 - **Type-check:** `npm run type-check`. **Lint/format:** `npm run lint`
   (oxlint --fix + oxfmt), `npm run lint:check` (CI). **No ESLint, no Prettier.**
 - **Pre-commit:** lefthook (type-check + oxlint + oxfmt); **pre-push:** tests.
