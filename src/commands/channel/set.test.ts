@@ -1,7 +1,6 @@
+import { captureConsole, createTestProgram } from '@doist/cli-core/testing'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createChannelFixture } from '../../lib/__fixtures__/channels.js'
-import { captureConsole } from '../../test-helpers/console.js'
-import { createTestProgram } from '../../test-helpers/program.js'
 
 const apiMocks = vi.hoisted(() => ({
     getCurrentWorkspaceId: vi.fn().mockResolvedValue(1),

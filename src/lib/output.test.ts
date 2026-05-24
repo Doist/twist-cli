@@ -1,5 +1,5 @@
+import { captureConsole } from '@doist/cli-core/testing'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { captureConsole } from '../test-helpers/console.js'
 import { BaseCliError } from './errors.js'
 import { isAccessible, resetGlobalArgs } from './global-args.js'
 import { formatError, formatErrorJson, printDryRun, printEmpty } from './output.js'

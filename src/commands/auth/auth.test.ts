@@ -1,7 +1,6 @@
+import { captureConsole, createTestProgram } from '@doist/cli-core/testing'
 import { Command } from 'commander'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { captureConsole } from '../../test-helpers/console.js'
-import { createTestProgram } from '../../test-helpers/program.js'
 
 // Mock the auth module (only the read-side shims are stubbed; the
 // write-side path now goes through `createTwistTokenStore` from
