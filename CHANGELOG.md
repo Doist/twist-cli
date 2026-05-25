@@ -1,3 +1,9 @@
+## [2.43.1](https://github.com/Doist/twist-cli/compare/v2.43.0...v2.43.1) (2026-05-25)
+
+### Bug Fixes
+
+- **deps:** update dependency marked to v18.0.4 ([#254](https://github.com/Doist/twist-cli/issues/254)) ([3c1e0e2](https://github.com/Doist/twist-cli/commit/3c1e0e2a9c8be11cf60db8a5c5a88d5e821ccdee))
+
 ## [2.43.0](https://github.com/Doist/twist-cli/compare/v2.42.0...v2.43.0) (2026-05-22)
 
 ### Features
