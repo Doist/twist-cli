@@ -199,8 +199,8 @@ function wrapResult(
             }
             if (isForbidden(error)) {
                 throw new CliError('FORBIDDEN', 'Twist refused this action: 403 Forbidden.', [
-                    'You may not have permission for this action — workspace admins can perform it',
-                    'Or re-authenticate with `tw auth login` if your scopes look wrong',
+                    'You may not have permission for this action',
+                    'Contact your workspace admin, or re-authenticate with `tw auth login` if your token looks wrong',
                 ])
             }
             throw error

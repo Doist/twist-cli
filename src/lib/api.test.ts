@@ -1,3 +1,4 @@
+import { TwistRequestError } from '@doist/twist-sdk'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 // Hoisted mocks — shared across both describe blocks.
@@ -82,10 +83,7 @@ describe('wrapResult — central 403 translation', () => {
 
     it('translates a plain 403 into a FORBIDDEN CliError', async () => {
         sdkMocks.deleteChannel.mockRejectedValueOnce(
-            Object.assign(new Error('Request failed with status 403'), {
-                httpStatusCode: 403,
-                responseData: {},
-            }),
+            new TwistRequestError('Request failed with status 403', 403, {}),
         )
 
         const { createWrappedTwistClient } = await import('./api.js')
@@ -93,14 +91,18 @@ describe('wrapResult — central 403 translation', () => {
 
         await expect(client.channels.deleteChannel(500)).rejects.toMatchObject({
             code: 'FORBIDDEN',
+            message: 'Twist refused this action: 403 Forbidden.',
+            hints: [
+                'You may not have permission for this action',
+                'Contact your workspace admin, or re-authenticate with `tw auth login` if your token looks wrong',
+            ],
         })
     })
 
     it('prefers INSUFFICIENT_SCOPE over FORBIDDEN when error_string indicates scope', async () => {
         sdkMocks.deleteChannel.mockRejectedValueOnce(
-            Object.assign(new Error('Request failed with status 403'), {
-                httpStatusCode: 403,
-                responseData: { error_string: 'Insufficient scope provided: channels:write' },
+            new TwistRequestError('Request failed with status 403', 403, {
+                error_string: 'Insufficient scope provided: channels:write',
             }),
         )
 
@@ -109,22 +111,18 @@ describe('wrapResult — central 403 translation', () => {
 
         await expect(client.channels.deleteChannel(500)).rejects.toMatchObject({
             code: 'INSUFFICIENT_SCOPE',
+            message: 'This action requires permissions your current token does not have.',
+            hints: ['Run `tw auth login` to re-authenticate with the required scopes'],
         })
     })
 
     it('passes non-403 errors through untranslated', async () => {
-        sdkMocks.deleteChannel.mockRejectedValueOnce(
-            Object.assign(new Error('Request failed with status 500'), {
-                httpStatusCode: 500,
-                responseData: {},
-            }),
-        )
+        const originalError = new TwistRequestError('Request failed with status 500', 500, {})
+        sdkMocks.deleteChannel.mockRejectedValueOnce(originalError)
 
         const { createWrappedTwistClient } = await import('./api.js')
         const client = createWrappedTwistClient('test-token')
 
-        await expect(client.channels.deleteChannel(500)).rejects.toThrow(
-            'Request failed with status 500',
-        )
+        await expect(client.channels.deleteChannel(500)).rejects.toBe(originalError)
     })
 })
