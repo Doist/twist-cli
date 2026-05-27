@@ -303,9 +303,15 @@ export async function getSessionUser(): Promise<User> {
     return sessionUserCache
 }
 
-export async function getWorkspaceUsers(workspaceId: number): Promise<WorkspaceUser[]> {
+export async function getWorkspaceUsers(
+    workspaceId: number,
+    options: { includeRemoved?: boolean } = {},
+): Promise<WorkspaceUser[]> {
     const client = await getTwistClient()
-    return client.workspaceUsers.getWorkspaceUsers({ workspaceId })
+    return client.workspaceUsers.getWorkspaceUsers({
+        workspaceId,
+        includeRemoved: options.includeRemoved,
+    })
 }
 
 export async function getWorkspaceGroups(workspaceId: number): Promise<Group[]> {
