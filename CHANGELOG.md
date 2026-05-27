@@ -1,3 +1,9 @@
+## [2.44.0](https://github.com/Doist/twist-cli/compare/v2.43.1...v2.44.0) (2026-05-27)
+
+### Features
+
+- **channel:** add create, delete, archive, unarchive subcommands ([#246](https://github.com/Doist/twist-cli/issues/246)) ([62dbda9](https://github.com/Doist/twist-cli/commit/62dbda9b7def44f9da9aa952bb7d4ca621eac790))
+
 ## [2.43.1](https://github.com/Doist/twist-cli/compare/v2.43.0...v2.43.1) (2026-05-25)
 
 ### Bug Fixes
