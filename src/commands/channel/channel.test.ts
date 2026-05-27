@@ -8,6 +8,10 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 const apiMocks = vi.hoisted(() => ({
     getTwistClient: vi.fn(),
     getCurrentWorkspaceId: vi.fn().mockResolvedValue(1),
+    createChannel: vi.fn(),
+    deleteChannel: vi.fn(),
+    archiveChannel: vi.fn(),
+    unarchiveChannel: vi.fn(),
 }))
 
 const refsMocks = vi.hoisted(() => ({
@@ -23,6 +27,10 @@ const globalArgsMocks = vi.hoisted(() => ({
 vi.mock('../../lib/api.js', () => ({
     getTwistClient: apiMocks.getTwistClient,
     getCurrentWorkspaceId: apiMocks.getCurrentWorkspaceId,
+    createChannel: apiMocks.createChannel,
+    deleteChannel: apiMocks.deleteChannel,
+    archiveChannel: apiMocks.archiveChannel,
+    unarchiveChannel: apiMocks.unarchiveChannel,
 }))
 
 vi.mock('../../lib/refs.js', () => ({
@@ -373,5 +381,370 @@ describe('channels list', () => {
         await expect(
             program.parseAsync(['node', 'tw', 'channels', '--state', 'invalid']),
         ).rejects.toHaveProperty('code', 'INVALID_STATE')
+    })
+})
+
+describe('tw channel create', () => {
+    beforeEach(() => {
+        vi.clearAllMocks()
+        apiMocks.getCurrentWorkspaceId.mockResolvedValue(1)
+        apiMocks.createChannel.mockResolvedValue(createChannel(999, 'Engineering'))
+    })
+
+    it('creates a public channel by default in the current workspace', async () => {
+        const program = createProgram()
+        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+        await program.parseAsync(['node', 'tw', 'channel', 'create', 'Engineering'])
+
+        expect(apiMocks.createChannel).toHaveBeenCalledWith({
+            workspaceId: 1,
+            name: 'Engineering',
+            description: undefined,
+            public: true,
+        })
+        expect(consoleSpy.mock.calls[0][0]).toContain('Engineering')
+        expect(consoleSpy.mock.calls[0][0]).toContain('public')
+
+        consoleSpy.mockRestore()
+    })
+
+    it('resolves --workspace ref when provided', async () => {
+        refsMocks.resolveWorkspaceRef.mockResolvedValue({ id: 42, name: 'Other' })
+        const program = createProgram()
+        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+        await program.parseAsync([
+            'node',
+            'tw',
+            'channel',
+            'create',
+            'Engineering',
+            '--workspace',
+            'Other',
+        ])
+
+        expect(refsMocks.resolveWorkspaceRef).toHaveBeenCalledWith('Other')
+        expect(apiMocks.createChannel).toHaveBeenCalledWith({
+            workspaceId: 42,
+            name: 'Engineering',
+            description: undefined,
+            public: true,
+        })
+
+        consoleSpy.mockRestore()
+    })
+
+    it('passes --description and --private through to createChannel', async () => {
+        apiMocks.createChannel.mockResolvedValue(
+            createChannel(999, 'Leadership', { public: false, description: 'Internal' }),
+        )
+        const program = createProgram()
+        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+        await program.parseAsync([
+            'node',
+            'tw',
+            'channel',
+            'create',
+            'Leadership',
+            '--private',
+            '--description',
+            'Internal',
+        ])
+
+        expect(apiMocks.createChannel).toHaveBeenCalledWith({
+            workspaceId: 1,
+            name: 'Leadership',
+            description: 'Internal',
+            public: false,
+        })
+
+        consoleSpy.mockRestore()
+    })
+
+    it('does not call the API on --dry-run', async () => {
+        const program = createProgram()
+        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+        await program.parseAsync([
+            'node',
+            'tw',
+            'channel',
+            'create',
+            'Engineering',
+            '--private',
+            '--dry-run',
+        ])
+
+        expect(apiMocks.createChannel).not.toHaveBeenCalled()
+        const text = consoleSpy.mock.calls.map((c) => String(c[0])).join('\n')
+        expect(text).toContain('create channel')
+        expect(text).toContain('private')
+
+        consoleSpy.mockRestore()
+    })
+
+    it('outputs created channel as JSON', async () => {
+        apiMocks.createChannel.mockResolvedValue(createChannel(123, 'Engineering'))
+        const program = createProgram()
+        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+        await program.parseAsync(['node', 'tw', 'channel', 'create', 'Engineering', '--json'])
+
+        const output = JSON.parse(consoleSpy.mock.calls[0][0])
+        expect(output.id).toBe(123)
+        expect(output.name).toBe('Engineering')
+
+        consoleSpy.mockRestore()
+    })
+
+    it('forwards --full so JSON output includes all channel fields', async () => {
+        apiMocks.createChannel.mockResolvedValue(
+            createChannel(123, 'Engineering', { description: 'Eng channel', creator: 9 }),
+        )
+        const program = createProgram()
+        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+        await program.parseAsync([
+            'node',
+            'tw',
+            'channel',
+            'create',
+            'Engineering',
+            '--json',
+            '--full',
+        ])
+
+        const output = JSON.parse(consoleSpy.mock.calls[0][0])
+        // The default-shape filter drops `public`/`creator`; --full keeps them.
+        expect(output).toMatchObject({ id: 123, name: 'Engineering', public: true, creator: 9 })
+
+        consoleSpy.mockRestore()
+    })
+
+    it('rejects an empty name', async () => {
+        const program = createProgram()
+        await expect(
+            program.parseAsync(['node', 'tw', 'channel', 'create', '   ']),
+        ).rejects.toMatchObject({ code: 'INVALID_NAME' })
+    })
+})
+
+describe('tw channel delete', () => {
+    beforeEach(() => {
+        vi.clearAllMocks()
+        apiMocks.getCurrentWorkspaceId.mockResolvedValue(1)
+        refsMocks.resolveChannelRef.mockResolvedValue(createChannel(500, 'Engineering'))
+    })
+
+    it('refuses to delete without --yes', async () => {
+        const program = createProgram()
+        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+        await program.parseAsync(['node', 'tw', 'channel', 'delete', 'Engineering'])
+
+        expect(apiMocks.deleteChannel).not.toHaveBeenCalled()
+        expect(consoleSpy.mock.calls.some((c) => String(c[0]).includes('Use --yes'))).toBe(true)
+
+        consoleSpy.mockRestore()
+    })
+
+    it('deletes when --yes is passed', async () => {
+        const program = createProgram()
+        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+        await program.parseAsync(['node', 'tw', 'channel', 'delete', 'Engineering', '--yes'])
+
+        expect(refsMocks.resolveChannelRef).toHaveBeenCalledWith('Engineering', 1)
+        expect(apiMocks.deleteChannel).toHaveBeenCalledWith(500)
+        expect(consoleSpy.mock.calls[0][0]).toContain('Engineering')
+
+        consoleSpy.mockRestore()
+    })
+
+    it('does not delete on --dry-run', async () => {
+        const program = createProgram()
+        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+        await program.parseAsync(['node', 'tw', 'channel', 'delete', 'Engineering', '--dry-run'])
+
+        expect(apiMocks.deleteChannel).not.toHaveBeenCalled()
+        const text = consoleSpy.mock.calls.map((c) => String(c[0])).join('\n')
+        expect(text).toContain('delete channel')
+
+        consoleSpy.mockRestore()
+    })
+
+    it('does not delete when --yes is combined with --dry-run', async () => {
+        const program = createProgram()
+        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+        await program.parseAsync([
+            'node',
+            'tw',
+            'channel',
+            'delete',
+            'Engineering',
+            '--yes',
+            '--dry-run',
+        ])
+
+        expect(apiMocks.deleteChannel).not.toHaveBeenCalled()
+        const text = consoleSpy.mock.calls.map((c) => String(c[0])).join('\n')
+        expect(text).toContain('delete channel')
+
+        consoleSpy.mockRestore()
+    })
+
+    it('errors in --json mode without --yes before doing any lookups', async () => {
+        const program = createProgram()
+        await expect(
+            program.parseAsync(['node', 'tw', 'channel', 'delete', 'Engineering', '--json']),
+        ).rejects.toMatchObject({ code: 'MISSING_YES_FLAG' })
+        expect(apiMocks.deleteChannel).not.toHaveBeenCalled()
+        // The guard fires before any ref/workspace resolution.
+        expect(refsMocks.resolveChannelRef).not.toHaveBeenCalled()
+        expect(apiMocks.getCurrentWorkspaceId).not.toHaveBeenCalled()
+    })
+
+    it('translates a 403 from the API into a FORBIDDEN CliError', async () => {
+        const { TwistRequestError } = await import('@doist/twist-sdk')
+        const apiError = new TwistRequestError('Request failed with status 403', 403, {})
+        apiMocks.deleteChannel.mockRejectedValueOnce(apiError)
+        const program = createProgram()
+
+        await expect(
+            program.parseAsync(['node', 'tw', 'channel', 'delete', 'Engineering', '--yes']),
+        ).rejects.toMatchObject({ code: 'FORBIDDEN' })
+    })
+
+    it('outputs JSON result with --yes --json', async () => {
+        const program = createProgram()
+        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+        await program.parseAsync([
+            'node',
+            'tw',
+            'channel',
+            'delete',
+            'Engineering',
+            '--yes',
+            '--json',
+        ])
+
+        const output = JSON.parse(consoleSpy.mock.calls[0][0])
+        expect(output).toEqual({ id: 500, deleted: true })
+
+        consoleSpy.mockRestore()
+    })
+})
+
+describe('tw channel archive', () => {
+    beforeEach(() => {
+        vi.clearAllMocks()
+        apiMocks.getCurrentWorkspaceId.mockResolvedValue(1)
+        refsMocks.resolveChannelRef.mockResolvedValue(createChannel(500, 'Engineering'))
+    })
+
+    it('archives the resolved channel', async () => {
+        const program = createProgram()
+        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+        await program.parseAsync(['node', 'tw', 'channel', 'archive', 'Engineering'])
+
+        expect(refsMocks.resolveChannelRef).toHaveBeenCalledWith('Engineering', 1)
+        expect(apiMocks.archiveChannel).toHaveBeenCalledWith(500)
+        expect(consoleSpy.mock.calls[0][0]).toContain('archived')
+
+        consoleSpy.mockRestore()
+    })
+
+    it('does not call the API on --dry-run', async () => {
+        const program = createProgram()
+        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+        await program.parseAsync(['node', 'tw', 'channel', 'archive', 'Engineering', '--dry-run'])
+
+        expect(apiMocks.archiveChannel).not.toHaveBeenCalled()
+        const text = consoleSpy.mock.calls.map((c) => String(c[0])).join('\n')
+        expect(text).toContain('archive channel')
+
+        consoleSpy.mockRestore()
+    })
+
+    it('outputs JSON with --json', async () => {
+        const program = createProgram()
+        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+        await program.parseAsync(['node', 'tw', 'channel', 'archive', 'Engineering', '--json'])
+
+        const output = JSON.parse(consoleSpy.mock.calls[0][0])
+        expect(output).toEqual({ id: 500, archived: true })
+
+        consoleSpy.mockRestore()
+    })
+
+    it('skips the API call when channel is already archived', async () => {
+        refsMocks.resolveChannelRef.mockResolvedValue(
+            createChannel(500, 'Engineering', { archived: true }),
+        )
+        const program = createProgram()
+        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+        await program.parseAsync(['node', 'tw', 'channel', 'archive', 'Engineering'])
+
+        expect(apiMocks.archiveChannel).not.toHaveBeenCalled()
+        expect(consoleSpy.mock.calls[0][0]).toContain('already in target state')
+
+        consoleSpy.mockRestore()
+    })
+})
+
+describe('tw channel unarchive', () => {
+    beforeEach(() => {
+        vi.clearAllMocks()
+        apiMocks.getCurrentWorkspaceId.mockResolvedValue(1)
+        refsMocks.resolveChannelRef.mockResolvedValue(
+            createChannel(500, 'Engineering', { archived: true }),
+        )
+    })
+
+    it('unarchives the resolved channel', async () => {
+        const program = createProgram()
+        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+        await program.parseAsync(['node', 'tw', 'channel', 'unarchive', 'id:500'])
+
+        expect(refsMocks.resolveChannelRef).toHaveBeenCalledWith('id:500', 1)
+        expect(apiMocks.unarchiveChannel).toHaveBeenCalledWith(500)
+        expect(consoleSpy.mock.calls[0][0]).toContain('unarchived')
+
+        consoleSpy.mockRestore()
+    })
+
+    it('does not call the API on --dry-run', async () => {
+        const program = createProgram()
+        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+        await program.parseAsync(['node', 'tw', 'channel', 'unarchive', 'id:500', '--dry-run'])
+
+        expect(apiMocks.unarchiveChannel).not.toHaveBeenCalled()
+        const text = consoleSpy.mock.calls.map((c) => String(c[0])).join('\n')
+        expect(text).toContain('unarchive channel')
+
+        consoleSpy.mockRestore()
+    })
+
+    it('outputs JSON with --json', async () => {
+        const program = createProgram()
+        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+        await program.parseAsync(['node', 'tw', 'channel', 'unarchive', 'id:500', '--json'])
+
+        const output = JSON.parse(consoleSpy.mock.calls[0][0])
+        expect(output).toEqual({ id: 500, archived: false })
+
+        consoleSpy.mockRestore()
     })
 })

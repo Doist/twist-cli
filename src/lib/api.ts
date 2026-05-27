@@ -1,5 +1,7 @@
 import {
     type BatchResponse,
+    type Channel,
+    type CreateChannelArgs,
     type Group,
     TwistApi,
     type User,
@@ -52,6 +54,8 @@ const API_SPINNER_MESSAGES: Record<string, { text: string; color?: 'blue' | 'gre
         'channels.createChannel': { text: 'Creating channel...', color: 'green' },
         'channels.updateChannel': { text: 'Updating channel...', color: 'yellow' },
         'channels.deleteChannel': { text: 'Deleting channel...', color: 'yellow' },
+        'channels.archiveChannel': { text: 'Archiving channel...', color: 'yellow' },
+        'channels.unarchiveChannel': { text: 'Unarchiving channel...', color: 'yellow' },
         'channels.addUsers': { text: 'Adding users to channel...', color: 'green' },
         'channels.removeUsers': { text: 'Removing users from channel...', color: 'yellow' },
 
@@ -343,6 +347,26 @@ export async function removeUsersFromGroup(id: number, userIds: number[]): Promi
     await client.groups.removeUsers({ id, userIds })
 }
 
+export async function createChannel(args: CreateChannelArgs): Promise<Channel> {
+    const client = await getTwistClient()
+    return client.channels.createChannel(args)
+}
+
+export async function deleteChannel(id: number): Promise<void> {
+    const client = await getTwistClient()
+    await client.channels.deleteChannel(id)
+}
+
+export async function archiveChannel(id: number): Promise<void> {
+    const client = await getTwistClient()
+    await client.channels.archiveChannel(id)
+}
+
+export async function unarchiveChannel(id: number): Promise<void> {
+    const client = await getTwistClient()
+    await client.channels.unarchiveChannel(id)
+}
+
 export async function addUsersToChannel(id: number, userIds: number[]): Promise<void> {
     const client = await getTwistClient()
     await client.channels.addUsers({ id, userIds })
@@ -451,4 +475,4 @@ export function buildOptionalBatchNameMap<T extends { id: number; name: string }
     return new Map(entries)
 }
 
-export type { Group, User, Workspace, WorkspaceUser }
+export type { Channel, Group, User, Workspace, WorkspaceUser }

@@ -1,6 +1,9 @@
 import { Command, Option } from 'commander'
 import { withCaseInsensitiveChoices } from '../../lib/completion.js'
 import { addChannelMembers } from './add.js'
+import { archiveChannelCommand, unarchiveChannelCommand } from './archive.js'
+import { createChannelCommand } from './create.js'
+import { deleteChannelCommand } from './delete.js'
 import { listChannels } from './list.js'
 import { listChannelMembers } from './members.js'
 import { removeChannelMembers } from './remove.js'
@@ -90,6 +93,79 @@ Notes:
   and --unread are applied client-side; --archive-filter is applied server-side.`,
         )
         .action(showChannelThreads)
+
+    channel
+        .command('create <name>')
+        .description('Create a new channel')
+        .option('--workspace <ref>', 'Workspace ID or name')
+        .option('--description <text>', 'Channel description')
+        .option('--private', 'Create a private channel (default is public)')
+        .option('--dry-run', 'Show what would be created without creating')
+        .option('--json', 'Output created channel as JSON')
+        .option('--full', 'Include all fields in JSON output')
+        .addHelpText(
+            'after',
+            `
+Examples:
+  tw channel create "Engineering"
+  tw channel create "Leadership" --private
+  tw channel create "Marketing" --description "Marketing team channel"
+  tw channel create "Design" --private --json`,
+        )
+        .action(createChannelCommand)
+
+    channel
+        .command('delete <channel-ref>')
+        .description('Permanently delete a channel')
+        .option('--workspace <ref>', 'Workspace ID or name')
+        .option('--yes', 'Confirm deletion')
+        .option('--dry-run', 'Show what would happen without executing')
+        .option('--json', 'Output result as JSON')
+        .addHelpText(
+            'after',
+            `
+Examples:
+  tw channel delete 12345 --yes
+  tw channel delete "Engineering" --dry-run
+  tw channel delete id:12345 --yes --json`,
+        )
+        .action(deleteChannelCommand)
+
+    channel
+        .command('archive <channel-ref>')
+        .description('Archive a channel')
+        .option('--workspace <ref>', 'Workspace ID or name')
+        .option('--dry-run', 'Show what would happen without executing')
+        .option('--json', 'Output result as JSON')
+        .addHelpText(
+            'after',
+            `
+Examples:
+  tw channel archive 12345
+  tw channel archive "Engineering" --json
+
+Notes:
+  Archived channels can be listed with: tw channels --state archived`,
+        )
+        .action(archiveChannelCommand)
+
+    channel
+        .command('unarchive <channel-ref>')
+        .description('Unarchive a channel')
+        .option('--workspace <ref>', 'Workspace ID or name')
+        .option('--dry-run', 'Show what would happen without executing')
+        .option('--json', 'Output result as JSON')
+        .addHelpText(
+            'after',
+            `
+Examples:
+  tw channel unarchive id:12345
+  tw channel unarchive 12345 --json
+
+Notes:
+  Name-ref resolution only finds active channels — pass id: or numeric ID for archived channels.`,
+        )
+        .action(unarchiveChannelCommand)
 
     const members = channel
         .command('members')

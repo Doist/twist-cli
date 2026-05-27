@@ -221,6 +221,16 @@ tw channel threads <ref> --since 2026-01-01 # Filter by last-updated date (ISO)
 tw channel threads <ref> --limit 20         # Max threads per page (default: 50)
 tw channel threads <ref> --limit 20 --cursor <cursor-from-prev> # Paginate
 tw channel threads <ref> --json  # { results, nextCursor } with isUnread + url
+tw channel create "Name"         # Create a new (public) channel in the default/current workspace
+tw channel create "Name" --workspace <ref>       # Target a different workspace
+tw channel create "Name" --private               # Create a private channel
+tw channel create "Name" --description "..."     # Set channel description
+tw channel create "Name" --json --full           # Output created channel as JSON (all fields)
+tw channel delete <channel-ref> --yes            # Delete a channel (requires --yes; usually admin-only on Twist)
+tw channel delete <ref> --workspace <ref> --yes  # Target a different workspace
+tw channel delete <ref> --dry-run                # Preview deletion
+tw channel archive <channel-ref>                 # Archive a channel (no-op if already archived)
+tw channel unarchive id:<id>                     # Unarchive a channel (pass id:/numeric ref for archived channels)
 tw channel members <channel-ref>                       # List members + groups whose membership ⊆ channel
 tw channel members <channel-ref> --json                # JSON with id, name, members, groupsFullyInChannel
 tw channel members add <channel-ref> <ref...>          # Add users and/or group:<ref> (group expansion is one-shot)
