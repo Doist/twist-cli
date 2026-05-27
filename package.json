@@ -1,6 +1,6 @@
 {
     "name": "@doist/twist-cli",
-    "version": "2.44.0",
+    "version": "2.44.1",
     "description": "TypeScript CLI for Twist",
     "type": "module",
     "main": "dist/index.js",

@@ -1,3 +1,10 @@
+## [2.44.1](https://github.com/Doist/twist-cli/compare/v2.44.0...v2.44.1) (2026-05-27)
+
+### Bug Fixes
+
+- **deps:** update dependency @doist/twist-sdk to v2.8.1 ([#259](https://github.com/Doist/twist-cli/issues/259)) ([a00bc9e](https://github.com/Doist/twist-cli/commit/a00bc9e8b3cb987aebb90859af36dc7477641917))
+- **users:** filter removed members from `tw users` by default ([#245](https://github.com/Doist/twist-cli/issues/245)) ([c921a19](https://github.com/Doist/twist-cli/commit/c921a1944c0add4a5fa9ebcd518e5a6b26df54cf)), closes [#3](https://github.com/Doist/twist-cli/issues/3)
+
 ## [2.44.0](https://github.com/Doist/twist-cli/compare/v2.43.1...v2.44.0) (2026-05-27)
 
 ### Features
