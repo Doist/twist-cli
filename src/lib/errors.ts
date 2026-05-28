@@ -63,28 +63,42 @@ export type ErrorCode =
     // Escape hatch for dynamic codes
     | (string & {})
 
+function hasTwistStatusCode(error: unknown, status: number): error is { httpStatusCode: number } {
+    return (
+        typeof error === 'object' &&
+        error !== null &&
+        'httpStatusCode' in error &&
+        typeof error.httpStatusCode === 'number' &&
+        error.httpStatusCode === status
+    )
+}
+
 /**
  * Check whether an error is a Twist API 403 "Insufficient scope" response.
  * Works with any error shaped like TwistRequestError (httpStatusCode + responseData).
  */
 export function isInsufficientScope(error: unknown): boolean {
-    if (
-        typeof error !== 'object' ||
-        error === null ||
-        !('httpStatusCode' in error) ||
-        !('responseData' in error)
-    ) {
-        return false
-    }
-    const { httpStatusCode, responseData } = error as {
-        httpStatusCode: number
-        responseData: { error_string?: string } | undefined
-    }
+    if (!hasTwistStatusCode(error, 403)) return false
+    if (!('responseData' in error)) return false
+    const data = error.responseData
     return (
-        httpStatusCode === 403 &&
-        typeof responseData?.error_string === 'string' &&
-        responseData.error_string.includes('Insufficient scope')
+        typeof data === 'object' &&
+        data !== null &&
+        'error_string' in data &&
+        typeof data.error_string === 'string' &&
+        data.error_string.includes('Insufficient scope')
     )
+}
+
+/**
+ * Check whether an error is any Twist API 403 response.
+ *
+ * Precedence: callers must test `isInsufficientScope` first so OAuth-scope
+ * 403s keep their dedicated `INSUFFICIENT_SCOPE` code and hints; `isForbidden`
+ * is the catch-all fallback for plain workspace-permission 403s.
+ */
+export function isForbidden(error: unknown): boolean {
+    return hasTwistStatusCode(error, 403)
 }
 
 /**

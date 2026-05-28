@@ -1,4 +1,3 @@
-import { TwistRequestError } from '@doist/twist-sdk'
 import { deleteChannel, getCurrentWorkspaceId } from '../../lib/api.js'
 import { CliError } from '../../lib/errors.js'
 import type { MutationOptions } from '../../lib/options.js'
@@ -37,21 +36,7 @@ export async function deleteChannelCommand(
         return
     }
 
-    try {
-        await deleteChannel(channel.id)
-    } catch (error) {
-        if (error instanceof TwistRequestError && error.httpStatusCode === 403) {
-            throw new CliError(
-                'FORBIDDEN',
-                `Twist refused to delete "${channel.name}" (id:${channel.id}): 403 Forbidden.`,
-                [
-                    'Channel deletion is typically restricted to workspace admins',
-                    'Ask a workspace admin to delete it, or use the Twist web UI',
-                ],
-            )
-        }
-        throw error
-    }
+    await deleteChannel(channel.id)
 
     if (options.json) {
         console.log(formatJson({ id: channel.id, deleted: true }))
