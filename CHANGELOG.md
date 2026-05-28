@@ -1,3 +1,9 @@
+## [2.44.2](https://github.com/Doist/twist-cli/compare/v2.44.1...v2.44.2) (2026-05-28)
+
+### Bug Fixes
+
+- **refs:** resolve unjoined-but-public channels by name ([#249](https://github.com/Doist/twist-cli/issues/249)) ([74ad85a](https://github.com/Doist/twist-cli/commit/74ad85acc883ccacb1e509352d4ec5dc7e991647)), closes [#246](https://github.com/Doist/twist-cli/issues/246)
+
 ## [2.44.1](https://github.com/Doist/twist-cli/compare/v2.44.0...v2.44.1) (2026-05-27)
 
 ### Bug Fixes
