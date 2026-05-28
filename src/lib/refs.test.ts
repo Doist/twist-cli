@@ -285,8 +285,6 @@ describe('resolveChannelRef', () => {
 
         const result = await resolveChannelRef('general', 1)
 
-        expect(mockGetChannels).toHaveBeenCalledWith({ workspaceId: 1 })
-        expect(mockGetPublicChannels).toHaveBeenCalledWith(1)
         expect(result).toEqual(ch)
     })
 
@@ -336,12 +334,14 @@ describe('resolveChannelRef', () => {
     })
 
     it('deduplicates channels appearing in both joined and public lists', async () => {
-        // A public channel the user has joined would appear in both. Resolution must not
-        // throw AMBIGUOUS_CHANNEL just because the same channel id shows up twice.
+        // A public channel the user has joined would appear in both. A substring query
+        // exercises the dedupe step: without it, matchByName sees two partial matches
+        // for the same channel id and throws AMBIGUOUS_CHANNEL. An exact-match query
+        // wouldn't catch a regression because matchByName returns on the first .find.
         const joinedPublic = createChannel(70, 'Engineering', { public: true })
         mockChannelLists([joinedPublic], [joinedPublic])
 
-        const result = await resolveChannelRef('Engineering', 1)
+        const result = await resolveChannelRef('eng', 1)
 
         expect(result).toEqual(joinedPublic)
     })

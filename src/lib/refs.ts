@@ -240,12 +240,11 @@ export async function resolveChannelRef(ref: string, workspaceId: number): Promi
             client.channels.getChannels({ workspaceId }),
             client.workspaces.getPublicChannels(workspaceId),
         ])
-        const byId = new Map<number, Channel>()
-        for (const channel of joined) byId.set(channel.id, channel)
-        for (const channel of publicChannels) {
-            if (!byId.has(channel.id)) byId.set(channel.id, channel)
-        }
-        const channels = Array.from(byId.values())
+        const joinedIds = new Set(joined.map((channel) => channel.id))
+        const channels = [
+            ...joined,
+            ...publicChannels.filter((channel) => !joinedIds.has(channel.id)),
+        ]
         return matchByName(channels, parsed.name, {
             ambiguousCode: 'AMBIGUOUS_CHANNEL',
             notFoundCode: 'CHANNEL_NOT_FOUND',
