@@ -63,12 +63,13 @@ export type ErrorCode =
     // Escape hatch for dynamic codes
     | (string & {})
 
-function hasTwistStatusCode(error: unknown, status: number): boolean {
+function hasTwistStatusCode(error: unknown, status: number): error is { httpStatusCode: number } {
     return (
         typeof error === 'object' &&
         error !== null &&
         'httpStatusCode' in error &&
-        (error as { httpStatusCode: number }).httpStatusCode === status
+        typeof error.httpStatusCode === 'number' &&
+        error.httpStatusCode === status
     )
 }
 
@@ -77,15 +78,15 @@ function hasTwistStatusCode(error: unknown, status: number): boolean {
  * Works with any error shaped like TwistRequestError (httpStatusCode + responseData).
  */
 export function isInsufficientScope(error: unknown): boolean {
-    if (!hasTwistStatusCode(error, 403) || !('responseData' in (error as object))) {
-        return false
-    }
-    const { responseData } = error as {
-        responseData: { error_string?: string } | undefined
-    }
+    if (!hasTwistStatusCode(error, 403)) return false
+    if (!('responseData' in error)) return false
+    const data = error.responseData
     return (
-        typeof responseData?.error_string === 'string' &&
-        responseData.error_string.includes('Insufficient scope')
+        typeof data === 'object' &&
+        data !== null &&
+        'error_string' in data &&
+        typeof data.error_string === 'string' &&
+        data.error_string.includes('Insufficient scope')
     )
 }
 
