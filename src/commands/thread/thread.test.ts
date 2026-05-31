@@ -45,7 +45,7 @@ vi.mock('../../lib/input.js', () => ({
 
 vi.mock('chalk')
 
-import { readStdin } from '../../lib/input.js'
+import { openEditor, readStdin } from '../../lib/input.js'
 import { registerThreadCommand } from './index.js'
 
 function createThreadFixture(id: number) {
@@ -1421,6 +1421,8 @@ describe('thread reply --file', () => {
         expect(client.comments.createComment).toHaveBeenCalledWith(
             expect.objectContaining({ content: '', attachments: expect.any(Array) }),
         )
+        // A file-only reply must not block on the editor.
+        expect(openEditor).not.toHaveBeenCalled()
     })
 
     it('errors with FILE_NOT_FOUND for a missing path and does not post', async () => {

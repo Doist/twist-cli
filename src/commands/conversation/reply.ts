@@ -44,9 +44,15 @@ export async function replyToConversation(
         return
     }
 
-    const attachments = hasFiles ? await uploadAttachments(files) : undefined
-
     const client = await getTwistClient()
+
+    // Preflight the target before uploading so an invalid or forbidden
+    // conversation fails fast instead of leaving an orphaned upload behind.
+    if (hasFiles) {
+        await client.conversations.getConversation(conversationId)
+    }
+
+    const attachments = hasFiles ? await uploadAttachments(files) : undefined
     const message = await client.conversationMessages.createMessage({
         conversationId,
         content: messageContent,

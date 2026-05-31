@@ -102,6 +102,7 @@ tw thread reply <ref> "content" --json  # Post and return comment as JSON
 tw thread reply <ref> "content" --json --full  # Include all comment fields
 tw thread reply <ref> "content" --close       # Reply and close the thread
 tw thread reply <ref> "content" --reopen      # Reply and reopen a closed thread
+tw thread reply <ref> "content" --file ./a.png  # Attach a file (repeatable; content optional)
 tw thread done <ref>             # Archive thread (mark done)
 tw thread done <ref> --json      # Archive and return status as JSON
 tw thread mute <ref>             # Mute thread for 60 minutes (default)
@@ -155,6 +156,7 @@ tw conversation with <user-ref> --include-groups # List any conversations with t
 tw conversation reply <ref> "content"     # Send a message
 tw conversation reply <ref> "content" --json  # Send and return message as JSON
 tw conversation reply <ref> "content" --json --full  # Include all message fields
+tw conversation reply <ref> "content" --file ./a.png  # Attach a file (repeatable; content optional)
 tw conversation done <ref>                # Archive conversation
 tw conversation done <ref> --json         # Archive and return status as JSON
 tw conversation mute <ref>               # Mute conversation for 60 minutes (default)

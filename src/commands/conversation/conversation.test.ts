@@ -40,6 +40,7 @@ vi.mock('../../lib/input.js', () => ({
     openEditor: vi.fn().mockResolvedValue(''),
 }))
 
+import { openEditor } from '../../lib/input.js'
 import { registerConversationCommand } from './index.js'
 
 type TestConversation = {
@@ -880,6 +881,8 @@ describe('conversation reply --file', () => {
         expect(client.conversationMessages.createMessage).toHaveBeenCalledWith(
             expect.objectContaining({ content: '', attachments: expect.any(Array) }),
         )
+        // A file-only message must not block on the editor.
+        expect(openEditor).not.toHaveBeenCalled()
     })
 
     it('errors with FILE_NOT_FOUND for a missing path and does not send', async () => {
