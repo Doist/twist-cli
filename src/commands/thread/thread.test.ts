@@ -1,6 +1,9 @@
+import { mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { captureConsole, createTestProgram } from '@doist/cli-core/testing'
 import type { BatchResponse as TwistBatchResponse } from '@doist/twist-sdk'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const apiMocks = vi.hoisted(() => ({
     getTwistClient: vi.fn(),
@@ -138,9 +141,20 @@ function createClient({
                 if (options?.batch) return { kind: 'comment', id: _id }
                 return Promise.resolve(undefined)
             }),
-            createComment: vi.fn(async (_args: { threadId: number; content: string }) =>
-                createComment(12, 12),
+            createComment: vi.fn(
+                async (_args: {
+                    threadId: number
+                    content: string
+                    attachments?: Array<{ fileName?: string | null }>
+                }) => createComment(12, 12),
             ),
+        },
+        attachments: {
+            upload: vi.fn(async (args: { file: Blob; fileName: string }) => ({
+                attachmentId: `att-${args.fileName}`,
+                urlType: 'file',
+                fileName: args.fileName,
+            })),
         },
         channels: {
             getChannel: vi.fn((_id: number, options?: { batch?: boolean }) => {
@@ -1317,5 +1331,162 @@ describe('thread done', () => {
             program.parseAsync(['node', 'tw', 'thread', 'done', '500', '--dry-run']),
         ).rejects.toThrow('thread not found')
         expect(client.inbox.archiveThread).not.toHaveBeenCalled()
+    })
+})
+
+describe('thread reply --file', () => {
+    let tmpDir: string
+    let filePng: string
+    let filePdf: string
+
+    beforeAll(async () => {
+        tmpDir = await mkdtemp(join(tmpdir(), 'tw-reply-'))
+        filePng = join(tmpDir, 'diagram.png')
+        filePdf = join(tmpDir, 'report.pdf')
+        await writeFile(filePng, 'png-bytes')
+        await writeFile(filePdf, 'pdf-bytes')
+    })
+
+    afterAll(async () => {
+        await rm(tmpDir, { recursive: true, force: true })
+    })
+
+    beforeEach(() => {
+        vi.clearAllMocks()
+    })
+
+    it('uploads the file and attaches it to the comment', async () => {
+        const client = createClient()
+        apiMocks.getTwistClient.mockResolvedValue(client)
+        const consoleSpy = captureConsole()
+
+        const program = createProgram()
+        await program.parseAsync([
+            'node',
+            'tw',
+            'thread',
+            'reply',
+            '500',
+            'See attached',
+            '--file',
+            filePng,
+        ])
+
+        expect(client.attachments.upload).toHaveBeenCalledTimes(1)
+        expect(client.attachments.upload).toHaveBeenCalledWith(
+            expect.objectContaining({ fileName: 'diagram.png' }),
+        )
+        expect(client.comments.createComment).toHaveBeenCalledWith(
+            expect.objectContaining({
+                threadId: 500,
+                content: 'See attached',
+                attachments: [expect.objectContaining({ fileName: 'diagram.png' })],
+            }),
+        )
+        expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('Attached: diagram.png'))
+    })
+
+    it('attaches multiple repeated --file values', async () => {
+        const client = createClient()
+        apiMocks.getTwistClient.mockResolvedValue(client)
+
+        const program = createProgram()
+        await program.parseAsync([
+            'node',
+            'tw',
+            'thread',
+            'reply',
+            '500',
+            'two files',
+            '--file',
+            filePng,
+            '--file',
+            filePdf,
+        ])
+
+        expect(client.attachments.upload).toHaveBeenCalledTimes(2)
+        const args = client.comments.createComment.mock.calls[0][0] as {
+            attachments: Array<{ fileName?: string }>
+        }
+        expect(args.attachments.map((a) => a.fileName)).toEqual(['diagram.png', 'report.pdf'])
+    })
+
+    it('allows a file-only reply with no text content', async () => {
+        const client = createClient()
+        apiMocks.getTwistClient.mockResolvedValue(client)
+
+        const program = createProgram()
+        await program.parseAsync(['node', 'tw', 'thread', 'reply', '500', '--file', filePng])
+
+        expect(client.comments.createComment).toHaveBeenCalledWith(
+            expect.objectContaining({ content: '', attachments: expect.any(Array) }),
+        )
+    })
+
+    it('errors with FILE_NOT_FOUND for a missing path and does not post', async () => {
+        const client = createClient()
+        apiMocks.getTwistClient.mockResolvedValue(client)
+
+        const program = createProgram()
+        await expect(
+            program.parseAsync([
+                'node',
+                'tw',
+                'thread',
+                'reply',
+                '500',
+                'x',
+                '--file',
+                join(tmpDir, 'missing.png'),
+            ]),
+        ).rejects.toMatchObject({ code: 'FILE_NOT_FOUND' })
+
+        expect(client.attachments.upload).not.toHaveBeenCalled()
+        expect(client.comments.createComment).not.toHaveBeenCalled()
+    })
+
+    it('rejects --file combined with --close', async () => {
+        const client = createClient()
+        apiMocks.getTwistClient.mockResolvedValue(client)
+
+        const program = createProgram()
+        await expect(
+            program.parseAsync([
+                'node',
+                'tw',
+                'thread',
+                'reply',
+                '500',
+                'x',
+                '--close',
+                '--file',
+                filePng,
+            ]),
+        ).rejects.toMatchObject({ code: 'CONFLICTING_OPTIONS' })
+
+        expect(client.attachments.upload).not.toHaveBeenCalled()
+    })
+
+    it('does not upload during --dry-run but lists the attachment', async () => {
+        const client = createClient()
+        apiMocks.getTwistClient.mockResolvedValue(client)
+        const consoleSpy = captureConsole()
+
+        const program = createProgram()
+        await program.parseAsync([
+            'node',
+            'tw',
+            'thread',
+            'reply',
+            '500',
+            'preview',
+            '--file',
+            filePng,
+            '--dry-run',
+        ])
+
+        expect(client.attachments.upload).not.toHaveBeenCalled()
+        expect(client.comments.createComment).not.toHaveBeenCalled()
+        expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining(filePng))
     })
 })

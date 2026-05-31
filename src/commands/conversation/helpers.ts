@@ -18,7 +18,7 @@ export type ConversationWithOptions = PaginatedViewOptions & {
     snippet?: boolean
 }
 
-export type ReplyOptions = MutationOptions
+export type ReplyOptions = MutationOptions & { file?: string[] }
 
 export type MuteOptions = MutationOptions & { minutes?: string }
 
