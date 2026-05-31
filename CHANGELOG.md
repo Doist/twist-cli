@@ -1,3 +1,9 @@
+## [2.45.0](https://github.com/Doist/twist-cli/compare/v2.44.2...v2.45.0) (2026-05-31)
+
+### Features
+
+- **attachments:** support uploading files on replies ([#260](https://github.com/Doist/twist-cli/issues/260)) ([1e8dab6](https://github.com/Doist/twist-cli/commit/1e8dab6f2a6bd9ebbac2b962ec195e282e36f593))
+
 ## [2.44.2](https://github.com/Doist/twist-cli/compare/v2.44.1...v2.44.2) (2026-05-28)
 
 ### Bug Fixes
