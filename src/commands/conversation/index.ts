@@ -1,4 +1,5 @@
 import { Command } from 'commander'
+import { collect } from '../../lib/options.js'
 import { markConversationDone } from './done.js'
 import { muteConversation } from './mute.js'
 import { replyToConversation } from './reply.js'
@@ -77,6 +78,7 @@ Examples:
     conversation
         .command('reply <conversation-ref> [content]')
         .description('Send a message in a conversation')
+        .option('--file <path>', 'Attach a file (repeatable; content optional)', collect, [])
         .option('--dry-run', 'Show what would be sent without sending')
         .option('--json', 'Output sent message as JSON')
         .option('--full', 'Include all fields in JSON output')
@@ -86,7 +88,8 @@ Examples:
 Examples:
   tw conversation reply 12345 "Hello!"
   echo "Message body" | tw conversation reply 12345
-  tw conversation reply 12345 "Update" --json`,
+  tw conversation reply 12345 "Update" --json
+  tw conversation reply 12345 "See attached" --file ./photo.jpg`,
         )
         .action(replyToConversation)
 

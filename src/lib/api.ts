@@ -96,6 +96,9 @@ const API_SPINNER_MESSAGES: Record<string, { text: string; color?: 'blue' | 'gre
         'inbox.archiveThread': { text: 'Archiving thread...', color: 'yellow' },
         'inbox.unarchiveThread': { text: 'Unarchiving thread...', color: 'yellow' },
 
+        // Attachment operations
+        'attachments.upload': { text: 'Uploading file...', color: 'blue' },
+
         // Batch operations
         batch: { text: 'Processing batch operations...', color: 'blue' },
     }

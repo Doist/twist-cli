@@ -1,4 +1,6 @@
+import chalk from 'chalk'
 import { getTwistClient } from '../../lib/api.js'
+import { uploadAttachments } from '../../lib/attachments.js'
 import { CliError } from '../../lib/errors.js'
 import { openEditor, readStdin } from '../../lib/input.js'
 import type { MutationOptions } from '../../lib/options.js'
@@ -11,6 +13,7 @@ type ReplyOptions = MutationOptions & {
     notify?: string
     close?: boolean
     reopen?: boolean
+    file?: string[]
 }
 
 export async function replyToThread(
@@ -24,19 +27,31 @@ export async function replyToThread(
         throw new CliError('CONFLICTING_OPTIONS', 'Cannot use --close and --reopen together.')
     }
 
+    const files = options.file ?? []
+    const hasFiles = files.length > 0
+
+    if (hasFiles && (options.close || options.reopen)) {
+        throw new CliError(
+            'CONFLICTING_OPTIONS',
+            'Cannot attach files with --close or --reopen. Post the attachment separately.',
+        )
+    }
+
     let replyContent = await readStdin()
     if (!replyContent && content) {
         replyContent = content
     }
-    if (!replyContent) {
+    // A file-only reply is allowed: skip the editor prompt and the empty-content guard.
+    if (!replyContent && !hasFiles) {
         replyContent = await openEditor()
     }
-    if (!replyContent || replyContent.trim() === '') {
+    if ((!replyContent || replyContent.trim() === '') && !hasFiles) {
         throw new CliError(
             'MISSING_CONTENT',
-            'No content provided. Pass content as an argument or pipe via stdin.',
+            'No content provided. Pass content as an argument, pipe via stdin, or attach a file.',
         )
     }
+    const messageContent = replyContent ?? ''
 
     const notifyValue = options.notify ?? 'EVERYONE_IN_THREAD'
     const isSpecialRecipient = notifyValue === 'EVERYONE' || notifyValue === 'EVERYONE_IN_THREAD'
@@ -61,7 +76,7 @@ export async function replyToThread(
     if (options.dryRun) {
         const actionSuffix = actionLabel ? ` and ${actionLabel} it` : ''
         const preview =
-            replyContent.length > 200 ? `${replyContent.slice(0, 200)}...` : replyContent
+            messageContent.length > 200 ? `${messageContent.slice(0, 200)}...` : messageContent
         printDryRun(`post comment to thread${actionSuffix}`, {
             Thread: `${thread.title} (${threadId})`,
             Notify: isSpecialRecipient ? notifyValue : undefined,
@@ -73,33 +88,37 @@ export async function replyToThread(
                 !isSpecialRecipient && resolved && resolved.notified.groups.length > 0
                     ? formatNotifyLabel(resolved.notified.groups)
                     : undefined,
-            Content: preview,
+            Attach: hasFiles ? files.join(', ') : undefined,
+            Content: preview || undefined,
         })
         return
     }
 
+    const attachments = hasFiles ? await uploadAttachments(files) : undefined
+    const attachmentsPayload = attachments ? { attachments } : {}
     const groupsPayload = resolved?.groups ? { groups: resolved.groups } : {}
 
     const comment =
         action === 'close'
             ? await client.threads.closeThread({
                   id: threadId,
-                  content: replyContent,
+                  content: messageContent,
                   recipients,
                   ...groupsPayload,
               } as Parameters<typeof client.threads.closeThread>[0])
             : action === 'reopen'
               ? await client.threads.reopenThread({
                     id: threadId,
-                    content: replyContent,
+                    content: messageContent,
                     recipients,
                     ...groupsPayload,
                 } as Parameters<typeof client.threads.reopenThread>[0])
               : await client.comments.createComment({
                     threadId,
-                    content: replyContent,
+                    content: messageContent,
                     recipients,
                     ...groupsPayload,
+                    ...attachmentsPayload,
                 } as Parameters<typeof client.comments.createComment>[0])
 
     if (options.json) {
@@ -110,4 +129,8 @@ export async function replyToThread(
 
     const suffix = actionLabel ? ` (thread ${actionLabel === 'close' ? 'closed' : 'reopened'})` : ''
     console.log(`Comment posted${suffix}: ${comment.url}`)
+    if (attachments && attachments.length > 0) {
+        const names = attachments.map((a) => a.fileName ?? 'file').join(', ')
+        console.log(chalk.dim(`Attached: ${names}`))
+    }
 }

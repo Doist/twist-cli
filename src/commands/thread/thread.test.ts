@@ -1,6 +1,9 @@
+import { mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { captureConsole, createTestProgram } from '@doist/cli-core/testing'
 import type { BatchResponse as TwistBatchResponse } from '@doist/twist-sdk'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const apiMocks = vi.hoisted(() => ({
     getTwistClient: vi.fn(),
@@ -42,7 +45,7 @@ vi.mock('../../lib/input.js', () => ({
 
 vi.mock('chalk')
 
-import { readStdin } from '../../lib/input.js'
+import { openEditor, readStdin } from '../../lib/input.js'
 import { registerThreadCommand } from './index.js'
 
 function createThreadFixture(id: number) {
@@ -97,8 +100,12 @@ function createClient({
             }),
             getUnread: vi.fn(async () => unreadThreads),
             createThread: vi.fn(
-                async (_args: { channelId: number; content: string; title?: string | null }) =>
-                    createThreadFixture(999),
+                async (_args: {
+                    channelId: number
+                    content: string
+                    title?: string | null
+                    attachments?: Array<{ fileName?: string | null }>
+                }) => createThreadFixture(999),
             ),
             closeThread: vi.fn(async (_args: { id: number; content: string }) =>
                 createComment(10, 10),
@@ -138,9 +145,20 @@ function createClient({
                 if (options?.batch) return { kind: 'comment', id: _id }
                 return Promise.resolve(undefined)
             }),
-            createComment: vi.fn(async (_args: { threadId: number; content: string }) =>
-                createComment(12, 12),
+            createComment: vi.fn(
+                async (_args: {
+                    threadId: number
+                    content: string
+                    attachments?: Array<{ fileName?: string | null }>
+                }) => createComment(12, 12),
             ),
+        },
+        attachments: {
+            upload: vi.fn(async (args: { file: Blob; fileName: string }) => ({
+                attachmentId: `att-${args.fileName}`,
+                urlType: 'file',
+                fileName: args.fileName,
+            })),
         },
         channels: {
             getChannel: vi.fn((_id: number, options?: { batch?: boolean }) => {
@@ -196,6 +214,31 @@ function createClient({
 }
 
 const createProgram = () => createTestProgram(registerThreadCommand)
+
+// Shared setup for the --file suites: a fresh mock client wired into getTwistClient
+// plus a program. Tests asserting on output call captureConsole() themselves.
+function setupFileTest() {
+    const client = createClient()
+    apiMocks.getTwistClient.mockResolvedValue(client)
+    return { client, program: createProgram() }
+}
+
+// Registers a temp dir with two files for a --file suite, cleaned up afterwards.
+// Returns getters so the paths are read lazily inside each test (after beforeAll).
+function useFileFixtures(prefix: string, png: string, pdf: string) {
+    const paths = { dir: '', png: '', pdf: '' }
+    beforeAll(async () => {
+        paths.dir = await mkdtemp(join(tmpdir(), prefix))
+        paths.png = join(paths.dir, png)
+        paths.pdf = join(paths.dir, pdf)
+        await writeFile(paths.png, 'png-bytes')
+        await writeFile(paths.pdf, 'pdf-bytes')
+    })
+    afterAll(async () => {
+        await rm(paths.dir, { recursive: true, force: true })
+    })
+    return paths
+}
 
 describe('thread implicit view', () => {
     beforeEach(() => {
@@ -1317,5 +1360,244 @@ describe('thread done', () => {
             program.parseAsync(['node', 'tw', 'thread', 'done', '500', '--dry-run']),
         ).rejects.toThrow('thread not found')
         expect(client.inbox.archiveThread).not.toHaveBeenCalled()
+    })
+})
+
+describe('thread reply --file', () => {
+    const files = useFileFixtures('tw-reply-', 'diagram.png', 'report.pdf')
+
+    beforeEach(() => {
+        vi.clearAllMocks()
+    })
+
+    it('uploads the file and attaches it to the comment', async () => {
+        const { client, program } = setupFileTest()
+        const consoleSpy = captureConsole()
+
+        await program.parseAsync([
+            'node',
+            'tw',
+            'thread',
+            'reply',
+            '500',
+            'See attached',
+            '--file',
+            files.png,
+        ])
+
+        expect(client.attachments.upload).toHaveBeenCalledTimes(1)
+        expect(client.attachments.upload).toHaveBeenCalledWith(
+            expect.objectContaining({ fileName: 'diagram.png' }),
+        )
+        expect(client.comments.createComment).toHaveBeenCalledWith(
+            expect.objectContaining({
+                threadId: 500,
+                content: 'See attached',
+                attachments: [expect.objectContaining({ fileName: 'diagram.png' })],
+            }),
+        )
+        expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('Attached: diagram.png'))
+    })
+
+    it('attaches multiple repeated --file values', async () => {
+        const { client, program } = setupFileTest()
+
+        await program.parseAsync([
+            'node',
+            'tw',
+            'thread',
+            'reply',
+            '500',
+            'two files',
+            '--file',
+            files.png,
+            '--file',
+            files.pdf,
+        ])
+
+        expect(client.attachments.upload).toHaveBeenCalledTimes(2)
+        const args = client.comments.createComment.mock.calls[0][0] as {
+            attachments: Array<{ fileName?: string }>
+        }
+        expect(args.attachments.map((a) => a.fileName)).toEqual(['diagram.png', 'report.pdf'])
+    })
+
+    it('allows a file-only reply with no text content', async () => {
+        const { client, program } = setupFileTest()
+
+        await program.parseAsync(['node', 'tw', 'thread', 'reply', '500', '--file', files.png])
+
+        expect(client.comments.createComment).toHaveBeenCalledWith(
+            expect.objectContaining({ content: '', attachments: expect.any(Array) }),
+        )
+        // A file-only reply must not block on the editor.
+        expect(openEditor).not.toHaveBeenCalled()
+    })
+
+    it('errors with FILE_NOT_FOUND for a missing path and does not post', async () => {
+        const { client, program } = setupFileTest()
+
+        await expect(
+            program.parseAsync([
+                'node',
+                'tw',
+                'thread',
+                'reply',
+                '500',
+                'x',
+                '--file',
+                join(files.dir, 'missing.png'),
+            ]),
+        ).rejects.toMatchObject({ code: 'FILE_NOT_FOUND' })
+
+        expect(client.attachments.upload).not.toHaveBeenCalled()
+        expect(client.comments.createComment).not.toHaveBeenCalled()
+    })
+
+    it('rejects --file combined with --close', async () => {
+        const { client, program } = setupFileTest()
+
+        await expect(
+            program.parseAsync([
+                'node',
+                'tw',
+                'thread',
+                'reply',
+                '500',
+                'x',
+                '--close',
+                '--file',
+                files.png,
+            ]),
+        ).rejects.toMatchObject({ code: 'CONFLICTING_OPTIONS' })
+
+        expect(client.attachments.upload).not.toHaveBeenCalled()
+    })
+
+    it('does not upload during --dry-run but lists the attachment', async () => {
+        const { client, program } = setupFileTest()
+        const consoleSpy = captureConsole()
+
+        await program.parseAsync([
+            'node',
+            'tw',
+            'thread',
+            'reply',
+            '500',
+            'preview',
+            '--file',
+            files.png,
+            '--dry-run',
+        ])
+
+        expect(client.attachments.upload).not.toHaveBeenCalled()
+        expect(client.comments.createComment).not.toHaveBeenCalled()
+        expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining(files.png))
+    })
+})
+
+describe('thread create --file', () => {
+    const files = useFileFixtures('tw-create-', 'cover.png', 'spec.pdf')
+
+    beforeEach(() => {
+        vi.clearAllMocks()
+    })
+
+    it('uploads files and attaches them to the new thread', async () => {
+        const { client, program } = setupFileTest()
+        const consoleSpy = captureConsole()
+
+        await program.parseAsync([
+            'node',
+            'tw',
+            'thread',
+            'create',
+            '100',
+            'Release notes',
+            'See attached',
+            '--file',
+            files.png,
+            '--file',
+            files.pdf,
+        ])
+
+        expect(client.attachments.upload).toHaveBeenCalledTimes(2)
+        const args = client.threads.createThread.mock.calls[0][0] as {
+            title: string
+            content: string
+            attachments: Array<{ fileName?: string }>
+        }
+        expect(args.title).toBe('Release notes')
+        expect(args.content).toBe('See attached')
+        expect(args.attachments.map((a) => a.fileName)).toEqual(['cover.png', 'spec.pdf'])
+        expect(consoleSpy).toHaveBeenCalledWith(
+            expect.stringContaining('Attached: cover.png, spec.pdf'),
+        )
+    })
+
+    it('allows a file-only thread (title only, no body) without opening the editor', async () => {
+        const { client, program } = setupFileTest()
+
+        await program.parseAsync([
+            'node',
+            'tw',
+            'thread',
+            'create',
+            '100',
+            'Title',
+            '--file',
+            files.png,
+        ])
+
+        const args = client.threads.createThread.mock.calls[0][0] as {
+            content: string
+            attachments: unknown[]
+        }
+        expect(args.content).toBe('')
+        expect(args.attachments).toHaveLength(1)
+        expect(openEditor).not.toHaveBeenCalled()
+    })
+
+    it('errors with FILE_NOT_FOUND for a missing path and does not create the thread', async () => {
+        const { client, program } = setupFileTest()
+
+        await expect(
+            program.parseAsync([
+                'node',
+                'tw',
+                'thread',
+                'create',
+                '100',
+                'Title',
+                'body',
+                '--file',
+                join(files.dir, 'missing.png'),
+            ]),
+        ).rejects.toMatchObject({ code: 'FILE_NOT_FOUND' })
+
+        expect(client.attachments.upload).not.toHaveBeenCalled()
+        expect(client.threads.createThread).not.toHaveBeenCalled()
+    })
+
+    it('does not upload during --dry-run but lists the attachment', async () => {
+        const { client, program } = setupFileTest()
+        const consoleSpy = captureConsole()
+
+        await program.parseAsync([
+            'node',
+            'tw',
+            'thread',
+            'create',
+            '100',
+            'Title',
+            'body',
+            '--file',
+            files.png,
+            '--dry-run',
+        ])
+
+        expect(client.attachments.upload).not.toHaveBeenCalled()
+        expect(client.threads.createThread).not.toHaveBeenCalled()
+        expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining(files.png))
     })
 })

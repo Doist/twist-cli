@@ -44,6 +44,8 @@ export const READ_WRITE_SCOPES = [
     'groups:remove',
     'search:read',
     'notifications:read',
+    'attachments:read',
+    'attachments:write',
 ]
 
 export const READ_ONLY_SCOPES = [
@@ -57,6 +59,7 @@ export const READ_ONLY_SCOPES = [
     'groups:read',
     'search:read',
     'notifications:read',
+    'attachments:read',
 ]
 
 const AUTH_HINTS = ['Try again: tw auth login', 'Or set TWIST_API_TOKEN environment variable']

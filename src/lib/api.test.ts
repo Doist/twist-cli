@@ -5,11 +5,13 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 const getWorkspaceUsersMock = vi.hoisted(() => vi.fn().mockResolvedValue([]))
 const sdkMocks = vi.hoisted(() => ({
     deleteChannel: vi.fn(),
+    uploadAttachment: vi.fn(),
 }))
 
 vi.mock('@doist/twist-sdk', () => {
     class TwistApi {
         channels = { deleteChannel: sdkMocks.deleteChannel }
+        attachments = { upload: sdkMocks.uploadAttachment }
         workspaceUsers = { getWorkspaceUsers: getWorkspaceUsersMock }
         constructor(_token?: string) {}
     }
@@ -110,6 +112,25 @@ describe('wrapResult — central 403 translation', () => {
         const client = createWrappedTwistClient('test-token')
 
         await expect(client.channels.deleteChannel(500)).rejects.toMatchObject({
+            code: 'INSUFFICIENT_SCOPE',
+            message: 'This action requires permissions your current token does not have.',
+            hints: ['Run `tw auth login` to re-authenticate with the required scopes'],
+        })
+    })
+
+    it('translates an attachments.upload scope 403 into INSUFFICIENT_SCOPE (re-login prompt)', async () => {
+        sdkMocks.uploadAttachment.mockRejectedValueOnce(
+            new TwistRequestError('Request failed with status 403', 403, {
+                error_string: 'Insufficient scope provided: attachments:write',
+            }),
+        )
+
+        const { createWrappedTwistClient } = await import('./api.js')
+        const client = createWrappedTwistClient('test-token')
+
+        await expect(
+            client.attachments.upload({ file: new Blob(['x']), fileName: 'x.png' }),
+        ).rejects.toMatchObject({
             code: 'INSUFFICIENT_SCOPE',
             message: 'This action requires permissions your current token does not have.',
             hints: ['Run `tw auth login` to re-authenticate with the required scopes'],

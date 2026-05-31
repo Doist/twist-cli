@@ -1,4 +1,6 @@
+import chalk from 'chalk'
 import { getTwistClient } from '../../lib/api.js'
+import { uploadAttachments } from '../../lib/attachments.js'
 import { getConfig } from '../../lib/config.js'
 import { CliError } from '../../lib/errors.js'
 import { openEditor, readStdin } from '../../lib/input.js'
@@ -11,6 +13,7 @@ import { type ResolvedNotify, formatNotifyLabel, resolveNotifyIds } from './help
 type CreateOptions = MutationOptions & {
     notify?: string
     unarchive?: boolean
+    file?: string[]
 }
 
 export async function createThread(
@@ -21,19 +24,24 @@ export async function createThread(
 ): Promise<void> {
     const channelId = resolveChannelId(channelRef)
 
+    const files = options.file ?? []
+    const hasFiles = files.length > 0
+
     let threadContent = await readStdin()
     if (!threadContent && content) {
         threadContent = content
     }
-    if (!threadContent) {
+    // A file-only thread is allowed: skip the editor prompt and the empty-content guard.
+    if (!threadContent && !hasFiles) {
         threadContent = await openEditor()
     }
-    if (!threadContent || threadContent.trim() === '') {
+    if ((!threadContent || threadContent.trim() === '') && !hasFiles) {
         throw new CliError(
             'MISSING_CONTENT',
-            'No content provided. Pass content as an argument or pipe via stdin.',
+            'No content provided. Pass content as an argument, pipe via stdin, or attach a file.',
         )
     }
+    const messageContent = threadContent ?? ''
 
     const allIds = options.notify ? parseUserIdRefs(options.notify) : undefined
 
@@ -51,7 +59,7 @@ export async function createThread(
 
     if (options.dryRun) {
         const preview =
-            threadContent.length > 200 ? `${threadContent.slice(0, 200)}...` : threadContent
+            messageContent.length > 200 ? `${messageContent.slice(0, 200)}...` : messageContent
         printDryRun('create thread', {
             Channel: `${channel.name} (${channelId})`,
             Title: title,
@@ -64,17 +72,21 @@ export async function createThread(
                     ? formatNotifyLabel(resolved.notified.groups)
                     : undefined,
             Unarchive: shouldUnarchive ? 'yes' : undefined,
-            Content: preview,
+            Attach: hasFiles ? files.join(', ') : undefined,
+            Content: preview || undefined,
         })
         return
     }
 
+    const attachments = hasFiles ? await uploadAttachments(files) : undefined
+
     const thread = await client.threads.createThread({
         channelId,
         title,
-        content: threadContent,
+        content: messageContent,
         recipients: resolved?.recipients,
         groups: resolved?.groups,
+        attachments,
     })
 
     if (shouldUnarchive) {
@@ -93,4 +105,8 @@ export async function createThread(
     }
 
     console.log(`Thread created: ${thread.url}`)
+    if (attachments && attachments.length > 0) {
+        const names = attachments.map((a) => a.fileName ?? 'file').join(', ')
+        console.log(chalk.dim(`Attached: ${names}`))
+    }
 }

@@ -1,10 +1,13 @@
+import { mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import {
     captureConsole,
     createTestProgram,
     describeEmptyMachineOutput,
 } from '@doist/cli-core/testing'
 import type { BatchResponse as TwistBatchResponse } from '@doist/twist-sdk'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { CliError } from '../../lib/errors.js'
 
 const apiMocks = vi.hoisted(() => ({
@@ -32,6 +35,12 @@ vi.mock('../../lib/markdown.js', () => ({
 
 vi.mock('chalk')
 
+vi.mock('../../lib/input.js', () => ({
+    readStdin: vi.fn().mockResolvedValue(''),
+    openEditor: vi.fn().mockResolvedValue(''),
+}))
+
+import { openEditor } from '../../lib/input.js'
 import { registerConversationCommand } from './index.js'
 
 type TestConversation = {
@@ -151,7 +160,25 @@ function createClient({
                     return Promise.resolve(messagesByConversation[conversationId] ?? [])
                 },
             ),
-            createMessage: vi.fn(),
+            createMessage: vi.fn(
+                async (args: {
+                    conversationId: number
+                    content: string
+                    attachments?: Array<{ fileName?: string | null }>
+                }) => ({
+                    id: 999,
+                    conversationId: args.conversationId,
+                    content: args.content,
+                    url: 'https://twist.com/a/1/msg/999',
+                }),
+            ),
+        },
+        attachments: {
+            upload: vi.fn(async (args: { file: Blob; fileName: string }) => ({
+                attachmentId: `att-${args.fileName}`,
+                urlType: 'file',
+                fileName: args.fileName,
+            })),
         },
         workspaceUsers: {
             getUserById: vi.fn(
@@ -195,6 +222,30 @@ function createClient({
 }
 
 const createProgram = () => createTestProgram(registerConversationCommand)
+
+// Shared setup for the --file suite: a fresh mock client wired into getTwistClient
+// plus a program. Tests asserting on output call captureConsole() themselves.
+function setupFileTest() {
+    const client = createClient({})
+    apiMocks.getTwistClient.mockResolvedValue(client)
+    return { client, program: createProgram() }
+}
+
+// Registers a temp dir with two files for a --file suite, cleaned up afterwards.
+function useFileFixtures(prefix: string, png: string, pdf: string) {
+    const paths = { dir: '', png: '', pdf: '' }
+    beforeAll(async () => {
+        paths.dir = await mkdtemp(join(tmpdir(), prefix))
+        paths.png = join(paths.dir, png)
+        paths.pdf = join(paths.dir, pdf)
+        await writeFile(paths.png, 'png-bytes')
+        await writeFile(paths.pdf, 'pdf-bytes')
+    })
+    afterAll(async () => {
+        await rm(paths.dir, { recursive: true, force: true })
+    })
+    return paths
+}
 
 describe('conversation implicit view', () => {
     beforeEach(() => {
@@ -764,5 +815,118 @@ describe('conversation done', () => {
             program.parseAsync(['node', 'tw', 'conversation', 'done', '42', '--dry-run']),
         ).rejects.toThrow('conversation not found')
         expect(client.conversations.archiveConversation).not.toHaveBeenCalled()
+    })
+})
+
+describe('conversation reply --file', () => {
+    const files = useFileFixtures('tw-convo-reply-', 'photo.png', 'doc.pdf')
+
+    beforeEach(() => {
+        vi.clearAllMocks()
+    })
+
+    it('uploads the file and attaches it to the message', async () => {
+        const { client, program } = setupFileTest()
+        const consoleSpy = captureConsole()
+
+        await program.parseAsync([
+            'node',
+            'tw',
+            'conversation',
+            'reply',
+            '42',
+            'See attached',
+            '--file',
+            files.png,
+        ])
+
+        expect(client.attachments.upload).toHaveBeenCalledTimes(1)
+        expect(client.attachments.upload).toHaveBeenCalledWith(
+            expect.objectContaining({ fileName: 'photo.png' }),
+        )
+        expect(client.conversationMessages.createMessage).toHaveBeenCalledWith(
+            expect.objectContaining({
+                conversationId: 42,
+                content: 'See attached',
+                attachments: [expect.objectContaining({ fileName: 'photo.png' })],
+            }),
+        )
+        expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('Attached: photo.png'))
+    })
+
+    it('attaches multiple repeated --file values', async () => {
+        const { client, program } = setupFileTest()
+
+        await program.parseAsync([
+            'node',
+            'tw',
+            'conversation',
+            'reply',
+            '42',
+            'two files',
+            '--file',
+            files.png,
+            '--file',
+            files.pdf,
+        ])
+
+        expect(client.attachments.upload).toHaveBeenCalledTimes(2)
+        const args = client.conversationMessages.createMessage.mock.calls[0][0] as {
+            attachments: Array<{ fileName?: string }>
+        }
+        expect(args.attachments.map((a) => a.fileName)).toEqual(['photo.png', 'doc.pdf'])
+    })
+
+    it('allows a file-only message with no text content', async () => {
+        const { client, program } = setupFileTest()
+
+        await program.parseAsync(['node', 'tw', 'conversation', 'reply', '42', '--file', files.png])
+
+        expect(client.conversationMessages.createMessage).toHaveBeenCalledWith(
+            expect.objectContaining({ content: '', attachments: expect.any(Array) }),
+        )
+        // A file-only message must not block on the editor.
+        expect(openEditor).not.toHaveBeenCalled()
+    })
+
+    it('errors with FILE_NOT_FOUND for a missing path and does not send', async () => {
+        const { client, program } = setupFileTest()
+
+        await expect(
+            program.parseAsync([
+                'node',
+                'tw',
+                'conversation',
+                'reply',
+                '42',
+                'x',
+                '--file',
+                join(files.dir, 'missing.png'),
+            ]),
+        ).rejects.toMatchObject({ code: 'FILE_NOT_FOUND' })
+
+        expect(client.attachments.upload).not.toHaveBeenCalled()
+        expect(client.conversationMessages.createMessage).not.toHaveBeenCalled()
+    })
+
+    it('does not upload during --dry-run but lists the attachment', async () => {
+        const { client, program } = setupFileTest()
+        const consoleSpy = captureConsole()
+
+        await program.parseAsync([
+            'node',
+            'tw',
+            'conversation',
+            'reply',
+            '42',
+            'preview',
+            '--file',
+            files.png,
+            '--dry-run',
+        ])
+
+        expect(client.attachments.upload).not.toHaveBeenCalled()
+        expect(client.conversationMessages.createMessage).not.toHaveBeenCalled()
+        expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining(files.png))
     })
 })

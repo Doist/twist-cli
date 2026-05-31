@@ -1,5 +1,6 @@
 import { Command, Option } from 'commander'
 import { withUnvalidatedChoices } from '../../lib/completion.js'
+import { collect } from '../../lib/options.js'
 import { createThread } from './create.js'
 import { deleteThread } from './delete.js'
 import { markThreadDone } from './mutate.js'
@@ -55,6 +56,7 @@ Examples:
         )
         .option('--close', 'Close the thread after replying')
         .option('--reopen', 'Reopen the thread after replying')
+        .option('--file <path>', 'Attach a file (repeatable; content optional)', collect, [])
         .option('--dry-run', 'Show what would be posted without posting')
         .option('--json', 'Output posted comment as JSON')
         .option('--full', 'Include all fields in JSON output')
@@ -64,7 +66,9 @@ Examples:
 Examples:
   tw thread reply 12345 "Sounds good!"
   echo "Long reply" | tw thread reply 12345
-  tw thread reply 12345 "Done" --close --json`,
+  tw thread reply 12345 "Done" --close --json
+  tw thread reply 12345 "See attached" --file ./diagram.png
+  tw thread reply 12345 --file ./a.png --file ./b.pdf`,
         )
         .action(replyToThread)
 
@@ -77,6 +81,7 @@ Examples:
             'Unarchive after creation so the thread appears in your Inbox (overrides userSettings.unarchiveNewThreads when false)',
         )
         .option('--no-unarchive', 'Skip unarchive even if userSettings.unarchiveNewThreads is true')
+        .option('--file <path>', 'Attach a file (repeatable; content optional)', collect, [])
         .option('--dry-run', 'Show what would be posted without posting')
         .option('--json', 'Output created thread as JSON')
         .option('--full', 'Include all fields in JSON output')
@@ -87,7 +92,8 @@ Examples:
   tw thread create 12345 "Weekly update" "Here's what happened..."
   echo "Body from stdin" | tw thread create id:12345 "Title"
   tw thread create 12345 "Title" "Body" --notify 67890,11111 --json
-  tw thread create 12345 "Title" "Body" --unarchive`,
+  tw thread create 12345 "Title" "Body" --unarchive
+  tw thread create 12345 "Title" --file ./report.pdf`,
         )
         .action(createThread)
 

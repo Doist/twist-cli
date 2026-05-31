@@ -95,6 +95,7 @@ tw thread create <channel-ref> "Title" "content" --notify 123,456  # Notify spec
 tw thread create <channel-ref> "Title" "content" --unarchive  # Land thread in author's Inbox (overrides default Twist auto-archive)
 tw thread create <channel-ref> "Title" "content" --no-unarchive  # Force archive even when userSettings.unarchiveNewThreads=true
 tw thread create <channel-ref> "Title" "content" --dry-run  # Preview without posting
+tw thread create <channel-ref> "Title" --file ./a.png  # Attach a file (repeatable; content optional)
 tw thread reply <ref> "content"  # Post a comment (notifies EVERYONE_IN_THREAD by default)
 tw thread reply <ref> "content" --notify EVERYONE  # Notify all workspace members
 tw thread reply <ref> "content" --notify 123,id:456   # Notify specific user IDs
@@ -102,6 +103,7 @@ tw thread reply <ref> "content" --json  # Post and return comment as JSON
 tw thread reply <ref> "content" --json --full  # Include all comment fields
 tw thread reply <ref> "content" --close       # Reply and close the thread
 tw thread reply <ref> "content" --reopen      # Reply and reopen a closed thread
+tw thread reply <ref> "content" --file ./a.png  # Attach a file (repeatable; content optional)
 tw thread done <ref>             # Archive thread (mark done)
 tw thread done <ref> --json      # Archive and return status as JSON
 tw thread mute <ref>             # Mute thread for 60 minutes (default)
@@ -155,6 +157,7 @@ tw conversation with <user-ref> --include-groups # List any conversations with t
 tw conversation reply <ref> "content"     # Send a message
 tw conversation reply <ref> "content" --json  # Send and return message as JSON
 tw conversation reply <ref> "content" --json --full  # Include all message fields
+tw conversation reply <ref> "content" --file ./a.png  # Attach a file (repeatable; content optional)
 tw conversation done <ref>                # Archive conversation
 tw conversation done <ref> --json         # Archive and return status as JSON
 tw conversation mute <ref>               # Mute conversation for 60 minutes (default)
