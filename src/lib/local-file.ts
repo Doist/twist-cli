@@ -3,7 +3,7 @@ import { open } from 'node:fs/promises'
 import { basename, resolve } from 'node:path'
 import { CliError } from './errors.js'
 
-export interface LocalFileOptions {
+export type LocalFileOptions = {
     /** Path to the file on disk (relative paths resolve against cwd). */
     file: string
     /** Optional override for the upload's user-facing filename. Defaults to `basename(file)`. */
