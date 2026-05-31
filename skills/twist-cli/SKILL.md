@@ -91,6 +91,7 @@ tw thread create <channel-ref> "Title" "content" --notify 123,456  # Notify spec
 tw thread create <channel-ref> "Title" "content" --unarchive  # Land thread in author's Inbox (overrides default Twist auto-archive)
 tw thread create <channel-ref> "Title" "content" --no-unarchive  # Force archive even when userSettings.unarchiveNewThreads=true
 tw thread create <channel-ref> "Title" "content" --dry-run  # Preview without posting
+tw thread create <channel-ref> "Title" --file ./a.png  # Attach a file (repeatable; content optional)
 tw thread reply <ref> "content"  # Post a comment (notifies EVERYONE_IN_THREAD by default)
 tw thread reply <ref> "content" --notify EVERYONE  # Notify all workspace members
 tw thread reply <ref> "content" --notify 123,id:456   # Notify specific user IDs

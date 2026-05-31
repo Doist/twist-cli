@@ -4,8 +4,8 @@ import { openLocalFileAsBlob } from './local-file.js'
 
 /**
  * Upload one or more local files and return the created {@link Attachment}s,
- * ready to splice into the `attachments` array of `comments.createComment` or
- * `conversationMessages.createMessage`.
+ * ready to splice into the `attachments` array of `comments.createComment`,
+ * `conversationMessages.createMessage`, or `threads.createThread`.
  *
  * All paths are validated (existence + readability) up front, before any
  * upload starts, so a bad path fails fast without leaving a partial set of

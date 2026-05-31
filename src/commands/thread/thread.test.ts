@@ -100,8 +100,12 @@ function createClient({
             }),
             getUnread: vi.fn(async () => unreadThreads),
             createThread: vi.fn(
-                async (_args: { channelId: number; content: string; title?: string | null }) =>
-                    createThreadFixture(999),
+                async (_args: {
+                    channelId: number
+                    content: string
+                    title?: string | null
+                    attachments?: Array<{ fileName?: string | null }>
+                }) => createThreadFixture(999),
             ),
             closeThread: vi.fn(async (_args: { id: number; content: string }) =>
                 createComment(10, 10),
@@ -1489,6 +1493,134 @@ describe('thread reply --file', () => {
 
         expect(client.attachments.upload).not.toHaveBeenCalled()
         expect(client.comments.createComment).not.toHaveBeenCalled()
+        expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining(filePng))
+    })
+})
+
+describe('thread create --file', () => {
+    let tmpDir: string
+    let filePng: string
+    let filePdf: string
+
+    beforeAll(async () => {
+        tmpDir = await mkdtemp(join(tmpdir(), 'tw-create-'))
+        filePng = join(tmpDir, 'cover.png')
+        filePdf = join(tmpDir, 'spec.pdf')
+        await writeFile(filePng, 'png-bytes')
+        await writeFile(filePdf, 'pdf-bytes')
+    })
+
+    afterAll(async () => {
+        await rm(tmpDir, { recursive: true, force: true })
+    })
+
+    beforeEach(() => {
+        vi.clearAllMocks()
+    })
+
+    it('uploads files and attaches them to the new thread', async () => {
+        const client = createClient()
+        apiMocks.getTwistClient.mockResolvedValue(client)
+        const consoleSpy = captureConsole()
+
+        const program = createProgram()
+        await program.parseAsync([
+            'node',
+            'tw',
+            'thread',
+            'create',
+            '100',
+            'Release notes',
+            'See attached',
+            '--file',
+            filePng,
+            '--file',
+            filePdf,
+        ])
+
+        expect(client.attachments.upload).toHaveBeenCalledTimes(2)
+        const args = client.threads.createThread.mock.calls[0][0] as {
+            title: string
+            content: string
+            attachments: Array<{ fileName?: string }>
+        }
+        expect(args.title).toBe('Release notes')
+        expect(args.content).toBe('See attached')
+        expect(args.attachments.map((a) => a.fileName)).toEqual(['cover.png', 'spec.pdf'])
+        expect(consoleSpy).toHaveBeenCalledWith(
+            expect.stringContaining('Attached: cover.png, spec.pdf'),
+        )
+    })
+
+    it('allows a file-only thread (title only, no body) without opening the editor', async () => {
+        const client = createClient()
+        apiMocks.getTwistClient.mockResolvedValue(client)
+
+        const program = createProgram()
+        await program.parseAsync([
+            'node',
+            'tw',
+            'thread',
+            'create',
+            '100',
+            'Title',
+            '--file',
+            filePng,
+        ])
+
+        const args = client.threads.createThread.mock.calls[0][0] as {
+            content: string
+            attachments: unknown[]
+        }
+        expect(args.content).toBe('')
+        expect(args.attachments).toHaveLength(1)
+        expect(openEditor).not.toHaveBeenCalled()
+    })
+
+    it('errors with FILE_NOT_FOUND for a missing path and does not create the thread', async () => {
+        const client = createClient()
+        apiMocks.getTwistClient.mockResolvedValue(client)
+
+        const program = createProgram()
+        await expect(
+            program.parseAsync([
+                'node',
+                'tw',
+                'thread',
+                'create',
+                '100',
+                'Title',
+                'body',
+                '--file',
+                join(tmpDir, 'missing.png'),
+            ]),
+        ).rejects.toMatchObject({ code: 'FILE_NOT_FOUND' })
+
+        expect(client.attachments.upload).not.toHaveBeenCalled()
+        expect(client.threads.createThread).not.toHaveBeenCalled()
+    })
+
+    it('does not upload during --dry-run but lists the attachment', async () => {
+        const client = createClient()
+        apiMocks.getTwistClient.mockResolvedValue(client)
+        const consoleSpy = captureConsole()
+
+        const program = createProgram()
+        await program.parseAsync([
+            'node',
+            'tw',
+            'thread',
+            'create',
+            '100',
+            'Title',
+            'body',
+            '--file',
+            filePng,
+            '--dry-run',
+        ])
+
+        expect(client.attachments.upload).not.toHaveBeenCalled()
+        expect(client.threads.createThread).not.toHaveBeenCalled()
         expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining(filePng))
     })
 })
