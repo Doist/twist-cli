@@ -16,10 +16,14 @@ const mockGetTwistClient = vi.mocked(getTwistClient)
 
 function makeMockChannels(
     channels: Array<{ id: number; public: boolean }>,
+    publicChannels: Array<{ id: number }> = [],
 ): ReturnType<typeof getTwistClient> {
     return Promise.resolve({
         channels: {
             getChannels: vi.fn().mockResolvedValue(channels),
+        },
+        workspaces: {
+            getPublicChannels: vi.fn().mockResolvedValue(publicChannels),
         },
     }) as unknown as ReturnType<typeof getTwistClient>
 }
@@ -94,28 +98,45 @@ describe('getPublicChannelIds', () => {
         expect(ids).toEqual(new Set([1, 3]))
     })
 
+    it('includes public channels the user has not joined', async () => {
+        // getChannels (membership-scoped) returns only id 1; getPublicChannels returns the full
+        // public set including unjoined channels 7 and 8.
+        mockGetTwistClient.mockImplementation(() =>
+            makeMockChannels([{ id: 1, public: true }], [{ id: 1 }, { id: 7 }, { id: 8 }]),
+        )
+
+        const ids = await getPublicChannelIds(100)
+        expect(ids).toEqual(new Set([1, 7, 8]))
+    })
+
     it('caches results per workspace', async () => {
         const getChannels = vi.fn().mockResolvedValue([{ id: 1, public: true }])
+        const getPublicChannels = vi.fn().mockResolvedValue([])
         mockGetTwistClient.mockResolvedValue({
             channels: { getChannels },
+            workspaces: { getPublicChannels },
         } as unknown as Awaited<ReturnType<typeof getTwistClient>>)
 
         await getPublicChannelIds(100)
         await getPublicChannelIds(100)
 
         expect(getChannels).toHaveBeenCalledTimes(1)
+        expect(getPublicChannels).toHaveBeenCalledTimes(1)
     })
 
     it('fetches separately for different workspaces', async () => {
         const getChannels = vi.fn().mockResolvedValue([{ id: 1, public: true }])
+        const getPublicChannels = vi.fn().mockResolvedValue([])
         mockGetTwistClient.mockResolvedValue({
             channels: { getChannels },
+            workspaces: { getPublicChannels },
         } as unknown as Awaited<ReturnType<typeof getTwistClient>>)
 
         await getPublicChannelIds(100)
         await getPublicChannelIds(200)
 
         expect(getChannels).toHaveBeenCalledTimes(2)
+        expect(getPublicChannels).toHaveBeenCalledTimes(2)
     })
 })
 
@@ -155,6 +176,13 @@ describe('assertChannelIsPublic', () => {
         mockGetTwistClient.mockImplementation(() => makeMockChannels([{ id: 5, public: true }]))
 
         await expect(assertChannelIsPublic(5, 100)).resolves.toBeUndefined()
+    })
+
+    it('allows public channels the user has not joined', async () => {
+        // Channel 7 is public but not in the membership-scoped getChannels result.
+        mockGetTwistClient.mockImplementation(() => makeMockChannels([], [{ id: 7 }]))
+
+        await expect(assertChannelIsPublic(7, 100)).resolves.toBeUndefined()
     })
 
     it('allows private channels when --include-private-channels is set', async () => {
