@@ -9,11 +9,6 @@ export async function getPublicChannelIds(workspaceId: number): Promise<Set<numb
     if (cached) return cached
 
     const client = await getTwistClient()
-    // getPublicChannels is workspace-scoped: it returns every public channel (active and
-    // archived, joined and unjoined). getChannels is membership-scoped, so building the
-    // allowlist from it alone wrongly excluded public channels the user hasn't joined — a
-    // thread in such a channel was rejected as private (#263). getPublicChannels is a complete
-    // superset of the public channels getChannels would surface, so it's the only call needed.
     const publicChannels = await client.workspaces.getPublicChannels(workspaceId)
     const publicIds = new Set(publicChannels.map((ch) => ch.id))
     publicChannelCache.set(workspaceId, publicIds)
