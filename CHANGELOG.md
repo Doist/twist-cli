@@ -1,3 +1,9 @@
+## [2.45.1](https://github.com/Doist/twist-cli/compare/v2.45.0...v2.45.1) (2026-06-08)
+
+### Bug Fixes
+
+- **channels:** Include unjoined public channels in public-channel allowlist ([#266](https://github.com/Doist/twist-cli/issues/266)) ([6de6209](https://github.com/Doist/twist-cli/commit/6de62091582d06f3b2805d5ebc4b27ff95fb6d8a)), closes [#263](https://github.com/Doist/twist-cli/issues/263)
+
 ## [2.45.0](https://github.com/Doist/twist-cli/compare/v2.44.2...v2.45.0) (2026-05-31)
 
 ### Features
