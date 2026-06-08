@@ -9,11 +9,8 @@ export async function getPublicChannelIds(workspaceId: number): Promise<Set<numb
     if (cached) return cached
 
     const client = await getTwistClient()
-    const channels = await client.channels.getChannels({ workspaceId })
-    const publicIds = new Set<number>()
-    for (const ch of channels) {
-        if (ch.public) publicIds.add(ch.id)
-    }
+    const publicChannels = await client.workspaces.getPublicChannels(workspaceId)
+    const publicIds = new Set(publicChannels.map((ch) => ch.id))
     publicChannelCache.set(workspaceId, publicIds)
     return publicIds
 }
