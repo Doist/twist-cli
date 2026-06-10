@@ -50,7 +50,7 @@
         "CHANGELOG.md"
     ],
     "dependencies": {
-        "@doist/cli-core": "0.25.0",
+        "@doist/cli-core": "0.25.1",
         "@doist/twist-sdk": "2.9.2",
         "@pnpm/tabtab": "0.5.4",
         "chalk": "5.6.2",
