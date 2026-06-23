@@ -1,3 +1,9 @@
+## [2.45.6](https://github.com/Doist/twist-cli/compare/v2.45.5...v2.45.6) (2026-06-23)
+
+### Bug Fixes
+
+- **deps:** update dependency @doist/cli-core to v0.26.0 ([#286](https://github.com/Doist/twist-cli/issues/286)) ([4b2a5b9](https://github.com/Doist/twist-cli/commit/4b2a5b92d376009b4f6e5386714dd3e917950c39))
+
 ## [2.45.5](https://github.com/Doist/twist-cli/compare/v2.45.4...v2.45.5) (2026-06-15)
 
 ### Bug Fixes
