@@ -30,7 +30,8 @@
     "author": "Ernesto García <ernesto@ernesto.dev>",
     "license": "MIT",
     "engines": {
-        "node": "^20.19.0 || >=22.12.0"
+        "node": ">=24",
+        "npm": ">=11"
     },
     "repository": {
         "type": "git",
