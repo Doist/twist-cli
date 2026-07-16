@@ -1,3 +1,13 @@
+## [3.0.0](https://github.com/Doist/twist-cli/compare/v2.45.8...v3.0.0) (2026-07-16)
+
+### ⚠ BREAKING CHANGES
+
+- require node >=24, test on 24 & 26, support npm >=11 (#299)
+
+### Features
+
+- require node >=24, test on 24 & 26, support npm >=11 ([#299](https://github.com/Doist/twist-cli/issues/299)) ([1b763b1](https://github.com/Doist/twist-cli/commit/1b763b1218a90b3e257f8bb18387c2631f8b220b))
+
 ## [2.45.8](https://github.com/Doist/twist-cli/compare/v2.45.7...v2.45.8) (2026-07-14)
 
 ### Bug Fixes
