@@ -10,7 +10,7 @@
 `tw`. It wraps `@doist/twist-sdk` and publishes a single executable
 (`dist/index.js`).
 
-ESM-only · Node `^20.19 || >=22.12` · Commander 14 · vitest · oxlint + oxfmt (no
+ESM-only · Node `>=24` · npm `>=11` · Commander 14 · vitest · oxlint + oxfmt (no
 eslint/prettier) · semantic-release on merge to `main`. Shared building blocks
 (config I/O, output formatters, spinner, OAuth/keyring auth, command attachers)
 come from `@doist/cli-core`.

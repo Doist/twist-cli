@@ -12,7 +12,7 @@ vi.mock('../../package.json', () => ({
     default: {
         version: '1.0.0',
         engines: {
-            node: '^20.19.0 || >=22.12.0',
+            node: '>=24',
         },
     },
 }))
@@ -89,7 +89,7 @@ describe('doctor command', () => {
         originalProcessVersion = Object.getOwnPropertyDescriptor(process, 'version')
         Object.defineProperty(process, 'version', {
             configurable: true,
-            value: 'v20.19.0',
+            value: 'v24.0.0',
         })
     })
 
@@ -106,7 +106,7 @@ describe('doctor command', () => {
         const program = createProgram()
         await program.parseAsync(['node', 'tw', 'doctor'])
 
-        expect(consoleSpy).not.toHaveBeenCalledWith(expect.stringContaining('Node.js v20.19.0'))
+        expect(consoleSpy).not.toHaveBeenCalledWith(expect.stringContaining('Node.js v24.0.0'))
         expect(consoleSpy).toHaveBeenCalledWith(
             expect.stringContaining('PASS Authenticated as person@example.com via secure-store'),
         )
@@ -310,7 +310,7 @@ describe('doctor command', () => {
         await program.parseAsync(['node', 'tw', 'doctor'])
 
         expect(consoleSpy).toHaveBeenCalledWith(
-            expect.stringContaining('FAIL Node.js v18.0.0 does not satisfy ^20.19.0 || >=22.12.0'),
+            expect.stringContaining('FAIL Node.js v18.0.0 does not satisfy >=24'),
         )
         expect(consoleSpy).toHaveBeenCalledWith(
             expect.stringContaining('FAIL Could not read config file /tmp/test-config.json'),
