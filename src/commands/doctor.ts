@@ -86,27 +86,16 @@ function nextCaretUpperBound(version: string): string {
     return `0.0.${parsed.patch + 1}`
 }
 
-function padVersionSpec(spec: string): string {
-    const trimmed = spec.replace(/^v/, '').trim()
-    const [core, ...prerelease] = trimmed.split('-')
-    const parts = core.split('.')
-    while (parts.length < 3) {
-        parts.push('0')
-    }
-    const normalized = parts.slice(0, 3).join('.')
-    return prerelease.length > 0 ? `${normalized}-${prerelease.join('-')}` : normalized
-}
-
 function satisfiesComparator(currentVersion: string, comparator: string): boolean | null {
     const trimmed = comparator.trim()
     if (!trimmed) return true
 
     if (trimmed.startsWith('>=')) {
-        return compareVersions(currentVersion, padVersionSpec(trimmed.slice(2))) >= 0
+        return compareVersions(currentVersion, trimmed.slice(2).trim()) >= 0
     }
 
     if (trimmed.startsWith('^')) {
-        const baseVersion = padVersionSpec(trimmed.slice(1))
+        const baseVersion = trimmed.slice(1).trim()
         return (
             compareVersions(currentVersion, baseVersion) >= 0 &&
             compareVersions(currentVersion, nextCaretUpperBound(baseVersion)) < 0
