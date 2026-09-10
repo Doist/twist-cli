@@ -1,3 +1,9 @@
+## [3.0.8](https://github.com/Doist/twist-cli/compare/v3.0.7...v3.0.8) (2026-09-10)
+
+### Bug Fixes
+
+- **deps:** update dependency oauth4webapi to v3.8.8 ([#332](https://github.com/Doist/twist-cli/issues/332)) ([e807c7c](https://github.com/Doist/twist-cli/commit/e807c7c389618656f20c88f0712b2f523ffe308f))
+
 ## [3.0.7](https://github.com/Doist/twist-cli/compare/v3.0.6...v3.0.7) (2026-09-04)
 
 ### Bug Fixes
