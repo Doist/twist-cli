@@ -24,6 +24,7 @@ const THREAD_ESSENTIAL_FIELDS = [
     'commentCount',
     'isArchived',
     'isUnread',
+    'hasUnreadMention',
     'url',
     'reactions',
 ] as const

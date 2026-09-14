@@ -65,11 +65,13 @@ All target command flags pass through (e.g. `--json`, `--raw`, `--full`).
 ```bash
 tw inbox                         # Show inbox threads
 tw inbox --unread                # Only unread threads
+tw inbox --mentions              # Only unread threads where you were mentioned
 tw inbox --archive-filter all      # Show active + done threads
 tw inbox --archive-filter archived # Show only done threads
 tw inbox --channel <filter>      # Filter by channel name (fuzzy)
 tw inbox --since <date>          # Filter by date (ISO format)
 tw inbox --limit <n>             # Max items (default: 50)
+tw inbox --json                  # Each thread has isUnread + hasUnreadMention (unread + you were @-mentioned)
 ```
 
 ## Threads
@@ -404,6 +406,7 @@ tw view https://twist.com/a/1585/msg/400/m/500 --json    # View message as JSON
 
 **Check inbox and respond:**
 ```bash
+tw inbox --mentions --json       # Unread threads that @-mention you
 tw inbox --unread --json
 tw thread view <id> --unread
 tw thread reply <id> "Thanks, I'll look into this."

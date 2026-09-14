@@ -136,6 +136,7 @@ Arguments:
 Options:
 
 - `--unread` - Only show unread threads
+- `--mentions` - Only show unread threads where you were mentioned (implies `--unread`)
 - `--since <date>` - Filter by date (ISO format)
 - `--until <date>` - Filter by date
 - `--limit <n>` - Max items (default: 50)
@@ -143,7 +144,7 @@ Options:
 
 Output format (human-readable):
 
-- Title, channel name, timestamp (relative), unread indicator
+- Title, channel name, timestamp (relative), unread indicator, mention indicator (`@`, or `(mention)` in accessible mode)
 - URL on second line for each entry
 - Content truncated in list view
 
@@ -427,7 +428,7 @@ Threads, comments, messages, and conversations: **ID or URL only** (no name look
 
 ### Essential Fields by Entity
 
-**Thread**: id, title, channelId, channelName, workspaceId, creator, posted, commentCount, isArchived, inInbox, isUnread, url
+**Thread**: id, title, channelId, channelName, workspaceId, creator, posted, commentCount, isArchived, inInbox, isUnread, hasUnreadMention, url
 
 **Comment**: id, content, creator, threadId, posted, url
 
@@ -488,6 +489,7 @@ tw workspace use "My Team"
 # View inbox
 tw inbox
 tw inbox --unread
+tw inbox --mentions
 
 # View a thread
 tw thread view id:123456

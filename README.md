@@ -100,6 +100,7 @@ tw auth logout   # remove saved token
 ```bash
 tw inbox                           # inbox threads
 tw inbox --unread                  # unread threads only
+tw inbox --mentions                # unread threads where you were mentioned
 tw mentions                        # content mentioning you
 tw mentions --since 2026-04-01 --all --json
 tw thread view <ref>               # view thread with comments

@@ -22,6 +22,7 @@ vi.mock('../lib/refs.js', () => ({
 vi.mock('../lib/global-args.js', async (importOriginal) => ({
     ...(await importOriginal()),
     includePrivateChannels: vi.fn().mockReturnValue(true),
+    isAccessible: vi.fn().mockReturnValue(false),
 }))
 
 vi.mock('../lib/public-channels.js', () => ({
@@ -248,5 +249,103 @@ describe('inbox batch errors', () => {
         const output = JSON.parse(consoleSpy.mock.calls[0][0])
         expect(output).toHaveLength(1)
         expect(output[0]).toMatchObject({ id: 1, isUnread: false })
+    })
+})
+
+describe('inbox unread mentions', () => {
+    let logSpy: ReturnType<typeof vi.spyOn>
+
+    const mentioned = {
+        id: 1,
+        channelId: 10,
+        title: 'mentioned',
+        posted: '2026-05-01T00:00:00Z',
+        url: 'http://example/1',
+    }
+    const unread = {
+        id: 2,
+        channelId: 10,
+        title: 'unread',
+        posted: '2026-05-03T00:00:00Z',
+        url: 'http://example/2',
+    }
+    const read = {
+        id: 3,
+        channelId: 10,
+        title: 'read',
+        posted: '2026-05-02T00:00:00Z',
+        url: 'http://example/3',
+    }
+
+    beforeEach(() => {
+        vi.clearAllMocks()
+        apiMocks.getCurrentWorkspaceId.mockResolvedValue(1)
+        const mockBatch = vi
+            .fn()
+            .mockResolvedValueOnce([
+                { code: 200, data: [unread, read, mentioned] },
+                {
+                    code: 200,
+                    data: [
+                        { threadId: 1, channelId: 10, objIndex: 3, directMention: true },
+                        { threadId: 2, channelId: 10, objIndex: 1, directMention: false },
+                    ],
+                },
+            ])
+            .mockResolvedValueOnce([{ code: 200, data: { id: 10, name: 'engineering' } }])
+        apiMocks.getTwistClient.mockResolvedValue({
+            inbox: { getInbox: vi.fn() },
+            threads: { getUnread: vi.fn() },
+            channels: { getChannel: vi.fn() },
+            batch: mockBatch,
+        })
+        logSpy = captureConsole()
+    })
+
+    it('sets hasUnreadMention only for unread threads with a direct mention', async () => {
+        const program = createProgram()
+        await program.parseAsync(['node', 'tw', 'inbox', '--json'])
+
+        const output = JSON.parse(logSpy.mock.calls[0][0])
+        const byId = Object.fromEntries(output.map((t: { id: number }) => [t.id, t]))
+        expect(byId[1]).toMatchObject({ isUnread: true, hasUnreadMention: true })
+        expect(byId[2]).toMatchObject({ isUnread: true, hasUnreadMention: false })
+        expect(byId[3]).toMatchObject({ isUnread: false, hasUnreadMention: false })
+    })
+
+    it('sorts mention threads before other unread threads within a channel', async () => {
+        const program = createProgram()
+        await program.parseAsync(['node', 'tw', 'inbox', '--json'])
+
+        const output = JSON.parse(logSpy.mock.calls[0][0])
+        // "unread" is newer than "mentioned", so date order alone would put it first
+        expect(output.map((t: { id: number }) => t.id)).toEqual([1, 2, 3])
+    })
+
+    it('--mentions filters to unread threads with a direct mention', async () => {
+        const program = createProgram()
+        await program.parseAsync(['node', 'tw', 'inbox', '--mentions', '--json'])
+
+        const output = JSON.parse(logSpy.mock.calls[0][0])
+        expect(output).toHaveLength(1)
+        expect(output[0]).toMatchObject({ id: 1, hasUnreadMention: true })
+    })
+
+    it('includes hasUnreadMention in --full output', async () => {
+        const program = createProgram()
+        await program.parseAsync(['node', 'tw', 'inbox', '--json', '--full'])
+
+        const output = JSON.parse(logSpy.mock.calls[0][0])
+        expect(output[0]).toHaveProperty('hasUnreadMention', true)
+    })
+
+    it('marks mention rows with @ next to the unread badge in human output', async () => {
+        const program = createProgram()
+        await program.parseAsync(['node', 'tw', 'inbox'])
+
+        const lines = logSpy.mock.calls.map((call: unknown[]) => String(call[0]))
+        expect(lines).toContain('  mentioned * @')
+        expect(lines).toContain('  unread *')
+        expect(lines).toContain('  read')
     })
 })
