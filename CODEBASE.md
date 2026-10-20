@@ -25,7 +25,7 @@ come from `@doist/cli-core`.
 ├─ skills/twist-cli/      # Generated SKILL.md (from src/lib/skills/content.ts)
 ├─ .github/workflows/     # test, lint, release, check-skill-sync,
 │                         # check-semantic-pull-request, issue-automation,
-│                         # request-reviews, update-twist-sdk
+│                         # update-twist-sdk
 ├─ AGENTS.md              # Prescriptive rules (build cmds, JSON flag, skill-sync, errors)
 ├─ CODEBASE.md            # This file — descriptive map
 ├─ CLAUDE.md              # One-liner forward to AGENTS.md
