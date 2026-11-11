@@ -1,4 +1,4 @@
-import type { Channel } from '@doist/twist-sdk'
+import type { Channel } from '@todoist/twist-sdk'
 
 // A fully-populated channel object as returned by the API, for tests that
 // resolve/fetch a single channel. Pass overrides to vary individual fields.

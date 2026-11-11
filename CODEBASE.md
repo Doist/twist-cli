@@ -7,13 +7,13 @@
 ## What this project is
 
 `@todoist/twist-cli` is a **TypeScript CLI** for Twist messaging. Binary name:
-`tw`. It wraps `@doist/twist-sdk` and publishes a single executable
+`tw`. It wraps `@todoist/twist-sdk` and publishes a single executable
 (`dist/index.js`).
 
 ESM-only · Node `>=24` · npm `>=11` · Commander 14 · vitest · oxlint + oxfmt (no
 eslint/prettier) · semantic-release on merge to `main`. Shared building blocks
 (config I/O, output formatters, spinner, OAuth/keyring auth, command attachers)
-come from `@doist/cli-core`.
+come from `@todoist/cli-core`.
 
 ## Top-level layout
 
@@ -31,7 +31,7 @@ come from `@doist/cli-core`.
 ├─ CLAUDE.md              # One-liner forward to AGENTS.md
 ├─ tsconfig.json          # Includes src + tests (type-check, IDE)
 ├─ tsconfig.build.json    # Excludes *.test.ts/.spec.ts, __mocks__, __fixtures__
-├─ vitest.config.ts       # { globals, root: 'src', inlines @doist/cli-core }
+├─ vitest.config.ts       # { globals, root: 'src', inlines @todoist/cli-core }
 ├─ .oxlintrc.json / .oxfmtrc.json
 ├─ lefthook.yml           # Pre-commit: type-check + oxlint + oxfmt; pre-push: tests
 └─ release.config.js      # semantic-release config
@@ -52,7 +52,7 @@ src/
 │  ├─ skills/             # content.ts (SKILL_CONTENT) + installer plumbing
 │  └─ __fixtures__/       # accounts.ts, channels.ts — test fixtures (excluded from build)
 └─ __mocks__/             # Manual vitest mocks for npm packages (chalk.ts)
-                          # (program harness + console spies: @doist/cli-core/testing)
+                          # (program harness + console spies: @todoist/cli-core/testing)
 ```
 
 ## Architecture flow
@@ -183,7 +183,7 @@ is tried as an id vs a name.
 
 ## Auth & token storage
 
-`@doist/cli-core/auth` owns the keyring, multi-user `TokenStore`, OAuth flow,
+`@todoist/cli-core/auth` owns the keyring, multi-user `TokenStore`, OAuth flow,
 and the `login` / `logout` / `status` / `token view` and `account
 list/use/current/remove` registrars. twist supplies (a) a
 `UserRecordStore<TwistAccount>` adapter (`user-records.ts`) over its config file
@@ -212,11 +212,11 @@ cli-core's `migrateLegacyAuth`.
 - **Location:** colocated `*.test.ts` next to the module under test.
 - **Helpers:** `createTestProgram(register)` (Commander harness) and
   `captureConsole(method)` / `captureStream(stream)` (output spies) come from the
-  shared `@doist/cli-core/testing` subpath — not local files. Fixtures in
+  shared `@todoist/cli-core/testing` subpath — not local files. Fixtures in
   `src/lib/__fixtures__/` (`accounts.ts`, `channels.ts`) — don't hand-build
   account/channel objects. Manual npm-package mocks in `src/__mocks__/` (`chalk.ts`).
-- **`@doist/cli-core` inlining:** `vitest.config.ts` lists it in
-  `server.deps.inline` so `vi.mock('@doist/cli-core', …)` /
+- **`@todoist/cli-core` inlining:** `vitest.config.ts` lists it in
+  `server.deps.inline` so `vi.mock('@todoist/cli-core', …)` /
   `vi.doMock('node:fs/promises', …)` reach its compiled imports — without it the
   auth/config/spinner suites break.
 

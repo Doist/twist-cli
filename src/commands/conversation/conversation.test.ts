@@ -5,8 +5,8 @@ import {
     captureConsole,
     createTestProgram,
     describeEmptyMachineOutput,
-} from '@doist/cli-core/testing'
-import type { BatchResponse as TwistBatchResponse } from '@doist/twist-sdk'
+} from '@todoist/cli-core/testing'
+import type { BatchResponse as TwistBatchResponse } from '@todoist/twist-sdk'
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { CliError } from '../../lib/errors.js'
 

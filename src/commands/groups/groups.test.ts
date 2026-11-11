@@ -2,7 +2,7 @@ import {
     captureConsole,
     createTestProgram,
     describeEmptyMachineOutput,
-} from '@doist/cli-core/testing'
+} from '@todoist/cli-core/testing'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mockBatch = vi.fn()

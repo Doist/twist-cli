@@ -1,8 +1,8 @@
 import { mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { captureConsole, createTestProgram } from '@doist/cli-core/testing'
-import type { BatchResponse as TwistBatchResponse } from '@doist/twist-sdk'
+import { captureConsole, createTestProgram } from '@todoist/cli-core/testing'
+import type { BatchResponse as TwistBatchResponse } from '@todoist/twist-sdk'
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const apiMocks = vi.hoisted(() => ({

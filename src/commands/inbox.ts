@@ -1,4 +1,4 @@
-import type { ArchiveFilter } from '@doist/twist-sdk'
+import type { ArchiveFilter } from '@todoist/twist-sdk'
 import chalk from 'chalk'
 import { Command, Option } from 'commander'
 import {

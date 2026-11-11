@@ -1,4 +1,4 @@
-import type { Conversation } from '@doist/twist-sdk'
+import type { Conversation } from '@todoist/twist-sdk'
 import chalk from 'chalk'
 import { buildOptionalBatchNameMap, getTwistClient } from '../../lib/api.js'
 import { formatRelativeDate } from '../../lib/dates.js'

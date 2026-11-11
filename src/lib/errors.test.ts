@@ -1,4 +1,4 @@
-import { TwistRequestError } from '@doist/twist-sdk'
+import { TwistRequestError } from '@todoist/twist-sdk'
 import { describe, expect, it } from 'vitest'
 
 import { isForbidden, isInsufficientScope } from './errors.js'

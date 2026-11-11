@@ -1,4 +1,4 @@
-import { SecureStoreUnavailableError } from '@doist/cli-core/auth'
+import { SecureStoreUnavailableError } from '@todoist/cli-core/auth'
 import type { TwistAccount } from './auth-provider.js'
 import { createTwistTokenStore, getActiveTokenSource } from './auth-provider.js'
 import { type AuthMode, getConfig } from './config.js'

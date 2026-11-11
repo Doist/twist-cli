@@ -1,4 +1,4 @@
-import { captureConsole, createTestProgram } from '@doist/cli-core/testing'
+import { captureConsole, createTestProgram } from '@todoist/cli-core/testing'
 import { Command } from 'commander'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -48,8 +48,8 @@ vi.mock('../../lib/api.js', async (importOriginal) => {
 // src/lib/auth-provider.test.ts. attachLogoutCommand + attachStatusCommand
 // fall through to the real cli-core implementations so the integration is
 // exercised end-to-end.
-vi.mock('@doist/cli-core/auth', async (importOriginal) => {
-    const actual = await importOriginal<typeof import('@doist/cli-core/auth')>()
+vi.mock('@todoist/cli-core/auth', async (importOriginal) => {
+    const actual = await importOriginal<typeof import('@todoist/cli-core/auth')>()
     return {
         ...actual,
         attachLoginCommand: vi.fn((parent, _options) => {
@@ -75,8 +75,8 @@ vi.mock('node:readline', () => ({
 vi.mock('chalk')
 
 import { createInterface, type Interface } from 'node:readline'
-import { attachLoginCommand } from '@doist/cli-core/auth'
-import { TwistRequestError, type User } from '@doist/twist-sdk'
+import { attachLoginCommand } from '@todoist/cli-core/auth'
+import { TwistRequestError, type User } from '@todoist/twist-sdk'
 import { createWrappedTwistClient } from '../../lib/api.js'
 import { type TwistAccount, type TwistTokenStore } from '../../lib/auth-provider.js'
 import { getAuthMetadata, TOKEN_ENV_VAR } from '../../lib/auth.js'

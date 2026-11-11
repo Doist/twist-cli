@@ -7,7 +7,7 @@ import {
     type User,
     type Workspace,
     type WorkspaceUser,
-} from '@doist/twist-sdk'
+} from '@todoist/twist-sdk'
 import { getApiToken } from './auth.js'
 import { getConfig, updateConfig } from './config.js'
 import { CliError, isForbidden, isInsufficientScope } from './errors.js'

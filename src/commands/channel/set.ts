@@ -1,4 +1,4 @@
-import type { User } from '@doist/twist-sdk'
+import type { User } from '@todoist/twist-sdk'
 import {
     addUsersToChannel,
     getCurrentWorkspaceId,

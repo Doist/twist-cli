@@ -1,4 +1,4 @@
-import type { TwistApi } from '@doist/twist-sdk'
+import type { TwistApi } from '@todoist/twist-sdk'
 import chalk from 'chalk'
 import { assertBatchData, buildOptionalBatchNameMap, getTwistClient } from '../../lib/api.js'
 import { formatRelativeDate } from '../../lib/dates.js'

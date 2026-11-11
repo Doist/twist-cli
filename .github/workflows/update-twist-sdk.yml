@@ -27,8 +27,8 @@ jobs:
             - name: Install current dependencies
               run: npm ci
 
-            - name: Update @doist/twist-sdk to latest
-              run: npm install @doist/twist-sdk@latest
+            - name: Update @todoist/twist-sdk to latest
+              run: npm install --save-exact @todoist/twist-sdk@latest
 
             - name: Build
               run: npm run build
@@ -46,10 +46,10 @@ jobs:
               id: changes
               run: |
                   if git diff --quiet package.json package-lock.json; then
-                    echo "No updates available - @doist/twist-sdk is already at the latest version"
+                    echo "No updates available - @todoist/twist-sdk is already at the latest version"
                     echo "has_changes=false" >> $GITHUB_OUTPUT
                   else
-                    echo "Changes detected - @doist/twist-sdk has been updated"
+                    echo "Changes detected - @todoist/twist-sdk has been updated"
                     echo "has_changes=true" >> $GITHUB_OUTPUT
                   fi
 
@@ -59,7 +59,7 @@ jobs:
                   git config --local user.email "action@github.com"
                   git config --local user.name "GitHub Action"
                   git add package.json package-lock.json
-                  git commit -m "fix(deps): update to latest \`@doist/twist-sdk\` package"
+                  git commit -m "fix(deps): update to latest \`@todoist/twist-sdk\` package"
                   git push
 
             - name: Trigger release workflow
@@ -74,9 +74,9 @@ jobs:
             - name: Report success
               run: |
                   if [ "${{ steps.changes.outputs.has_changes }}" == "true" ]; then
-                    echo "✅ Successfully updated @doist/twist-sdk package"
+                    echo "✅ Successfully updated @todoist/twist-sdk package"
                     echo "📦 Changes committed to main branch"
                     echo "🚀 Release workflow triggered - semantic release will create a new patch version"
                   else
-                    echo "ℹ️  No updates needed - @doist/twist-sdk is already at the latest version"
+                    echo "ℹ️  No updates needed - @todoist/twist-sdk is already at the latest version"
                   fi

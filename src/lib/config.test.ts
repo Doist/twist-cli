@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 
-vi.mock('@doist/cli-core', async () => {
-    const actual = await vi.importActual<typeof import('@doist/cli-core')>('@doist/cli-core')
+vi.mock('@todoist/cli-core', async () => {
+    const actual = await vi.importActual<typeof import('@todoist/cli-core')>('@todoist/cli-core')
     return {
         ...actual,
         getConfigPath: vi.fn((appName: string) => `/tmp/cli-core-test/${appName}/config.json`),
@@ -18,7 +18,7 @@ import {
     readConfigStrict as readConfigStrictCore,
     updateConfig as updateConfigCore,
     writeConfig as writeConfigCore,
-} from '@doist/cli-core'
+} from '@todoist/cli-core'
 import {
     getConfig,
     getConfigPath,

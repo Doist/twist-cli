@@ -1,4 +1,4 @@
-import type { UserRecord, UserRecordStore } from '@doist/cli-core/auth'
+import type { UserRecord, UserRecordStore } from '@todoist/cli-core/auth'
 import type { TwistAccount } from './auth-provider.js'
 import { type Config, type StoredUser, getConfig, updateConfig } from './config.js'
 import { makeTwistAccount } from './twist-account.js'

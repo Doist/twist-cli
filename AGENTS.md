@@ -18,7 +18,7 @@ The project uses two tsconfig files: `tsconfig.json` includes test files for typ
 
 Tests are colocated next to the module they cover (for example `src/commands/thread/thread.test.ts` or `src/lib/refs.test.ts`). Shared Vitest manual mocks for npm packages live in `src/__mocks__/` (e.g. `chalk.ts`).
 
-`vitest.config.ts` lists `@doist/cli-core` in `server.deps.inline` so `vi.mock('@doist/cli-core', …)` and `vi.doMock('node:fs/promises', …)` reach cli-core's compiled imports. Without it, vitest treats the package as external and Node's native resolver bypasses the mock substitution, breaking the `auth` / `config` / spinner suites.
+`vitest.config.ts` lists `@todoist/cli-core` in `server.deps.inline` so `vi.mock('@todoist/cli-core', …)` and `vi.doMock('node:fs/promises', …)` reach cli-core's compiled imports. Without it, vitest treats the package as external and Node's native resolver bypasses the mock substitution, breaking the `auth` / `config` / spinner suites.
 
 Run a single test file:
 
@@ -44,7 +44,7 @@ This is a TypeScript CLI (`tw`) for Twist messaging, built with Commander.js.
 
 **Lib** (`src/lib/`):
 
-- `api.ts` - Singleton TwistApi client from `@doist/twist-sdk`, workspace/user caching
+- `api.ts` - Singleton TwistApi client from `@todoist/twist-sdk`, workspace/user caching
 - `refs.ts` - Reference parsing: accepts IDs (`id:123` or bare `123`), Twist URLs, or fuzzy names for workspaces/users
 - `output.ts` - JSON/NDJSON formatting with essential field filtering per entity type
 - `config.ts` - Persists config to `~/.config/twist-cli/config.json`
@@ -70,7 +70,7 @@ This is a TypeScript CLI (`tw`) for Twist messaging, built with Commander.js.
 
 ## Error Handling
 
-- **Always use `CliError` from `src/lib/errors.ts`** instead of bare `throw new Error(...)`, `console.error() + process.exit(1)`, or `console.error() + process.exitCode = 1`. This ensures structured error output in `--json` mode and consistent formatting in text mode. The global error handler in `src/index.ts` catches all errors, formats them appropriately, and sets the exit code. The same handler also matches `BaseCliError` (re-exported from `src/lib/errors.ts`) so errors thrown by `@doist/cli-core` helpers route through the same formatter.
+- **Always use `CliError` from `src/lib/errors.ts`** instead of bare `throw new Error(...)`, `console.error() + process.exit(1)`, or `console.error() + process.exitCode = 1`. This ensures structured error output in `--json` mode and consistent formatting in text mode. The global error handler in `src/index.ts` catches all errors, formats them appropriately, and sets the exit code. The same handler also matches `BaseCliError` (re-exported from `src/lib/errors.ts`) so errors thrown by `@todoist/cli-core` helpers route through the same formatter.
 
 ```typescript
 import { CliError } from '../../lib/errors.js'

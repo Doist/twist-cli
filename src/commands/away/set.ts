@@ -1,4 +1,4 @@
-import { AWAY_MODE_TYPES, type AwayModeType } from '@doist/twist-sdk'
+import { AWAY_MODE_TYPES, type AwayModeType } from '@todoist/twist-sdk'
 import { getTwistClient } from '../../lib/api.js'
 import { CliError } from '../../lib/errors.js'
 import type { MutationOptions, ViewOptions } from '../../lib/options.js'

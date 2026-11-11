@@ -1,4 +1,4 @@
-import type { Channel, Group, Workspace } from '@doist/twist-sdk'
+import type { Channel, Group, Workspace } from '@todoist/twist-sdk'
 import { fetchWorkspaces, getGroup, getWorkspaceGroups, getTwistClient } from './api.js'
 import { CliError, type ErrorCode } from './errors.js'
 

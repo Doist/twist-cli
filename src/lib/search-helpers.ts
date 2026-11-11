@@ -1,4 +1,4 @@
-import { getFullTwistURL, type SearchResult } from '@doist/twist-sdk'
+import { getFullTwistURL, type SearchResult } from '@todoist/twist-sdk'
 import { Command, Option } from 'commander'
 import { getCurrentWorkspaceId } from './api.js'
 import { withCaseInsensitiveChoices } from './completion.js'

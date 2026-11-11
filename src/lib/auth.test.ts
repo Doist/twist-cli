@@ -1,4 +1,4 @@
-import type { TokenStore } from '@doist/cli-core/auth'
+import type { TokenStore } from '@todoist/cli-core/auth'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Config } from './config.js'
 
