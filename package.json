@@ -1,6 +1,6 @@
 {
     "name": "@todoist/twist-cli",
-    "version": "3.0.16",
+    "version": "4.0.0",
     "description": "TypeScript CLI for Twist",
     "type": "module",
     "main": "dist/index.js",
