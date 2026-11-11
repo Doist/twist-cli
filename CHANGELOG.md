@@ -1,3 +1,9 @@
+## [3.0.16](https://github.com/todoist/twist-cli/compare/v3.0.15...v3.0.16) (2026-11-11)
+
+### Bug Fixes
+
+- **ci:** use the todoist GitHub org after the rename ([#366](https://github.com/todoist/twist-cli/issues/366)) ([65d97e2](https://github.com/todoist/twist-cli/commit/65d97e24d7c73318b0a5538dd56c9e21bda9f106))
+
 ## [3.0.15](https://github.com/Doist/twist-cli/compare/v3.0.14...v3.0.15) (2026-10-19)
 
 ### Bug Fixes
