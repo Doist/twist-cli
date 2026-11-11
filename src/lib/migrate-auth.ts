@@ -1,5 +1,5 @@
-import { type MigrateAuthResult, migrateLegacyAuth } from '@doist/cli-core/auth'
-import { TwistApi } from '@doist/twist-sdk'
+import { type MigrateAuthResult, migrateLegacyAuth } from '@todoist/cli-core/auth'
+import { TwistApi } from '@todoist/twist-sdk'
 import { LEGACY_KEYRING_ACCOUNT, SECURE_STORE_SERVICE } from './auth-constants.js'
 import type { TwistAccount } from './auth-provider.js'
 import { getConfig, updateConfig } from './config.js'

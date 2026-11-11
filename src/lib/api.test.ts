@@ -1,4 +1,4 @@
-import { TwistRequestError } from '@doist/twist-sdk'
+import { TwistRequestError } from '@todoist/twist-sdk'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 // Hoisted mocks — shared across both describe blocks.
@@ -8,7 +8,7 @@ const sdkMocks = vi.hoisted(() => ({
     uploadAttachment: vi.fn(),
 }))
 
-vi.mock('@doist/twist-sdk', () => {
+vi.mock('@todoist/twist-sdk', () => {
     class TwistApi {
         channels = { deleteChannel: sdkMocks.deleteChannel }
         attachments = { upload: sdkMocks.uploadAttachment }

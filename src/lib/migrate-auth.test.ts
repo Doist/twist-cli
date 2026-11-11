@@ -8,12 +8,12 @@ const mocks = vi.hoisted(() => ({
     updateConfig: vi.fn(),
 }))
 
-vi.mock('@doist/cli-core/auth', async (importOriginal) => {
-    const actual = await importOriginal<typeof import('@doist/cli-core/auth')>()
+vi.mock('@todoist/cli-core/auth', async (importOriginal) => {
+    const actual = await importOriginal<typeof import('@todoist/cli-core/auth')>()
     return { ...actual, migrateLegacyAuth: mocks.migrateLegacyAuth }
 })
 
-vi.mock('@doist/twist-sdk', () => ({
+vi.mock('@todoist/twist-sdk', () => ({
     TwistApi: mocks.twistApiCtor.mockImplementation(function (this: object, _token: string) {
         Object.assign(this, { users: { getSessionUser: mocks.getSessionUserMock } })
     }),
@@ -28,7 +28,7 @@ vi.mock('./config.js', async (importOriginal) => {
     }
 })
 
-import type { MigrateLegacyAuthOptions } from '@doist/cli-core/auth'
+import type { MigrateLegacyAuthOptions } from '@todoist/cli-core/auth'
 import { runMigrateLegacyAuth } from './migrate-auth.js'
 
 type Opts = MigrateLegacyAuthOptions<{

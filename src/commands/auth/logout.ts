@@ -1,4 +1,4 @@
-import { attachLogoutCommand } from '@doist/cli-core/auth'
+import { attachLogoutCommand } from '@todoist/cli-core/auth'
 import type { Command } from 'commander'
 import type { TwistAccount, TwistTokenStore } from '../../lib/auth-provider.js'
 import { logTokenStorageResult } from './helpers.js'

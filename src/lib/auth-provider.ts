@@ -7,7 +7,7 @@ import {
     createSecureStore,
     type KeyringTokenStore,
     type MigrateAuthResult,
-} from '@doist/cli-core/auth'
+} from '@todoist/cli-core/auth'
 import { createWrappedTwistClient } from './api.js'
 import { LEGACY_KEYRING_ACCOUNT, SECURE_STORE_SERVICE } from './auth-constants.js'
 import { type AuthMode, getConfig, getConfigPath, updateConfig } from './config.js'

@@ -1,4 +1,4 @@
-import { attachLoginCommand } from '@doist/cli-core/auth'
+import { attachLoginCommand } from '@todoist/cli-core/auth'
 import chalk from 'chalk'
 import type { Command } from 'commander'
 import { renderError, renderSuccess } from '../../lib/auth-pages.js'

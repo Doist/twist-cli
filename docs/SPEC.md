@@ -8,7 +8,7 @@ A command-line interface for Twist, following the architecture and patterns esta
 - **Language**: TypeScript 5.x (strict mode)
 - **CLI Framework**: Commander.js
 - **Terminal Styling**: chalk
-- **API Client**: `@doist/twist-sdk`
+- **API Client**: `@todoist/twist-sdk`
 - **Testing**: vitest
 - **Formatting**: prettier
 - **Git Hooks**: lefthook

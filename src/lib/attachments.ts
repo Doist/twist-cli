@@ -1,4 +1,4 @@
-import type { Attachment } from '@doist/twist-sdk'
+import type { Attachment } from '@todoist/twist-sdk'
 import { getTwistClient } from './api.js'
 import { openLocalFileAsBlob } from './local-file.js'
 

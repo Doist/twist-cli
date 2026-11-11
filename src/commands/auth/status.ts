@@ -1,5 +1,5 @@
-import { attachStatusCommand } from '@doist/cli-core/auth'
-import { TwistRequestError, type User } from '@doist/twist-sdk'
+import { attachStatusCommand } from '@todoist/cli-core/auth'
+import { TwistRequestError, type User } from '@todoist/twist-sdk'
 import chalk from 'chalk'
 import type { Command } from 'commander'
 import { createWrappedTwistClient } from '../../lib/api.js'

@@ -1,7 +1,7 @@
-import { CliError as BaseCliError, type CliErrorCode, type ErrorType } from '@doist/cli-core'
+import { CliError as BaseCliError, type CliErrorCode, type ErrorType } from '@todoist/cli-core'
 
 export { BaseCliError }
-export type { ErrorType } from '@doist/cli-core'
+export type { ErrorType } from '@todoist/cli-core'
 
 /**
  * Known error codes used across the CLI.

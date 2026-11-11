@@ -1,4 +1,4 @@
-import { createTestProgram } from '@doist/cli-core/testing'
+import { createTestProgram } from '@todoist/cli-core/testing'
 import { Command } from 'commander'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 

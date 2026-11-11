@@ -1,4 +1,4 @@
-import type { SearchResult } from '@doist/twist-sdk'
+import type { SearchResult } from '@todoist/twist-sdk'
 import { getApiToken } from './auth.js'
 import { CliError } from './errors.js'
 

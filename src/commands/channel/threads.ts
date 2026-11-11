@@ -1,4 +1,4 @@
-import type { ArchiveFilter, Thread } from '@doist/twist-sdk'
+import type { ArchiveFilter, Thread } from '@todoist/twist-sdk'
 import chalk from 'chalk'
 import {
     assertBatchData,

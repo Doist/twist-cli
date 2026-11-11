@@ -1,4 +1,4 @@
-import type { AccountRef } from '@doist/cli-core/auth'
+import type { AccountRef } from '@todoist/cli-core/auth'
 import { findAccountInStore, type TwistTokenStore } from '../../lib/auth-provider.js'
 
 // Bridge the global `tw --user <ref>` (stripped by `src/index.ts`) into

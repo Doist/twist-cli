@@ -1,4 +1,4 @@
-import type { Channel } from '@doist/twist-sdk'
+import type { Channel } from '@todoist/twist-sdk'
 import { getCurrentWorkspaceId, getTwistClient } from '../../lib/api.js'
 import { CliError } from '../../lib/errors.js'
 import { includePrivateChannels } from '../../lib/global-args.js'

@@ -4,7 +4,7 @@ import {
     readConfigStrict as readConfigStrictCore,
     updateConfig as updateConfigCore,
     writeConfig as writeConfigCore,
-} from '@doist/cli-core'
+} from '@todoist/cli-core'
 import { CliError } from './errors.js'
 
 const APP_NAME = 'twist-cli'

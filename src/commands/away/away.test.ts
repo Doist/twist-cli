@@ -1,5 +1,5 @@
-import { captureConsole, createTestProgram } from '@doist/cli-core/testing'
-import { TwistRequestError } from '@doist/twist-sdk'
+import { captureConsole, createTestProgram } from '@todoist/cli-core/testing'
+import { TwistRequestError } from '@todoist/twist-sdk'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const apiMocks = vi.hoisted(() => ({

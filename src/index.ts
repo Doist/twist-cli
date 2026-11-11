@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { stripUserFlag } from '@doist/cli-core'
+import { stripUserFlag } from '@todoist/cli-core'
 import { type Command, program } from 'commander'
 import pkg from '../package.json' with { type: 'json' }
 import { BaseCliError } from './lib/errors.js'

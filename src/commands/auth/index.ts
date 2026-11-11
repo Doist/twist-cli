@@ -1,4 +1,4 @@
-import { attachTokenViewCommand } from '@doist/cli-core/auth'
+import { attachTokenViewCommand } from '@todoist/cli-core/auth'
 import { Command } from 'commander'
 import { createTwistTokenStore } from '../../lib/auth-provider.js'
 import { TOKEN_ENV_VAR } from '../../lib/auth.js'

@@ -1,4 +1,4 @@
-import { formatJson as formatJsonCore, formatNdjson as formatNdjsonCore } from '@doist/cli-core'
+import { formatJson as formatJsonCore, formatNdjson as formatNdjsonCore } from '@todoist/cli-core'
 import chalk from 'chalk'
 import type { BaseCliError } from './errors.js'
 
