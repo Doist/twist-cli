@@ -203,7 +203,7 @@ see a per-command `--user`). v1→v2 migration runs via `migrate-auth.ts` →
 cli-core's `migrateLegacyAuth`.
 
 > Follow-up: once cli-core ships `getRequestedUserRef` on the auth attachers
-> (Doist/cli-core#30), `store-wrap.ts`/`withUserRefAware` can be deleted.
+> (todoist/cli-core#30), `store-wrap.ts`/`withUserRefAware` can be deleted.
 
 ## Testing
 

@@ -35,15 +35,15 @@
     },
     "repository": {
         "type": "git",
-        "url": "https://github.com/Doist/twist-cli.git"
+        "url": "https://github.com/todoist/twist-cli.git"
     },
     "publishConfig": {
         "access": "public",
         "provenance": true
     },
-    "homepage": "https://github.com/Doist/twist-cli#readme",
+    "homepage": "https://github.com/todoist/twist-cli#readme",
     "bugs": {
-        "url": "https://github.com/Doist/twist-cli/issues"
+        "url": "https://github.com/todoist/twist-cli/issues"
     },
     "files": [
         "dist",

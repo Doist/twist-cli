@@ -49,7 +49,7 @@ npm uninstall -g @doist/twist-cli
 ## Local Setup
 
 ```bash
-git clone https://github.com/Doist/twist-cli.git
+git clone https://github.com/todoist/twist-cli.git
 cd twist-cli
 npm install
 npm run build

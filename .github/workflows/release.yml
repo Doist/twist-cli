@@ -129,7 +129,7 @@ jobs:
 
             - name: Announce release in Twist
               if: github.ref_name == 'main' && steps.announcement.outputs.should_announce == 'true'
-              uses: Doist/twist-post-action@74a0255b75ad93c06b9eb1009960106efe13f5ca
+              uses: todoist/twist-post-action@74a0255b75ad93c06b9eb1009960106efe13f5ca
               with:
                   message: ${{ steps.announcement.outputs.message }}
                   install_id: ${{ secrets.TWIST_RELEASE_INSTALL_ID }}
