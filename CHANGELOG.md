@@ -1,3 +1,9 @@
+## [4.0.1](https://github.com/todoist/twist-cli/compare/v4.0.0...v4.0.1) (2026-11-11)
+
+### Bug Fixes
+
+- **deps:** move to @todoist/cli-core and @todoist/twist-sdk ([#368](https://github.com/todoist/twist-cli/issues/368)) ([234d820](https://github.com/todoist/twist-cli/commit/234d8204334e7600c153118d8c8d4c8e2967737f))
+
 ## [4.0.0](https://github.com/todoist/twist-cli/compare/v3.0.16...v4.0.0) (2026-11-11)
 
 ### ⚠ BREAKING CHANGES
