@@ -4,6 +4,7 @@ import type { Command } from 'commander'
 import packageJson from '../../../package.json' with { type: 'json' }
 import { getConfigPath } from '../../lib/config.js'
 import { withSpinner } from '../../lib/spinner.js'
+import { runMoveUpdate } from './move.js'
 
 /**
  * Bridge a legacy on-disk config (`updateChannel` only, no `update_channel`)
@@ -40,11 +41,15 @@ export function registerUpdateCommand(program: Command): void {
         changelogCommandName: 'tw changelog',
         withSpinner,
     })
+    const update = program.commands.find((c) => c.name() === 'update')
     // Commander propagates parent hooks to subcommands, so this fires for
     // both `tw update` and `tw update switch` before cli-core's action runs.
-    program.commands
-        .find((c) => c.name() === 'update')
-        ?.hook('preAction', async () => {
-            await migrateLegacyChannelKey(configPath)
-        })
+    update?.hook('preAction', async () => {
+        await migrateLegacyChannelKey(configPath)
+    })
+    // Replace cli-core's in-place update with the switch to the new package.
+    // `tw update switch` keeps cli-core's action.
+    update?.action(async (cmdOptions: Parameters<typeof runMoveUpdate>[1]) => {
+        await runMoveUpdate(configPath, cmdOptions)
+    })
 }

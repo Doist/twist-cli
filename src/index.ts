@@ -6,6 +6,7 @@ import pkg from '../package.json' with { type: 'json' }
 import { BaseCliError } from './lib/errors.js'
 import { getRequestedUserRef, isJsonMode, isNdjsonMode } from './lib/global-args.js'
 import { preloadMarkdown } from './lib/markdown.js'
+import { printMovedNotice } from './lib/moved.js'
 import { formatError, formatErrorJson } from './lib/output.js'
 import { startEarlySpinner, stopEarlySpinner } from './lib/spinner.js'
 
@@ -161,6 +162,8 @@ if (process.argv[2] === 'completion-server') {
         .slice(2)
         .find((a) => !a.startsWith('-') && (a in commands || a in commandAliases))
     const commandName = commandArg ? (commandAliases[commandArg] ?? commandArg) : undefined
+
+    printMovedNotice(commandName)
 
     if (commandName && commands[commandName]) {
         const loader = commands[commandName][1]

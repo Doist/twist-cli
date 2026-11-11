@@ -35,6 +35,7 @@ describe('update wrapper', () => {
             isNewer: vi.fn(),
             parseVersion: vi.fn(),
             getInstallTag: vi.fn(),
+            getConfiguredUpdateChannel: vi.fn(),
         }))
 
         const { registerUpdateCommand } = await import('./index.js')
@@ -81,27 +82,34 @@ describe('update wrapper', () => {
     })
 
     it('reads the persisted channel through cli-core (hermetic against the real config)', async () => {
-        writeFileSync(tmpConfigPath, JSON.stringify({ update_channel: 'stable' }))
-        const fetchMock = vi.fn().mockResolvedValue({
-            ok: true,
-            json: () => Promise.resolve({ version: packageJson.version }),
-        })
-        vi.stubGlobal('fetch', fetchMock)
+        writeFileSync(tmpConfigPath, JSON.stringify({ update_channel: 'pre-release' }))
+        vi.stubGlobal('fetch', vi.fn())
+        const log = vi.spyOn(console, 'log').mockImplementation(() => {})
 
         const { registerUpdateCommand } = await import('./index.js')
         const program = new Command()
         program.exitOverride()
         registerUpdateCommand(program)
 
-        await program.parseAsync(['node', 'tw', 'update', '--check'])
+        await program.parseAsync(['node', 'tw', 'update', '--channel', '--json'])
 
-        expect(fetchMock).toHaveBeenCalledTimes(1)
-        const [url] = fetchMock.mock.calls[0]
-        // Stable channel must resolve to the `latest` dist-tag — but we don't
-        // pin cli-core's exact registry URL shape; just assert the package
-        // name + channel-appropriate tag are present.
-        expect(url).toContain(packageJson.name)
-        expect(url).toContain('latest')
+        expect(JSON.parse(log.mock.calls[0][0])).toEqual({ channel: 'pre-release' })
+    })
+
+    it('keeps `update switch` writing the channel to the config', async () => {
+        writeFileSync(tmpConfigPath, JSON.stringify({ update_channel: 'stable' }))
+        vi.spyOn(console, 'log').mockImplementation(() => {})
+
+        const { registerUpdateCommand } = await import('./index.js')
+        const program = new Command()
+        program.exitOverride()
+        registerUpdateCommand(program)
+
+        await program.parseAsync(['node', 'tw', 'update', 'switch', '--pre-release'])
+
+        expect(JSON.parse(readFileSync(tmpConfigPath, 'utf-8'))).toMatchObject({
+            update_channel: 'pre-release',
+        })
     })
 
     it('surfaces INVALID_UPDATE_CHANNEL when on-disk update_channel is unknown', async () => {
