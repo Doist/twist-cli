@@ -42,7 +42,7 @@ __tests__/                   # Test suite
 
 ## Package & Binary
 
-- **Package name**: `@doist/twist-cli`
+- **Package name**: `@todoist/twist-cli`
 - **Binary**: `tw`
 
 ## Authentication

@@ -6,7 +6,7 @@
 
 ## What this project is
 
-`@doist/twist-cli` is a **TypeScript CLI** for Twist messaging. Binary name:
+`@todoist/twist-cli` is a **TypeScript CLI** for Twist messaging. Binary name:
 `tw`. It wraps `@doist/twist-sdk` and publishes a single executable
 (`dist/index.js`).
 
