@@ -22,7 +22,7 @@ export const TOKEN_URL = 'https://twist.com/oauth/access_token'
 export const REGISTRATION_URL = 'https://twist.com/oauth/register'
 
 const LOGO_URI =
-    'https://raw.githubusercontent.com/Doist/twist-cli/d65c447ff453eb36af585044c2f5f2f602bcdb34/icons/twist-cli.png'
+    'https://raw.githubusercontent.com/todoist/twist-cli/d65c447ff453eb36af585044c2f5f2f602bcdb34/icons/twist-cli.png'
 
 export const READ_WRITE_SCOPES = [
     'user:read',
@@ -109,7 +109,7 @@ export function createTwistAuthProvider(): AuthProvider<TwistAccount> {
         tokenUrl: TOKEN_URL,
         clientMetadata: {
             clientName: 'Twist CLI',
-            clientUri: 'https://github.com/doist/twist-cli',
+            clientUri: 'https://github.com/todoist/twist-cli',
             logoUri: LOGO_URI,
             applicationType: 'native',
             // Twist client_ids contain `_` (e.g. `twd_…`). oauth4webapi's

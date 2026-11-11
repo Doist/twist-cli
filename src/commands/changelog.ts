@@ -9,7 +9,7 @@ const CHANGELOG_PATH = join(dirname(fileURLToPath(import.meta.url)), '..', '..',
 export function registerChangelogCommand(program: Command): void {
     registerCoreChangelogCommand(program, {
         path: CHANGELOG_PATH,
-        repoUrl: 'https://github.com/Doist/twist-cli',
+        repoUrl: 'https://github.com/todoist/twist-cli',
         version: packageJson.version,
         headingLevel: 'flexible',
         continuationIndent: true,
