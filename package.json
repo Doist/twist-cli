@@ -52,7 +52,7 @@
     ],
     "dependencies": {
         "@doist/cli-core": "0.26.2",
-        "@doist/twist-sdk": "2.9.4",
+        "@doist/twist-sdk": "3.0.0",
         "@pnpm/tabtab": "0.5.4",
         "chalk": "5.6.2",
         "commander": "14.0.3",
