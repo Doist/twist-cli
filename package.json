@@ -1,5 +1,5 @@
 {
-    "name": "@doist/twist-cli",
+    "name": "@todoist/twist-cli",
     "version": "3.0.16",
     "description": "TypeScript CLI for Twist",
     "type": "module",

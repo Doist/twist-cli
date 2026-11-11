@@ -91,7 +91,7 @@ To test features before publishing a stable release:
 ### Installing a pre-release
 
 ```sh
-npm install @doist/twist-cli@next
+npm install @todoist/twist-cli@next
 ```
 
 ## License

@@ -9,8 +9,10 @@ A command-line interface for Twist.
 ## Installation
 
 > ```bash
-> npm install -g @doist/twist-cli
+> npm install -g @todoist/twist-cli
 > ```
+
+Previously published as `@doist/twist-cli`; if you have that installed, run `npm uninstall -g @doist/twist-cli` first.
 
 ### Agent Skills
 
@@ -43,7 +45,7 @@ tw skill uninstall <agent>
 Then uninstall the CLI:
 
 ```bash
-npm uninstall -g @doist/twist-cli
+npm uninstall -g @todoist/twist-cli
 ```
 
 ## Local Setup
